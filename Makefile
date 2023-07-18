@@ -12,3 +12,5 @@ wasm:
 	du -sh pkg/bitbox_api_bg.wasm
 run-sandbox:
 	cd sandbox && npm i && npm run dev
+build-sandbox:
+	cd sandbox && npm i && npm run build
