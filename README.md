@@ -11,6 +11,10 @@ package](https://www.npmjs.com/package/bitbox02-api).
 
 # Rust
 
+Install the protoc protobuf compiler, e.g. on Ubuntu:
+
+    sudo apt-get install protobuf-compiler
+
 Check out [examples/connect.rs](examples/connect.rs) for an example.
 
 To run the example:
@@ -28,6 +32,10 @@ To see the library docs:
 Install wasm-pack using:
 
     cargo install wasm-pack
+
+Install clang so libsecp256k1 can be cross compiled, e.g. on Ubuntu:
+
+    sudo apt-get install clang
 
 The Rust library can be compiled to WASM package including TypeScript definitions using:
 
