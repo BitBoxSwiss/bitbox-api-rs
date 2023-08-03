@@ -10,10 +10,6 @@ use thiserror::Error;
 
 use enum_assoc::Assoc;
 
-/// Smaller .wasm binary size by using the wee allocator.
-#[cfg(feature = "wasm")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
