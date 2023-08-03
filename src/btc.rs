@@ -597,7 +597,7 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Retrieves a Bitcoin address at the provided keypath.
     ///
-    /// For the simple script configs (single-sig), the keypaths must follow the
+    /// For the simple script configs (single-sig), the keypath must follow the
     /// BIP44/BIP49/BIP84/BIP86 conventions.
     pub async fn btc_address(
         &self,
@@ -801,7 +801,7 @@ impl<R: Runtime> PairedBitBox<R> {
     /// simple script config (single sig), we infer the script config from the involved redeem
     /// scripts and provided derviation paths.
     ///
-    /// Multisig and policy configs are curently not inferred and must be provided.
+    /// Multisig and policy configs are currently not inferred and must be provided.
     #[cfg(feature = "bitcoin")]
     pub async fn btc_sign_psbt(
         &self,
