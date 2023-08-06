@@ -157,7 +157,7 @@ impl PairedBitBox {
     }
 
     #[wasm_bindgen(js_name = btcAddress)]
-    pub async fn btc_addres_simple(
+    pub async fn btc_address(
         &self,
         coin: types::TsBtcCoin,
         keypath: types::TsKeypath,
