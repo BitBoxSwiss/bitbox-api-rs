@@ -7,10 +7,8 @@ use crate::pb::{self, request::Request, response::Response};
 use crate::Keypath;
 use crate::PairedBitBox;
 
-#[cfg(feature = "bitcoin")]
 pub use bitcoin::bip32::{ExtendedPubKey, Fingerprint};
 
-#[cfg(feature = "bitcoin")]
 #[cfg(feature = "wasm")]
 use enum_assoc::Assoc;
 
@@ -29,7 +27,6 @@ pub struct PrevTxInput {
     pub sequence: u32,
 }
 
-#[cfg(feature = "bitcoin")]
 impl From<&bitcoin::TxIn> for PrevTxInput {
     fn from(value: &bitcoin::TxIn) -> Self {
         PrevTxInput {
@@ -53,7 +50,6 @@ pub struct PrevTxOutput {
     pub pubkey_script: Vec<u8>,
 }
 
-#[cfg(feature = "bitcoin")]
 impl From<&bitcoin::TxOut> for PrevTxOutput {
     fn from(value: &bitcoin::TxOut) -> Self {
         PrevTxOutput {
@@ -76,7 +72,6 @@ pub struct PrevTx {
     pub locktime: u32,
 }
 
-#[cfg(feature = "bitcoin")]
 impl From<&bitcoin::Transaction> for PrevTx {
     fn from(value: &bitcoin::Transaction) -> Self {
         PrevTx {
@@ -130,7 +125,6 @@ pub struct Payload {
     pub output_type: pb::BtcOutputType,
 }
 
-#[cfg(feature = "bitcoin")]
 #[derive(thiserror::Error, Debug)]
 pub enum PayloadError {
     #[error("{0}")]
@@ -143,7 +137,6 @@ pub enum PayloadError {
     Unrecognized,
 }
 
-#[cfg(feature = "bitcoin")]
 impl TryFrom<bitcoin::address::Payload> for Payload {
     type Error = PayloadError;
     fn try_from(value: bitcoin::address::Payload) -> Result<Self, Self::Error> {
@@ -179,7 +172,6 @@ impl TryFrom<bitcoin::address::Payload> for Payload {
     }
 }
 
-#[cfg(feature = "bitcoin")]
 impl Payload {
     pub fn from_pkscript(pkscript: &[u8]) -> Result<Payload, PayloadError> {
         let payload =
@@ -199,7 +191,6 @@ pub struct TxExternalOutput {
     pub value: u64,
 }
 
-#[cfg(feature = "bitcoin")]
 impl TryFrom<&bitcoin::TxOut> for TxExternalOutput {
     type Error = PsbtError;
     fn try_from(value: &bitcoin::TxOut) -> Result<Self, Self::Error> {
@@ -236,7 +227,6 @@ pub struct Transaction {
     pub locktime: u32,
 }
 
-#[cfg(feature = "bitcoin")]
 #[derive(thiserror::Error, Debug)]
 #[cfg_attr(feature = "wasm", derive(Assoc), func(pub const fn js_code(&self) -> &'static str))]
 pub enum PsbtError {
@@ -254,13 +244,11 @@ pub enum PsbtError {
     UnknownOutputType,
 }
 
-#[cfg(feature = "bitcoin")]
 enum OurKey {
     Segwit(bitcoin::secp256k1::PublicKey, Keypath),
     TaprootInternal(Keypath),
 }
 
-#[cfg(feature = "bitcoin")]
 impl OurKey {
     fn keypath(&self) -> Keypath {
         match self {
@@ -270,7 +258,6 @@ impl OurKey {
     }
 }
 
-#[cfg(feature = "bitcoin")]
 trait PsbtOutputInfo {
     fn get_bip32_derivation(
         &self,
@@ -288,7 +275,6 @@ trait PsbtOutputInfo {
     >;
 }
 
-#[cfg(feature = "bitcoin")]
 impl PsbtOutputInfo for &bitcoin::psbt::Input {
     fn get_bip32_derivation(
         &self,
@@ -313,7 +299,6 @@ impl PsbtOutputInfo for &bitcoin::psbt::Input {
     }
 }
 
-#[cfg(feature = "bitcoin")]
 impl PsbtOutputInfo for &bitcoin::psbt::Output {
     fn get_bip32_derivation(
         &self,
@@ -338,7 +323,6 @@ impl PsbtOutputInfo for &bitcoin::psbt::Output {
     }
 }
 
-#[cfg(feature = "bitcoin")]
 fn find_our_key<T: PsbtOutputInfo>(
     our_root_fingerprint: &[u8],
     output_info: T,
@@ -366,7 +350,6 @@ fn find_our_key<T: PsbtOutputInfo>(
     Err(PsbtError::KeyNotFound)
 }
 
-#[cfg(feature = "bitcoin")]
 fn script_config_from_utxo(
     output: &bitcoin::TxOut,
     keypath: Keypath,
@@ -409,7 +392,6 @@ fn script_config_from_utxo(
 }
 
 impl Transaction {
-    #[cfg(feature = "bitcoin")]
     fn from_psbt(
         our_root_fingerprint: &[u8],
         psbt: &bitcoin::psbt::PartiallySignedTransaction,
@@ -522,7 +504,6 @@ pub fn make_script_config_simple(
     }
 }
 
-#[cfg(feature = "bitcoin")]
 #[derive(Clone)]
 pub struct KeyOriginInfo {
     pub root_fingerprint: Option<bitcoin::bip32::Fingerprint>,
@@ -530,7 +511,6 @@ pub struct KeyOriginInfo {
     pub xpub: bitcoin::bip32::ExtendedPubKey,
 }
 
-#[cfg(feature = "bitcoin")]
 fn convert_xpub(xpub: &bitcoin::bip32::ExtendedPubKey) -> pb::XPub {
     pb::XPub {
         depth: vec![xpub.depth],
@@ -541,7 +521,6 @@ fn convert_xpub(xpub: &bitcoin::bip32::ExtendedPubKey) -> pb::XPub {
     }
 }
 
-#[cfg(feature = "bitcoin")]
 impl From<KeyOriginInfo> for pb::KeyOriginInfo {
     fn from(value: KeyOriginInfo) -> Self {
         pb::KeyOriginInfo {
@@ -559,7 +538,6 @@ impl From<KeyOriginInfo> for pb::KeyOriginInfo {
 ///
 /// At least one of the keys must be ours, i.e. contain our root fingerprint and a keypath to one of
 /// our xpubs.
-#[cfg(feature = "bitcoin")]
 pub fn make_script_config_policy(policy: &str, keys: &[KeyOriginInfo]) -> pb::BtcScriptConfig {
     pb::BtcScriptConfig {
         config: Some(pb::btc_script_config::Config::Policy(
@@ -802,7 +780,6 @@ impl<R: Runtime> PairedBitBox<R> {
     /// scripts and provided derviation paths.
     ///
     /// Multisig and policy configs are currently not inferred and must be provided.
-    #[cfg(feature = "bitcoin")]
     pub async fn btc_sign_psbt(
         &self,
         coin: pb::BtcCoin,
@@ -903,12 +880,9 @@ impl<R: Runtime> PairedBitBox<R> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "bitcoin")]
     use super::*;
-    #[cfg(feature = "bitcoin")]
     use crate::keypath::HARDENED;
 
-    #[cfg(feature = "bitcoin")]
     #[test]
     fn test_payload_from_pkscript() {
         use std::str::FromStr;
@@ -984,7 +958,6 @@ mod tests {
 
     // Test that a PSBT containing only p2wpkh inputs is converted correctly to a transaction to be
     // signed by the BitBox.
-    #[cfg(feature = "bitcoin")]
     #[test]
     fn test_transaction_from_psbt_p2wpkh() {
         use std::str::FromStr;

@@ -10,7 +10,6 @@ impl Keypath {
         self.0.clone()
     }
 
-    #[cfg(feature = "bitcoin")]
     pub(crate) fn hardened_prefix(&self) -> Keypath {
         Keypath(
             self.0
@@ -59,7 +58,6 @@ impl TryFrom<&str> for Keypath {
     }
 }
 
-#[cfg(feature = "bitcoin")]
 impl From<&bitcoin::bip32::DerivationPath> for Keypath {
     fn from(value: &bitcoin::bip32::DerivationPath) -> Self {
         Keypath(value.into_iter().map(|&el| el.into()).collect())
@@ -116,7 +114,6 @@ mod tests {
         assert_eq!(parse_bip32_keypath("44/0/0/0"), None);
     }
 
-    #[cfg(feature = "bitcoin")]
     #[test]
     fn test_from_derivation_path() {
         let derivation_path: bitcoin::bip32::DerivationPath =

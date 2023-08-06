@@ -3,9 +3,9 @@ example:
 example-btc-signtx:
 	cargo run --example btc_signtx --features=usb,tokio/rt,tokio/macros
 example-btc-psbt:
-	cargo run --example btc_sign_psbt --features=usb,tokio/rt,tokio/macros,bitcoin
+	cargo run --example btc_sign_psbt --features=usb,tokio/rt,tokio/macros
 example-btc-miniscript:
-	cargo run --example btc_miniscript --features=usb,tokio/rt,tokio/macros,bitcoin
+	cargo run --example btc_miniscript --features=usb,tokio/rt,tokio/macros
 wasm:
 	wasm-pack build --release --features=wasm
 	cp webhid.js pkg/

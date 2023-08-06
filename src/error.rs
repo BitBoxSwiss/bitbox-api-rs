@@ -68,11 +68,9 @@ pub enum Error {
     #[error("failed parsing keypath: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "keypath-parse".into()))]
     KeypathParse(String),
-    #[cfg(feature = "bitcoin")]
     #[error("PSBT error: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = String::from("psbt-") + _0.js_code().into()))]
     Psbt(#[from] crate::btc::PsbtError),
-    #[cfg(feature = "bitcoin")]
     #[error("Unexpected signature format returned by BitBox")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "keypath-parse".into()))]
     InvalidSignature,
