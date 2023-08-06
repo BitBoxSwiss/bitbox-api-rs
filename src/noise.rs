@@ -19,7 +19,7 @@ impl NoiseConfigData {
     }
 
     pub(crate) fn add_device_static_pubkey(&mut self, pubkey: &[u8]) {
-        if self.contains_device_static_pubkey(pubkey) {
+        if !self.contains_device_static_pubkey(pubkey) {
             self.device_static_pubkeys.push(pubkey.to_vec());
         }
     }
