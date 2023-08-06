@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 mod connect;
 mod localstorage;
 mod noise;
@@ -37,6 +39,9 @@ pub enum JavascriptError {
     #[error("invalid JavaScript type: {0}")]
     #[assoc(js_code = "invalid-type".into())]
     InvalidType(&'static str),
+    #[error("PSBT parse error: {0}")]
+    #[assoc(js_code = "psbt-parse".into())]
+    PsbtParseError(#[from] bitcoin::psbt::PsbtParseError),
 }
 
 impl From<JavascriptError> for JsValue {
@@ -173,5 +178,28 @@ impl PairedBitBox {
                 display,
             )
             .await?)
+    }
+
+    #[wasm_bindgen(js_name = btcSignPSBT)]
+    pub async fn btc_sign_psbt(
+        &self,
+        coin: types::TsBtcCoin,
+        psbt: &str,
+        force_script_config: Option<types::TsBtcScriptConfigWithKeypath>,
+        format_unit: types::TsBtcFormatUnit,
+    ) -> Result<String, JavascriptError> {
+        let mut psbt = bitcoin::psbt::Psbt::from_str(psbt.trim())?;
+        self.0
+            .btc_sign_psbt(
+                coin.try_into()?,
+                &mut psbt,
+                match force_script_config {
+                    Some(sc) => Some(sc.try_into()?),
+                    None => None,
+                },
+                format_unit.try_into()?,
+            )
+            .await?;
+        Ok(psbt.to_string())
     }
 }

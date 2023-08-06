@@ -216,7 +216,59 @@ function BtcAddressSimple({ bb02 }: ActionProps) {
       <ShowError err={err} />
     </form>
   );
+}
+
+function BtcSignPSBT({ bb02 }: ActionProps) {
+  const [coin, setCoin] = useState<bitbox.BtcCoin>('btc');
+  const [psbt, setPSBT] = useState<string>('');
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState('');
+  const [formatUnit, setFormatUnit] = useState<bitbox.BtcFormatUnit>('default');
+  const [err, setErr] = useState<bitbox.Error>();
+
+  const submitForm = async (e: FormEvent) => {
+    e.preventDefault();
+    setRunning(true);
+    setResult('');
+    setErr(undefined);
+    try {
+      const signedPSBT = await bb02.btcSignPSBT(coin, psbt, undefined, formatUnit);
+      setResult(signedPSBT);
+    } catch (err) {
+      setErr(bitbox.ensureError(err));
+    } finally {
+      setRunning(false);
+    }
   }
+
+  return (
+    <form onSubmit={submitForm}>
+      <label>
+        Coin
+        <select value={coin} onChange={(e: ChangeEvent<HTMLSelectElement>) => setCoin(e.target.value as bitbox.BtcCoin)}>
+          {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
+        </select>
+      </label>
+      <label>
+        Format unit
+        <select value={formatUnit} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormatUnit(e.target.value as bitbox.BtcFormatUnit)}>
+          {['default', 'sat'].map(option => <option key={option} value={option}>{option}</option>)}
+        </select>
+      </label>
+      <label>
+        PSBT
+        <textarea
+          value={psbt}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPSBT(e.target.value)}
+          placeholder="base64 PSBT"
+        />
+      </label>
+      <button type='submit' disabled={running}>Sign PSBT</button>
+      { result ? <pre>Result: <code>{result}</code></pre> : null }
+      <ShowError err={err} />
+    </form>
+  );
+}
 
 function App() {
   const [bb02, setBB02] = useState<bitbox.PairedBitBox>();
@@ -273,6 +325,9 @@ function App() {
         </div>
         <div className="action">
           <BtcAddressSimple bb02={bb02} />
+        </div>
+        <div className="action">
+          <BtcSignPSBT bb02={bb02} />
         </div>
       </>
     );
