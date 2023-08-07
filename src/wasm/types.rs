@@ -16,8 +16,8 @@ type DeviceInfo = {
   securechipModel: string;
   monotonicIncrementsRemaining: number;
 };
-type SimpleType = 'p2wpkh-p2sh' | 'p2wpkh' | 'p2tr';
-type BtcScriptConfig = { simpleType: SimpleType; };
+type BtcSimpleType = 'p2wpkh-p2sh' | 'p2wpkh' | 'p2tr';
+type BtcScriptConfig = { simpleType: BtcSimpleType; };
 type BtcScriptConfigWithKeypath = {
   scriptConfig: BtcScriptConfig;
   keypath: Keypath;
@@ -42,8 +42,8 @@ extern "C" {
     pub type TsKeypath;
     #[wasm_bindgen(typescript_type = "DeviceInfo")]
     pub type TsDeviceInfo;
-    #[wasm_bindgen(typescript_type = "SimpleType")]
-    pub type TsSimpleType;
+    #[wasm_bindgen(typescript_type = "BtcSimpleType")]
+    pub type TsBtcSimpleType;
     #[wasm_bindgen(typescript_type = "BtcScriptConfig")]
     pub type TsBtcScriptConfig;
     #[wasm_bindgen(typescript_type = "BtcScriptConfigWithKeypath")]
@@ -119,15 +119,15 @@ impl<'de> serde::Deserialize<'de> for crate::Keypath {
     }
 }
 
-impl TryFrom<TsSimpleType> for crate::pb::btc_script_config::SimpleType {
+impl TryFrom<TsBtcSimpleType> for crate::pb::btc_script_config::SimpleType {
     type Error = JavascriptError;
-    fn try_from(value: TsSimpleType) -> Result<Self, Self::Error> {
+    fn try_from(value: TsBtcSimpleType) -> Result<Self, Self::Error> {
         let js: JsValue = value.into();
         match js.as_string().as_deref() {
             Some("p2wpkh-p2sh") => Ok(crate::pb::btc_script_config::SimpleType::P2wpkhP2sh),
             Some("p2wpkh") => Ok(crate::pb::btc_script_config::SimpleType::P2wpkh),
             Some("p2tr") => Ok(crate::pb::btc_script_config::SimpleType::P2tr),
-            _ => Err(JavascriptError::InvalidType("wrong type for SimpleType")),
+            _ => Err(JavascriptError::InvalidType("wrong type for BtcSimpleType")),
         }
     }
 }
@@ -138,7 +138,7 @@ impl TryFrom<TsBtcScriptConfig> for crate::pb::BtcScriptConfig {
         let js: JsValue = value.into();
         match js_sys::Reflect::get(&js, &"simpleType".into()) {
             Ok(obj) => {
-                let ts_simple_type: TsSimpleType = obj.into();
+                let ts_simple_type: TsBtcSimpleType = obj.into();
                 let simple_type: crate::pb::btc_script_config::SimpleType =
                     ts_simple_type.try_into()?;
                 Ok(crate::btc::make_script_config_simple(simple_type))

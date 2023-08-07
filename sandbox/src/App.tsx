@@ -133,7 +133,7 @@ function BtcXPub({ bb02 } : ActionProps) {
 
 function BtcAddressSimple({ bb02 }: ActionProps) {
   const [coin, setCoin] = useState<bitbox.BtcCoin>('btc');
-  const [simpleType, setSimpleType] = useState<bitbox.SimpleType>('p2wpkh-p2sh');
+  const [simpleType, setSimpleType] = useState<bitbox.BtcSimpleType>('p2wpkh-p2sh');
   const [display, setDisplay] = useState(true);
   const [isChange, setIsChange] = useState(false);
   const [running, setRunning] = useState(false);
@@ -142,7 +142,7 @@ function BtcAddressSimple({ bb02 }: ActionProps) {
   const [result, setResult] = useState('');
   const [err, setErr] = useState<bitbox.Error>();
 
-  const simpleTypeOptions: bitbox.SimpleType[] = ['p2wpkh-p2sh', 'p2wpkh', 'p2tr'];
+  const simpleTypeOptions: bitbox.BtcSimpleType[] = ['p2wpkh-p2sh', 'p2wpkh', 'p2tr'];
 
   const getCoin = (coin: bitbox.BtcCoin) => {
     switch (coin) {
@@ -153,7 +153,7 @@ function BtcAddressSimple({ bb02 }: ActionProps) {
     }
   }
 
-  const getPurpose = (type: bitbox.SimpleType) => {
+  const getPurpose = (type: bitbox.BtcSimpleType) => {
     switch (type) {
       case 'p2wpkh-p2sh': return 49;
       case 'p2wpkh': return 84;
@@ -190,7 +190,7 @@ function BtcAddressSimple({ bb02 }: ActionProps) {
       </label>
       <label>
         Simple Type
-        <select value={simpleType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setSimpleType(e.target.value as bitbox.SimpleType)}>
+        <select value={simpleType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setSimpleType(e.target.value as bitbox.BtcSimpleType)}>
           {simpleTypeOptions.map(option => <option key={option} value={option} disabled={option === 'p2tr' && (coin === 'ltc' || coin === 'tltc')}>{option}</option>)}
         </select>
       </label>
