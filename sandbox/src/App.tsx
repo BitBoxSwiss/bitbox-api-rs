@@ -270,6 +270,61 @@ function BtcSignPSBT({ bb02 }: ActionProps) {
   );
 }
 
+function BtcMiniscriptAddress({ bb02 }: ActionProps) {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState('');
+  const [err, setErr] = useState<bitbox.Error>();
+
+  const coin = 'tbtc';
+  const policy = "wsh(andor(pk(@0/**),older(12960),pk(@1/**)))";
+  const keypath = "m/48'/1'/0'/3'";
+  const someXPub = "tpubDFgycCkexSxkdZfeyaasDHityE97kiYM1BeCNoivDHvydGugKtoNobt4vEX6YSHNPy2cqmWQHKjKxciJuocepsGPGxcDZVmiMBnxgA1JKQk";
+
+  const submitForm = async (e: FormEvent) => {
+    e.preventDefault();
+    setRunning(true);
+    setResult('');
+    setErr(undefined);
+    try {
+      const ourRootFingerprint = await bb02.rootFingerprint();
+      const ourXPub = await bb02.btcXpub(coin, keypath, 'xpub', false);
+      const keys = [
+        {
+          rootFingerprint: ourRootFingerprint,
+          keypath,
+          xpub: ourXPub,
+        },
+        {
+          xpub: someXPub,
+        },
+      ];
+      const scriptConfig = {
+        policy: { policy, keys },
+      };
+      const is_script_config_registered = await bb02.btcIsScriptConfigRegistered(coin, scriptConfig, keypath);
+      if (!is_script_config_registered) {
+        await bb02.btcRegisterScriptConfig(coin, scriptConfig, keypath, 'auto-xpub-tpub', undefined);
+      }
+      const address = await bb02.btcAddress(coin, keypath + "/0/10", scriptConfig, true);
+      setResult(address);
+    } catch (err) {
+      setErr(bitbox.ensureError(err));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submitForm}>
+    Address for policy <pre><code>{policy}</code></pre> using the BitBox02 xpub at
+    <pre>{keypath}</pre> and some other arbitrary xpub: <pre><code>{someXPub}</code></pre>
+    <button type='submit' disabled={running}>Miniscript address</button>
+    { result ? <pre>Result: <code>{result}</code></pre> : null }
+    <ShowError err={err} />
+    </form>
+  );
+}
+
 function App() {
   const [bb02, setBB02] = useState<bitbox.PairedBitBox>();
   const [pairingCode, setPairingCode] = useState<string>();
@@ -328,6 +383,9 @@ function App() {
         </div>
         <div className="action">
           <BtcSignPSBT bb02={bb02} />
+        </div>
+        <div className="action">
+          <BtcMiniscriptAddress bb02={bb02} />
         </div>
       </>
     );

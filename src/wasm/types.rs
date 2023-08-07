@@ -1,5 +1,7 @@
 use super::JavascriptError;
 
+use std::str::FromStr;
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -17,7 +19,14 @@ type DeviceInfo = {
   monotonicIncrementsRemaining: number;
 };
 type BtcSimpleType = 'p2wpkh-p2sh' | 'p2wpkh' | 'p2tr';
-type BtcScriptConfig = { simpleType: BtcSimpleType; };
+type KeyOriginInfo = {
+  rootFingerprint?: string;
+  keypath?: Keypath;
+  xpub: string;
+};
+type BtcRegisterXPubType = 'auto-electrum' | 'auto-xpub-tpub';
+type BtcPolicy = { policy: string; keys: KeyOriginInfo[] };
+type BtcScriptConfig = { simpleType: BtcSimpleType; } | { policy: BtcPolicy };
 type BtcScriptConfigWithKeypath = {
   scriptConfig: BtcScriptConfig;
   keypath: Keypath;
@@ -42,8 +51,14 @@ extern "C" {
     pub type TsKeypath;
     #[wasm_bindgen(typescript_type = "DeviceInfo")]
     pub type TsDeviceInfo;
+    #[wasm_bindgen(typescript_type = "BtcRegisterXPubType")]
+    pub type TsBtcRegisterXPubType;
     #[wasm_bindgen(typescript_type = "BtcSimpleType")]
     pub type TsBtcSimpleType;
+    #[wasm_bindgen(typescript_type = "KeyOriginInfo")]
+    pub type TsKeyOriginInfo;
+    #[wasm_bindgen(typescript_type = "BtcPolicy")]
+    pub type TsBtcPolicy;
     #[wasm_bindgen(typescript_type = "BtcScriptConfig")]
     pub type TsBtcScriptConfig;
     #[wasm_bindgen(typescript_type = "BtcScriptConfigWithKeypath")]
@@ -119,6 +134,24 @@ impl<'de> serde::Deserialize<'de> for crate::Keypath {
     }
 }
 
+impl TryFrom<TsBtcRegisterXPubType> for crate::pb::btc_register_script_config_request::XPubType {
+    type Error = JavascriptError;
+    fn try_from(value: TsBtcRegisterXPubType) -> Result<Self, Self::Error> {
+        let js: JsValue = value.into();
+        match js.as_string().as_deref() {
+            Some("auto-electrum") => {
+                Ok(crate::pb::btc_register_script_config_request::XPubType::AutoElectrum)
+            }
+            Some("auto-xpub-tpub") => {
+                Ok(crate::pb::btc_register_script_config_request::XPubType::AutoXpubTpub)
+            }
+            _ => Err(JavascriptError::InvalidType(
+                "wrong type for BtcRegisterXPubType",
+            )),
+        }
+    }
+}
+
 impl TryFrom<TsBtcSimpleType> for crate::pb::btc_script_config::SimpleType {
     type Error = JavascriptError;
     fn try_from(value: TsBtcSimpleType) -> Result<Self, Self::Error> {
@@ -132,21 +165,123 @@ impl TryFrom<TsBtcSimpleType> for crate::pb::btc_script_config::SimpleType {
     }
 }
 
+impl TryFrom<TsKeyOriginInfo> for crate::btc::KeyOriginInfo {
+    type Error = JavascriptError;
+    fn try_from(value: TsKeyOriginInfo) -> Result<Self, Self::Error> {
+        let js: JsValue = value.into();
+        let root_fingerprint = match js_sys::Reflect::get(&js, &"rootFingerprint".into()) {
+            Ok(obj) if obj.is_undefined() => None,
+            Ok(obj) => {
+                let fp = obj.as_string().ok_or(JavascriptError::InvalidType(
+                    "KeyOriginInfo.rootFingerprint must be a string",
+                ))?;
+                Some(crate::btc::Fingerprint::from_str(&fp).map_err(|_| {
+                    JavascriptError::InvalidType("invalid type of KeyOriginInfo.rootFingerprint")
+                })?)
+            }
+            Err(_) => {
+                return Err(JavascriptError::InvalidType(
+                    "error reading KeyOriginInfo.rootFingerprint",
+                ))
+            }
+        };
+
+        let keypath = match js_sys::Reflect::get(&js, &"keypath".into()) {
+            Ok(obj) if obj.is_undefined() => None,
+            Ok(obj) => {
+                let ts_keypath: TsKeypath = obj.into();
+                let keypath: crate::Keypath = ts_keypath.try_into()?;
+                Some(keypath)
+            }
+            Err(_) => {
+                return Err(JavascriptError::InvalidType(
+                    "error reading KeyOriginInfo.keypath",
+                ))
+            }
+        };
+
+        let xpub = js_sys::Reflect::get(&js, &"xpub".into())
+            .map_err(|_| JavascriptError::InvalidType("error reading KeyOriginInfo.xpub"))?
+            .as_string()
+            .ok_or(JavascriptError::InvalidType(
+                "KeyOriginInfo.xpub field must be a string",
+            ))?;
+
+        let xpub = bitcoin::bip32::ExtendedPubKey::from_str(&xpub)
+            .map_err(|_| JavascriptError::InvalidType("invalid xpub"))?;
+
+        Ok(crate::btc::KeyOriginInfo {
+            root_fingerprint,
+            keypath,
+            xpub,
+        })
+    }
+}
+
+impl TryFrom<TsBtcPolicy> for crate::pb::btc_script_config::Policy {
+    type Error = JavascriptError;
+
+    fn try_from(value: TsBtcPolicy) -> Result<Self, Self::Error> {
+        let js: JsValue = value.into();
+        let policy: String = match js_sys::Reflect::get(&js, &"policy".into()) {
+            Ok(obj) => obj.as_string().ok_or(JavascriptError::InvalidType(
+                "wrong type for BtcPolicy.policy",
+            ))?,
+            Err(_) => {
+                return Err(JavascriptError::InvalidType(
+                    "error reading BtcPolicy.policy",
+                ))
+            }
+        };
+        let keys: Vec<crate::btc::KeyOriginInfo> = match js_sys::Reflect::get(&js, &"keys".into()) {
+            Ok(obj) => {
+                let keys: js_sys::Array = obj
+                    .dyn_into()
+                    .map_err(|_| JavascriptError::InvalidType("wrong type for BtcPolicy.keys"))?;
+                keys.iter()
+                    .map(|js_key| {
+                        let key: TsKeyOriginInfo = js_key.into();
+                        key.try_into()
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            }
+            Err(_) => return Err(JavascriptError::InvalidType("error reading BtcPolicy.keys")),
+        };
+        Ok(crate::pb::btc_script_config::Policy {
+            policy,
+            keys: keys
+                .iter()
+                .cloned()
+                .map(crate::pb::KeyOriginInfo::from)
+                .collect(),
+        })
+    }
+}
+
 impl TryFrom<TsBtcScriptConfig> for crate::pb::BtcScriptConfig {
     type Error = JavascriptError;
     fn try_from(value: TsBtcScriptConfig) -> Result<Self, Self::Error> {
         let js: JsValue = value.into();
-        match js_sys::Reflect::get(&js, &"simpleType".into()) {
-            Ok(obj) => {
+        if let Ok(obj) = js_sys::Reflect::get(&js, &"simpleType".into()) {
+            if !obj.is_undefined() {
                 let ts_simple_type: TsBtcSimpleType = obj.into();
                 let simple_type: crate::pb::btc_script_config::SimpleType =
                     ts_simple_type.try_into()?;
-                Ok(crate::btc::make_script_config_simple(simple_type))
+                return Ok(crate::btc::make_script_config_simple(simple_type));
             }
-            Err(_) => Err(JavascriptError::InvalidType(
-                "wrong type for BtcScriptConfig",
-            )),
         }
+        if let Ok(obj) = js_sys::Reflect::get(&js, &"policy".into()) {
+            if !obj.is_undefined() {
+                let ts_policy: TsBtcPolicy = obj.into();
+                let policy: crate::pb::btc_script_config::Policy = ts_policy.try_into()?;
+                return Ok(crate::pb::BtcScriptConfig {
+                    config: Some(crate::pb::btc_script_config::Config::Policy(policy)),
+                });
+            }
+        }
+        Err(JavascriptError::InvalidType(
+            "wrong type for BtcScriptConfig",
+        ))
     }
 }
 

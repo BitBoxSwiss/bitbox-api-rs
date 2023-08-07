@@ -161,6 +161,44 @@ impl PairedBitBox {
             .await?)
     }
 
+    #[wasm_bindgen(js_name = btcIsScriptConfigRegistered)]
+    pub async fn btc_is_script_config_registered(
+        &self,
+        coin: types::TsBtcCoin,
+        script_config: types::TsBtcScriptConfig,
+        keypath_account: types::TsKeypath,
+    ) -> Result<bool, JavascriptError> {
+        Ok(self
+            .0
+            .btc_is_script_config_registered(
+                coin.try_into()?,
+                &script_config.try_into()?,
+                &keypath_account.try_into()?,
+            )
+            .await?)
+    }
+
+    #[wasm_bindgen(js_name = btcRegisterScriptConfig)]
+    pub async fn btc_register_script_config(
+        &self,
+        coin: types::TsBtcCoin,
+        script_config: types::TsBtcScriptConfig,
+        keypath_account: types::TsKeypath,
+        xpub_type: types::TsBtcRegisterXPubType,
+        name: Option<String>,
+    ) -> Result<(), JavascriptError> {
+        Ok(self
+            .0
+            .btc_register_script_config(
+                coin.try_into()?,
+                &script_config.try_into()?,
+                &keypath_account.try_into()?,
+                xpub_type.try_into()?,
+                name.as_deref(),
+            )
+            .await?)
+    }
+
     #[wasm_bindgen(js_name = btcAddress)]
     pub async fn btc_address(
         &self,
