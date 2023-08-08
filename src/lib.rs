@@ -9,6 +9,7 @@ pub mod usb;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+mod antiklepto;
 mod communication;
 mod constants;
 mod keypath;

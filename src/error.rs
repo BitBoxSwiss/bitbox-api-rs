@@ -74,4 +74,7 @@ pub enum Error {
     #[error("Unexpected signature format returned by BitBox")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "keypath-parse".into()))]
     InvalidSignature,
+    #[error("Antiklepto verification failed: {0}")]
+    #[cfg_attr(feature = "wasm", assoc(js_code = "antiklepto".into()))]
+    AntiKlepto(#[from] crate::antiklepto::Error),
 }

@@ -549,6 +549,17 @@ pub fn make_script_config_policy(policy: &str, keys: &[KeyOriginInfo]) -> pb::Bt
     }
 }
 
+fn is_taproot(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
+    matches!(script_config,
+        pb::BtcScriptConfigWithKeypath {
+            script_config:
+                Some(pb::BtcScriptConfig {
+                    config: Some(pb::btc_script_config::Config::SimpleType(simple_type)),
+                }),
+            ..
+        } if *simple_type == pb::btc_script_config::SimpleType::P2tr as i32)
+}
+
 impl<R: Runtime> PairedBitBox<R> {
     /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
     /// `display` is false.
@@ -666,6 +677,16 @@ impl<R: Runtime> PairedBitBox<R> {
                 pb::btc_sign_next_response::Type::Input => {
                     let input_index: usize = next_response.index as _;
                     let tx_input: &TxInput = &transaction.inputs[input_index];
+
+                    let input_is_schnorr = is_taproot(
+                        &transaction.script_configs[tx_input.script_config_index as usize],
+                    );
+                    let perform_antiklepto = is_inputs_pass2 && !input_is_schnorr;
+                    let host_nonce = if perform_antiklepto {
+                        Some(crate::antiklepto::gen_host_nonce()?)
+                    } else {
+                        None
+                    };
                     next_response = self
                         .get_next_response(Request::BtcSignInput(pb::BtcSignInputRequest {
                             prev_out_hash: tx_input.prev_out_hash.clone(),
@@ -674,9 +695,45 @@ impl<R: Runtime> PairedBitBox<R> {
                             sequence: tx_input.sequence,
                             keypath: tx_input.keypath.to_vec(),
                             script_config_index: tx_input.script_config_index,
-                            host_nonce_commitment: None,
+                            host_nonce_commitment: host_nonce.as_ref().map(|host_nonce| {
+                                pb::AntiKleptoHostNonceCommitment {
+                                    commitment: crate::antiklepto::host_commit(host_nonce).to_vec(),
+                                }
+                            }),
                         }))
                         .await?;
+
+                    if let Some(host_nonce) = host_nonce {
+                        if next_response.r#type
+                            != pb::btc_sign_next_response::Type::HostNonce as i32
+                        {
+                            return Err(Error::UnexpectedResponse);
+                        }
+                        if let Some(pb::AntiKleptoSignerCommitment { commitment }) =
+                            next_response.anti_klepto_signer_commitment
+                        {
+                            next_response = self
+                                .get_next_response_nested(
+                                    pb::btc_request::Request::AntikleptoSignature(
+                                        pb::AntiKleptoSignatureRequest {
+                                            host_nonce: host_nonce.to_vec(),
+                                        },
+                                    ),
+                                )
+                                .await?;
+                            if !next_response.has_signature {
+                                return Err(Error::UnexpectedResponse);
+                            }
+                            crate::antiklepto::verify_ecdsa(
+                                &host_nonce,
+                                &commitment,
+                                &next_response.signature,
+                            )?
+                        } else {
+                            return Err(Error::UnexpectedResponse);
+                        }
+                    }
+
                     if is_inputs_pass2 {
                         if !next_response.has_signature {
                             return Err(Error::UnexpectedResponse);
