@@ -5,7 +5,6 @@ mod localstorage;
 mod noise;
 mod types;
 
-use gloo_utils::format::JsValueSerdeExt;
 use wasm_bindgen::prelude::*;
 
 use thiserror::Error;
@@ -129,7 +128,7 @@ impl PairedBitBox {
     #[wasm_bindgen(js_name = deviceInfo)]
     pub async fn device_info(&self) -> Result<types::TsDeviceInfo, JavascriptError> {
         let result = self.0.device_info().await?;
-        Ok(JsValue::from_serde(&result).unwrap().into())
+        Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
 
     #[wasm_bindgen(js_name = rootFingerprint)]

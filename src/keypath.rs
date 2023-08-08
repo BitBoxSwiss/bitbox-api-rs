@@ -64,6 +64,26 @@ impl From<&bitcoin::bip32::DerivationPath> for Keypath {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Keypath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.as_str().try_into().map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(feature = "serde")]
+pub fn serde_deserialize<'de, D>(deserializer: D) -> Result<Vec<u32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    Ok(Keypath::deserialize(deserializer)?.to_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

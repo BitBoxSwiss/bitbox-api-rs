@@ -133,7 +133,7 @@ function BtcXPub({ bb02 } : ActionProps) {
 
 function BtcAddressSimple({ bb02 }: ActionProps) {
   const [coin, setCoin] = useState<bitbox.BtcCoin>('btc');
-  const [simpleType, setSimpleType] = useState<bitbox.BtcSimpleType>('p2wpkh-p2sh');
+  const [simpleType, setSimpleType] = useState<bitbox.BtcSimpleType>('p2wpkhP2sh');
   const [display, setDisplay] = useState(true);
   const [isChange, setIsChange] = useState(false);
   const [running, setRunning] = useState(false);
@@ -142,7 +142,7 @@ function BtcAddressSimple({ bb02 }: ActionProps) {
   const [result, setResult] = useState('');
   const [err, setErr] = useState<bitbox.Error>();
 
-  const simpleTypeOptions: bitbox.BtcSimpleType[] = ['p2wpkh-p2sh', 'p2wpkh', 'p2tr'];
+  const simpleTypeOptions: bitbox.BtcSimpleType[] = ['p2wpkhP2sh', 'p2wpkh', 'p2tr'];
 
   const getCoin = (coin: bitbox.BtcCoin) => {
     switch (coin) {
@@ -155,7 +155,7 @@ function BtcAddressSimple({ bb02 }: ActionProps) {
 
   const getPurpose = (type: bitbox.BtcSimpleType) => {
     switch (type) {
-      case 'p2wpkh-p2sh': return 49;
+      case 'p2wpkhP2sh': return 49;
       case 'p2wpkh': return 84;
       case 'p2tr': return 86;
     }
@@ -303,7 +303,7 @@ function BtcMiniscriptAddress({ bb02 }: ActionProps) {
       };
       const is_script_config_registered = await bb02.btcIsScriptConfigRegistered(coin, scriptConfig, keypath);
       if (!is_script_config_registered) {
-        await bb02.btcRegisterScriptConfig(coin, scriptConfig, keypath, 'auto-xpub-tpub', undefined);
+        await bb02.btcRegisterScriptConfig(coin, scriptConfig, keypath, 'autoXpubTpub', undefined);
       }
       const address = await bb02.btcAddress(coin, keypath + "/0/10", scriptConfig, true);
       setResult(address);

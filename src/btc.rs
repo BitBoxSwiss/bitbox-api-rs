@@ -12,6 +12,29 @@ pub use bitcoin::bip32::{ExtendedPubKey, Fingerprint};
 #[cfg(feature = "wasm")]
 use enum_assoc::Assoc;
 
+#[cfg(feature = "serde")]
+pub fn serde_deserialize_simple_type<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    Ok(pb::btc_script_config::SimpleType::deserialize(deserializer)?.into())
+}
+
+#[cfg(feature = "serde")]
+pub fn serde_deserialize_script_config<'de, D>(
+    deserializer: D,
+) -> Result<Option<pb::BtcScriptConfig>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    let config = pb::btc_script_config::Config::deserialize(deserializer)?;
+    Ok(Some(pb::BtcScriptConfig {
+        config: Some(config),
+    }))
+}
+
 #[cfg_attr(
     feature = "wasm",
     derive(serde::Deserialize),
@@ -505,6 +528,11 @@ pub fn make_script_config_simple(
 }
 
 #[derive(Clone)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
 pub struct KeyOriginInfo {
     pub root_fingerprint: Option<bitcoin::bip32::Fingerprint>,
     pub keypath: Option<Keypath>,
