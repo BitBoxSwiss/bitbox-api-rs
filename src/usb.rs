@@ -2,6 +2,9 @@ use super::constants::{PRODUCT_ID, VENDOR_ID};
 use async_trait::async_trait;
 use thiserror::Error;
 
+#[cfg(feature = "enforce-send")]
+use std::sync::Mutex;
+
 use super::communication::{Error as CommuincationError, ReadWrite};
 
 /// The hid product string of the multi edition firmware.
@@ -9,8 +12,12 @@ const FIRMWARE_PRODUCT_STRING_MULTI: &str = "BitBox02";
 /// The hid product string of the btc-only edition firmware.
 const FIRMWARE_PRODUCT_STRING_BTCONLY: &str = "BitBox02BTC";
 
+#[cfg(not(feature = "enforce-send"))]
+pub type Transport = hidapi::HidDevice;
+
+#[cfg(not(feature = "enforce-send"))]
 #[async_trait(?Send)]
-impl ReadWrite for hidapi::HidDevice {
+impl ReadWrite for Transport {
     fn write(&self, msg: &[u8]) -> Result<usize, CommuincationError> {
         let mut v = vec![0x00];
         v.extend_from_slice(msg);
@@ -21,6 +28,34 @@ impl ReadWrite for hidapi::HidDevice {
         let mut buf = [0u8; 64];
         let res = hidapi::HidDevice::read(self, &mut buf).or(Err(CommuincationError::Read))?;
         Ok(buf[..res].to_vec())
+    }
+}
+
+#[cfg(feature = "enforce-send")]
+pub struct Transport(Mutex<hidapi::HidDevice>);
+
+#[cfg(feature = "enforce-send")]
+#[async_trait]
+impl ReadWrite for Transport {
+    fn write(&self, msg: &[u8]) -> Result<usize, CommuincationError> {
+        let mut device = self.0.lock().unwrap();
+        let mut v = vec![0x00];
+        v.extend_from_slice(msg);
+        hidapi::HidDevice::write(&mut device, &v).or(Err(CommuincationError::Write))
+    }
+
+    async fn read(&self) -> Result<Vec<u8>, CommuincationError> {
+        let device = self.0.lock().unwrap();
+        let mut buf = [0u8; 64];
+        let res = hidapi::HidDevice::read(&device, &mut buf).or(Err(CommuincationError::Read))?;
+        Ok(buf[..res].to_vec())
+    }
+}
+
+#[cfg(feature = "enforce-send")]
+impl From<hidapi::HidDevice> for Transport {
+    fn from(device: hidapi::HidDevice) -> Transport {
+        Transport(Mutex::new(device))
     }
 }
 
@@ -46,11 +81,11 @@ fn is_bitbox02(device_info: &hidapi::DeviceInfo) -> bool {
 
 /// Returns the first BitBox02 HID device that is found, or `Err(UsbError::NotFound)` if none is
 /// available.
-pub fn get_any_bitbox02() -> Result<Box<hidapi::HidDevice>, UsbError> {
+pub fn get_any_bitbox02() -> Result<Transport, UsbError> {
     let api = hidapi::HidApi::new().unwrap();
     for device_info in api.device_list() {
         if is_bitbox02(device_info) {
-            return Ok(Box::new(device_info.open_device(&api)?));
+            return Ok(Transport::from(device_info.open_device(&api)?));
         }
     }
     Err(UsbError::NotFound)

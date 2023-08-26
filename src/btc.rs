@@ -4,7 +4,7 @@ use crate::runtime::Runtime;
 
 use crate::error::Error;
 use crate::pb::{self, request::Request, response::Response};
-use crate::Keypath;
+use crate::{Keypath, communication};
 use crate::PairedBitBox;
 
 pub use bitcoin::bip32::{ExtendedPubKey, Fingerprint};
@@ -504,7 +504,7 @@ pub fn make_script_config_simple(
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct KeyOriginInfo {
     pub root_fingerprint: Option<bitcoin::bip32::Fingerprint>,
     pub keypath: Option<Keypath>,
@@ -560,7 +560,7 @@ fn is_taproot(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
         } if *simple_type == pb::btc_script_config::SimpleType::P2tr as i32)
 }
 
-impl<R: Runtime> PairedBitBox<R> {
+impl<R: Runtime, T: communication::ReadWrite> PairedBitBox<R, T> {
     /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
     /// `display` is false.
     pub async fn btc_xpub(

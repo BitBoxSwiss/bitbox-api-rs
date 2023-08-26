@@ -64,6 +64,7 @@ codegen-units = 1
 lto = true
 
 [features]
+enforce-send = []
 usb = ["dep:hidapi"]
 wasm = [
   "dep:enum-assoc",

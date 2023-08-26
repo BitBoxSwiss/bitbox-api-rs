@@ -19,19 +19,27 @@ pub enum Error {
     MinVersion(&'static str),
 }
 
+#[cfg(not(feature = "enforce-send"))]
 #[async_trait(?Send)]
 pub trait ReadWrite {
     fn write(&self, msg: &[u8]) -> Result<usize, Error>;
     async fn read(&self) -> Result<Vec<u8>, Error>;
 }
 
-pub struct U2fCommunication {
-    read_write: Box<dyn ReadWrite>,
+#[cfg(feature = "enforce-send")]
+#[async_trait]
+pub trait ReadWrite {
+    fn write(&self, msg: &[u8]) -> Result<usize, Error>;
+    async fn read(&self) -> Result<Vec<u8>, Error>;
+}
+
+pub struct U2fCommunication<T> {
+    read_write: T,
     u2fhid: u2fframing::U2fHid,
 }
 
-impl U2fCommunication {
-    pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
+impl<T: ReadWrite> U2fCommunication<T> {
+    pub fn from(read_write: T, cmd: u8) -> Self {
         U2fCommunication {
             read_write,
             u2fhid: u2fframing::U2fHid::new(cmd),
@@ -48,16 +56,12 @@ impl U2fCommunication {
     }
 
     async fn read(&self) -> Result<Vec<u8>, Error> {
-        let mut readbuf = self.read_write.read().await?;
+        let mut buffer = Vec::<u8>::new();
         loop {
-            match self.u2fhid.decode(&readbuf).or(Err(Error::U2fDecode))? {
-                Some(d) => {
-                    return Ok(d);
-                }
-                None => {
-                    let more = self.read_write.read().await?;
-                    readbuf.extend_from_slice(&more);
-                }
+            let res = self.read_write.read().await?;
+            buffer.extend_from_slice(&res);
+            if let Some(d) = self.u2fhid.decode(&buffer).or(Err(Error::U2fDecode))? {
+                return Ok(d);
             }
         }
     }
@@ -105,13 +109,13 @@ pub struct Info {
     pub unlocked: bool,
 }
 
-pub struct HwwCommunication<R: Runtime> {
-    communication: U2fCommunication,
+pub struct HwwCommunication<R: Runtime, T: ReadWrite> {
+    communication: U2fCommunication<T>,
     pub info: Info,
     marker: std::marker::PhantomData<R>,
 }
 
-async fn get_info(communication: &U2fCommunication) -> Result<Info, Error> {
+async fn get_info<T: ReadWrite>(communication: &U2fCommunication<T>) -> Result<Info, Error> {
     let response = communication.query(&[HWW_INFO]).await?;
     let (version_str_len, response) = (
         *response.first().ok_or(Error::Info)? as usize,
@@ -148,8 +152,8 @@ async fn get_info(communication: &U2fCommunication) -> Result<Info, Error> {
     })
 }
 
-impl<R: Runtime> HwwCommunication<R> {
-    pub async fn from(communication: U2fCommunication) -> Result<Self, Error> {
+impl<R: Runtime, T: ReadWrite> HwwCommunication<R, T> {
+    pub async fn from(communication: U2fCommunication<T>) -> Result<Self, Error> {
         let info = get_info(&communication).await?;
         Ok(HwwCommunication {
             communication,
