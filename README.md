@@ -44,7 +44,7 @@ The Rust library can be compiled to WASM package including TypeScript definition
 The output of this compilation will be in `./pkg`, which is a NPM package ready to be used.
 
 The [sandbox](sandbox/) subfolder contains a React project showcasing the TypeScript API. It
-has the library in `./pkg` as a depenency.
+has the library in `./pkg` as a dependency.
 
 The main entry point of the sandbox is at [./sandbox/src/App.tsx](./sandbox/src/App.tsx).
 
