@@ -64,7 +64,7 @@ async fn signtx<R: bitbox_api::runtime::Runtime>() {
                     "c58b7e3f1200e0c0ec9a5e81e925baface2cc1d4715514f2d8205be2508b48ee",
                 )
                 .unwrap(),
-                prev_out_index: 1,
+                prev_out_index: 0,
                 prev_out_value: 60005000,
                 sequence: 0xFFFFFFFF,
                 keypath: "m/49'/0'/0'/0/1".try_into().unwrap(),
