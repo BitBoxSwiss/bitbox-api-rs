@@ -301,9 +301,9 @@ function BtcMiniscriptAddress({ bb02 }: ActionProps) {
       const scriptConfig = {
         policy: { policy, keys },
       };
-      const is_script_config_registered = await bb02.btcIsScriptConfigRegistered(coin, scriptConfig, keypath);
+      const is_script_config_registered = await bb02.btcIsScriptConfigRegistered(coin, scriptConfig, undefined);
       if (!is_script_config_registered) {
-        await bb02.btcRegisterScriptConfig(coin, scriptConfig, keypath, 'autoXpubTpub', undefined);
+        await bb02.btcRegisterScriptConfig(coin, scriptConfig, undefined, 'autoXpubTpub', undefined);
       }
       const address = await bb02.btcAddress(coin, keypath + "/0/10", scriptConfig, true);
       setResult(address);

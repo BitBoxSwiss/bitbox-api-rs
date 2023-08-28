@@ -60,7 +60,7 @@ async fn main() {
     // Register policy if not already registered. This must be done before any receive address is
     // created or any transaction is signed.
     let is_registered = paired_bitbox
-        .btc_is_script_config_registered(coin, &policy_config, &keypath_account)
+        .btc_is_script_config_registered(coin, &policy_config, None)
         .await
         .unwrap();
 
@@ -69,7 +69,7 @@ async fn main() {
             .btc_register_script_config(
                 coin,
                 &policy_config,
-                &keypath_account,
+                None,
                 pb::btc_register_script_config_request::XPubType::AutoXpubTpub,
                 None,
             )
