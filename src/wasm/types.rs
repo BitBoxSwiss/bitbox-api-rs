@@ -36,6 +36,20 @@ type BtcScriptConfigWithKeypath = {
   scriptConfig: BtcScriptConfig;
   keypath: Keypath;
 };
+// nonce, gasPrice, gasLimit and value must be big-endian encoded, no trailing zeroes.
+type EthTransaction = {
+  nonce: Uint8Array;
+  gasPrice: Uint8Array;
+  gasLimit: Uint8Array;
+  recipient: Uint8Array;
+  value: Uint8Array;
+  data: Uint8Array;
+};
+type EthSignature = {
+  r: Uint8Array;
+  s: Uint8Array;
+  v: Uint8Array;
+};
 type Error = {
   code: string;
   message: string;
@@ -68,6 +82,10 @@ extern "C" {
     pub type TsBtcScriptConfig;
     #[wasm_bindgen(typescript_type = "BtcScriptConfigWithKeypath")]
     pub type TsBtcScriptConfigWithKeypath;
+    #[wasm_bindgen(typescript_type = "EthTransaction")]
+    pub type TsEthTransaction;
+    #[wasm_bindgen(typescript_type = "EthSignature")]
+    pub type TsEthSignature;
     #[wasm_bindgen(typescript_type = "Error")]
     pub type TsError;
 }
@@ -139,4 +157,19 @@ impl TryFrom<TsBtcScriptConfigWithKeypath> for crate::pb::BtcScriptConfigWithKey
         serde_wasm_bindgen::from_value(value.into())
             .map_err(|_| JavascriptError::InvalidType("wrong type for BtcScriptConfigWithKeypath"))
     }
+}
+
+impl TryFrom<TsEthTransaction> for crate::eth::Transaction {
+    type Error = JavascriptError;
+    fn try_from(value: TsEthTransaction) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value.into())
+            .map_err(|_| JavascriptError::InvalidType("wrong type for EthTransaction"))
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct EthSignature {
+    pub r: Vec<u8>,
+    pub s: Vec<u8>,
+    pub v: Vec<u8>,
 }

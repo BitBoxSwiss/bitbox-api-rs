@@ -44,6 +44,9 @@ pub enum JavascriptError {
     #[error("PSBT parse error: {0}")]
     #[assoc(js_code = "psbt-parse".into())]
     PsbtParseError(#[from] bitcoin::psbt::PsbtParseError),
+    #[error("Chain ID too large and would overflow in the computation of the `v` signature value: {chain_id}")]
+    #[assoc(js_code = "chain-id-too-large".into())]
+    ChainIDTooLarge { chain_id: u64 },
 }
 
 impl From<JavascriptError> for JsValue {
@@ -124,6 +127,19 @@ impl PairingBitBox {
     pub fn get_pairing_code(&self) -> Option<String> {
         self.0.get_pairing_code()
     }
+}
+
+fn remove_leading_zeroes(list: &[u8]) -> Vec<u8> {
+    if let Some(first_non_zero) = list.iter().position(|&x| x != 0) {
+        list[first_non_zero..].to_vec()
+    } else {
+        Vec::new()
+    }
+}
+
+fn compute_v(chain_id: u64, rec_id: u8) -> Option<u64> {
+    let v_offset: u64 = chain_id.checked_mul(2)?.checked_add(8)?;
+    (rec_id as u64 + 27).checked_add(v_offset)
 }
 
 #[wasm_bindgen]
@@ -247,5 +263,110 @@ impl PairedBitBox {
             )
             .await?;
         Ok(psbt.to_string())
+    }
+
+    #[wasm_bindgen(js_name = ethXpub)]
+    pub async fn eth_xpub(&self, keypath: types::TsKeypath) -> Result<String, JavascriptError> {
+        Ok(self.0.eth_xpub(&keypath.try_into()?).await?)
+    }
+
+    #[wasm_bindgen(js_name = ethAddress)]
+    pub async fn eth_address(
+        &self,
+        chain_id: u64,
+        keypath: types::TsKeypath,
+        display: bool,
+    ) -> Result<String, JavascriptError> {
+        Ok(self
+            .0
+            .eth_address(chain_id, &keypath.try_into()?, display)
+            .await?)
+    }
+
+    #[wasm_bindgen(js_name = ethSignTransaction)]
+    pub async fn eth_sign_transaction(
+        &self,
+        chain_id: u64,
+        keypath: types::TsKeypath,
+        tx: types::TsEthTransaction,
+    ) -> Result<types::TsEthSignature, JavascriptError> {
+        let signature = self
+            .0
+            .eth_sign_transaction(chain_id, &keypath.try_into()?, &tx.try_into()?)
+            .await?;
+
+        let v: u64 = compute_v(chain_id, signature[64])
+            .ok_or(JavascriptError::ChainIDTooLarge { chain_id })?;
+        Ok(serde_wasm_bindgen::to_value(&types::EthSignature {
+            r: signature[..32].to_vec(),
+            s: signature[32..64].to_vec(),
+            v: remove_leading_zeroes(&v.to_be_bytes()),
+        })
+        .unwrap()
+        .into())
+    }
+
+    #[wasm_bindgen(js_name = ethSignMessage)]
+    pub async fn eth_sign_message(
+        &self,
+        chain_id: u64,
+        keypath: types::TsKeypath,
+        msg: &[u8],
+    ) -> Result<types::TsEthSignature, JavascriptError> {
+        let signature = self
+            .0
+            .eth_sign_message(chain_id, &keypath.try_into()?, msg)
+            .await?;
+
+        Ok(serde_wasm_bindgen::to_value(&types::EthSignature {
+            r: signature[..32].to_vec(),
+            s: signature[32..64].to_vec(),
+            v: vec![signature[64]], // offset of 27 is already included
+        })
+        .unwrap()
+        .into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_remove_leading_zeroes() {
+        // Test with leading zeroes
+        let data = &[0, 0, 0, 1, 2, 3, 0, 4];
+        let result = remove_leading_zeroes(data);
+        assert_eq!(result, vec![1, 2, 3, 0, 4]);
+
+        // Test with no leading zeroes
+        let data = &[1, 0, 0, 1, 2, 3, 0, 4];
+        let result = remove_leading_zeroes(data);
+        assert_eq!(result, vec![1, 0, 0, 1, 2, 3, 0, 4]);
+
+        // Test with all zeroes
+        let data = &[0, 0, 0, 0, 0];
+        let result = remove_leading_zeroes(data);
+        assert_eq!(result, Vec::<u8>::new());
+
+        // Test with an empty list
+        let data = &[];
+        let result = remove_leading_zeroes(data);
+        assert_eq!(result, Vec::<u8>::new());
+    }
+
+    #[test]
+    fn test_compute_v() {
+        // Test with some known values
+        assert_eq!(compute_v(1, 0), Some(37));
+        assert_eq!(compute_v(1, 1), Some(38));
+
+        // Test with a chain_id that would cause overflow when multiplied by 2
+        let large_chain_id = u64::MAX / 2 + 1;
+        assert_eq!(compute_v(large_chain_id, 0), None);
+
+        // Test with values that would cause overflow in the final addition
+        let chain_id_close_to_overflow = (u64::MAX - 35) / 2;
+        assert_eq!(compute_v(chain_id_close_to_overflow, 1), None);
     }
 }

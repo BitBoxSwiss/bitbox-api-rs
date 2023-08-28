@@ -2,6 +2,7 @@
 
 pub mod btc;
 pub mod error;
+pub mod eth;
 mod noise;
 pub mod runtime;
 #[cfg(feature = "usb")]
