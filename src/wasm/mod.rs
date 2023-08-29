@@ -25,10 +25,13 @@ pub enum JavascriptError {
     #[assoc(js_code = "unknown-js".into())]
     Unknown,
     #[error(
-        "Could not open device. It might already have an open connection to this or another app."
+        "Could not open device. It might already have an open connection to another app. If so, please close the other app first."
     )]
     #[assoc(js_code = "could-not-open".into())]
-    CouldNotOpen,
+    CouldNotOpenWebHID,
+    #[error("Could not open device. {0}")]
+    #[assoc(js_code = "could-not-open".into())]
+    CouldNotOpenBridge(String),
     #[error("connection aborted by user")]
     #[assoc(js_code="user-abort".into())]
     UserAbort,

@@ -11,6 +11,11 @@ use crate::communication;
 extern "C" {
     #[wasm_bindgen(catch)]
     async fn getWebHIDDevice(vendorId: f64, productId: f64) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(catch)]
+    async fn getBridgeDevice() -> Result<JsValue, JsValue>;
+
+    fn hasWebHID() -> bool;
 }
 
 #[async_trait::async_trait(?Send)]
@@ -34,6 +39,27 @@ impl communication::ReadWrite for JsReadWrite {
     }
 }
 
+fn get_read_writer(result: &JsValue) -> Result<Box<JsReadWrite>, JavascriptError> {
+    let write_function: js_sys::Function = js_sys::Reflect::get(result, &"write".into())
+        .or(Err(JavascriptError::InvalidType("`write` key missing")))?
+        .dyn_into()
+        .or(Err(JavascriptError::InvalidType(
+            "`write` object is not a function",
+        )))?;
+    let read_function: js_sys::Function = js_sys::Reflect::get(result, &"read".into())
+        .or(Err(JavascriptError::InvalidType("`read` key missing")))?
+        .dyn_into()
+        .or(Err(JavascriptError::InvalidType(
+            "`read` object is not a function",
+        )))?;
+
+    Ok(Box::new(JsReadWrite {
+        write_function,
+        read_function,
+    }))
+}
+
+/// Connect to a BitBox02 using WebHID. WebHID is mainly supported by Chrome.
 #[wasm_bindgen(js_name = bitbox02ConnectWebHID)]
 pub async fn bitbox02_connect_webhid() -> Result<BitBox, JavascriptError> {
     let result = getWebHIDDevice(
@@ -41,27 +67,11 @@ pub async fn bitbox02_connect_webhid() -> Result<BitBox, JavascriptError> {
         crate::constants::PRODUCT_ID as _,
     )
     .await
-    .map_err(|_| JavascriptError::CouldNotOpen)?;
+    .map_err(|_| JavascriptError::CouldNotOpenWebHID)?;
     if result.is_null() {
         return Err(JavascriptError::UserAbort);
     }
-    let write_function: js_sys::Function = js_sys::Reflect::get(&result, &"write".into())
-        .or(Err(JavascriptError::InvalidType("`write` key missing")))?
-        .dyn_into()
-        .or(Err(JavascriptError::InvalidType(
-            "`write` object is not a function",
-        )))?;
-    let read_function: js_sys::Function = js_sys::Reflect::get(&result, &"read".into())
-        .or(Err(JavascriptError::InvalidType("`read` key missing")))?
-        .dyn_into()
-        .or(Err(JavascriptError::InvalidType(
-            "`read` object is not a function",
-        )))?;
-
-    let read_write = Box::new(JsReadWrite {
-        write_function,
-        read_function,
-    });
+    let read_write = get_read_writer(&result)?;
     let communication = Box::new(communication::U2fHidCommunication::from(
         read_write,
         communication::FIRMWARE_CMD,
@@ -70,4 +80,46 @@ pub async fn bitbox02_connect_webhid() -> Result<BitBox, JavascriptError> {
     Ok(BitBox(
         crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {})).await?,
     ))
+}
+
+/// Connect to a BitBox02 by using the BitBoxBridge service.
+#[wasm_bindgen(js_name = bitbox02ConnectBridge)]
+pub async fn bitbox02_connect_bridge() -> Result<BitBox, JavascriptError> {
+    let result = getBridgeDevice().await.map_err(|err| {
+        let error_message = if err.is_instance_of::<js_sys::Error>() {
+            let js_error: js_sys::Error = err.into();
+            js_error.message().as_string().unwrap_or_default()
+        } else {
+            String::from("Unknown error")
+        };
+        JavascriptError::CouldNotOpenBridge(error_message)
+    })?;
+    if result.is_null() {
+        return Err(JavascriptError::UserAbort);
+    }
+    let read_write = get_read_writer(&result)?;
+    let communication = Box::new(communication::U2fWsCommunication::from(
+        read_write,
+        communication::FIRMWARE_CMD,
+    ));
+
+    Ok(BitBox(
+        crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {})).await?,
+    ))
+}
+
+/// Connect to a BitBox02 using WebHID if available. If WebHID is not available, we attempt to
+/// connect using the BitBoxBridge.
+#[wasm_bindgen(js_name = bitbox02ConnectAuto)]
+pub async fn bitbox02_connect_auto() -> Result<BitBox, JavascriptError> {
+    if hasWebHID() {
+        bitbox02_connect_webhid().await
+    } else {
+        bitbox02_connect_bridge().await
+    }
+    // if has_web_hid() {
+    //     bitbox02_connect_webhid().await
+    // } else {
+    //     bitbox02_connect_bridge().await
+    // }
 }

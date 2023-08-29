@@ -329,11 +329,22 @@ function App() {
   const [bb02, setBB02] = useState<bitbox.PairedBitBox>();
   const [pairingCode, setPairingCode] = useState<string>();
   const [err, setErr] = useState<bitbox.Error>();
-  const connectWebHID = async () => {
+  const connect = async (method: 'webHID' | 'bridge' | 'auto') => {
     setErr(undefined);
     try {
-      const b = await bitbox.bitbox02ConnectWebHID();
-      const pairing = await b.unlockAndPair();
+      let device: bitbox.BitBox;
+      switch (method) {
+        case 'webHID':
+          device = await bitbox.bitbox02ConnectWebHID();
+          break;
+        case 'bridge':
+          device = await bitbox.bitbox02ConnectBridge();
+          break;
+        case 'auto':
+          device = await bitbox.bitbox02ConnectAuto();
+          break;
+      }
+      const pairing = await device.unlockAndPair();
       setPairingCode(pairing.getPairingCode());
       setBB02(await pairing.waitConfirm());
       setPairingCode(undefined);
@@ -354,6 +365,11 @@ function App() {
   }
   if (pairingCode !== undefined) {
     return (
+    /* socket.onclose = event => {
+     *   if (this.onCloseCb) {
+     *     this.onCloseCb();
+     *   }
+     * }; */
       <>
         <h2>Pairing code</h2>
         <pre>
@@ -393,7 +409,9 @@ function App() {
   return (
     <>
       <h1>BitBox sandbox</h1>
-      <button onClick={connectWebHID}>Connect with WebHID</button>
+      <button onClick={() => connect('webHID')}>Connect using WebHID</button><br />
+      <button onClick={() => connect('bridge')}>Connect using BitBoxBridge</button><br />
+      <button onClick={() => connect('auto')}>Choose automatically</button>
     </>
   );
 }
