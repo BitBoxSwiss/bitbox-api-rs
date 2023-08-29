@@ -58,15 +58,16 @@ pub async fn bitbox02_connect_webhid() -> Result<BitBox, JavascriptError> {
             "`read` object is not a function",
         )))?;
 
-    let read_write = JsReadWrite {
+    let read_write = Box::new(JsReadWrite {
         write_function,
         read_function,
-    };
+    });
+    let communication = Box::new(communication::U2fCommunication::from(
+        read_write,
+        communication::FIRMWARE_CMD,
+    ));
+
     Ok(BitBox(
-        crate::BitBox::from(
-            Box::new(read_write),
-            Box::new(noise::LocalStorageNoiseConfig {}),
-        )
-        .await?,
+        crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {})).await?,
     ))
 }

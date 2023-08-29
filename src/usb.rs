@@ -2,7 +2,9 @@ use super::constants::{PRODUCT_ID, VENDOR_ID};
 use async_trait::async_trait;
 use thiserror::Error;
 
-use super::communication::{Error as CommuincationError, ReadWrite};
+use super::communication::{
+    Error as CommuincationError, ReadWrite, U2fCommunication, FIRMWARE_CMD,
+};
 
 /// The hid product string of the multi edition firmware.
 const FIRMWARE_PRODUCT_STRING_MULTI: &str = "BitBox02";
@@ -46,11 +48,13 @@ fn is_bitbox02(device_info: &hidapi::DeviceInfo) -> bool {
 
 /// Returns the first BitBox02 HID device that is found, or `Err(UsbError::NotFound)` if none is
 /// available.
-pub fn get_any_bitbox02() -> Result<Box<hidapi::HidDevice>, UsbError> {
+pub fn get_any_bitbox02() -> Result<Box<dyn ReadWrite>, UsbError> {
     let api = hidapi::HidApi::new().unwrap();
     for device_info in api.device_list() {
         if is_bitbox02(device_info) {
-            return Ok(Box::new(device_info.open_device(&api)?));
+            let device = Box::new(device_info.open_device(&api)?);
+            let communication = Box::new(U2fCommunication::from(device, FIRMWARE_CMD));
+            return Ok(communication);
         }
     }
     Err(UsbError::NotFound)

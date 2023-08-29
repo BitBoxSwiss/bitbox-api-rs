@@ -38,8 +38,6 @@ pub use noise::{NoiseConfig, NoiseConfigNoCache};
 
 use self::communication::HwwCommunication;
 
-const FIRMWARE_CMD: u8 = 0x80 + 0x40 + 0x01;
-
 const OP_I_CAN_HAS_HANDSHAEK: u8 = b'h';
 const OP_HER_COMEZ_TEH_HANDSHAEK: u8 = b'H';
 const OP_I_CAN_HAS_PAIRIN_VERIFICASHUN: u8 = b'v';
@@ -72,9 +70,8 @@ impl<R: Runtime> BitBox<R> {
         device: Box<dyn communication::ReadWrite>,
         noise_config: Box<dyn NoiseConfig>,
     ) -> Result<BitBox<R>, Error> {
-        let u2f_communication = communication::U2fCommunication::from(device, FIRMWARE_CMD);
         Ok(BitBox {
-            communication: HwwCommunication::from(u2f_communication).await?,
+            communication: HwwCommunication::from(device).await?,
             noise_config,
         })
     }

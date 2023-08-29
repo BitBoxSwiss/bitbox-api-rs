@@ -3,6 +3,8 @@ use crate::runtime::Runtime;
 use async_trait::async_trait;
 use thiserror::Error;
 
+pub const FIRMWARE_CMD: u8 = 0x80 + 0x40 + 0x01;
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("unknown error")]
@@ -23,6 +25,11 @@ pub enum Error {
 pub trait ReadWrite {
     fn write(&self, msg: &[u8]) -> Result<usize, Error>;
     async fn read(&self) -> Result<Vec<u8>, Error>;
+
+    async fn query(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
+        self.write(msg)?;
+        self.read().await
+    }
 }
 
 pub struct U2fCommunication {
@@ -37,7 +44,10 @@ impl U2fCommunication {
             u2fhid: u2fframing::U2fHid::new(cmd),
         }
     }
+}
 
+#[async_trait(?Send)]
+impl ReadWrite for U2fCommunication {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
         let size = self.u2fhid.encode(msg, &mut buf).unwrap();
@@ -60,11 +70,6 @@ impl U2fCommunication {
                 }
             }
         }
-    }
-
-    pub async fn query(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
-        self.write(msg)?;
-        self.read().await
     }
 }
 
@@ -106,12 +111,12 @@ pub struct Info {
 }
 
 pub struct HwwCommunication<R: Runtime> {
-    communication: U2fCommunication,
+    communication: Box<dyn ReadWrite>,
     pub info: Info,
     marker: std::marker::PhantomData<R>,
 }
 
-async fn get_info(communication: &U2fCommunication) -> Result<Info, Error> {
+async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
     let response = communication.query(&[HWW_INFO]).await?;
     let (version_str_len, response) = (
         *response.first().ok_or(Error::Info)? as usize,
@@ -149,8 +154,8 @@ async fn get_info(communication: &U2fCommunication) -> Result<Info, Error> {
 }
 
 impl<R: Runtime> HwwCommunication<R> {
-    pub async fn from(communication: U2fCommunication) -> Result<Self, Error> {
-        let info = get_info(&communication).await?;
+    pub async fn from(communication: Box<dyn ReadWrite>) -> Result<Self, Error> {
+        let info = get_info(communication.as_ref()).await?;
         Ok(HwwCommunication {
             communication,
             info,
