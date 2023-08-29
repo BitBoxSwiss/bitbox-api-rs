@@ -32,14 +32,14 @@ pub trait ReadWrite {
     }
 }
 
-pub struct U2fCommunication {
+pub struct U2fHidCommunication {
     read_write: Box<dyn ReadWrite>,
     u2fhid: u2fframing::U2fHid,
 }
 
-impl U2fCommunication {
+impl U2fHidCommunication {
     pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
-        U2fCommunication {
+        U2fHidCommunication {
             read_write,
             u2fhid: u2fframing::U2fHid::new(cmd),
         }
@@ -47,7 +47,7 @@ impl U2fCommunication {
 }
 
 #[async_trait(?Send)]
-impl ReadWrite for U2fCommunication {
+impl ReadWrite for U2fHidCommunication {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
         let size = self.u2fhid.encode(msg, &mut buf).unwrap();

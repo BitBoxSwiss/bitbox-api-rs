@@ -62,7 +62,7 @@ pub async fn bitbox02_connect_webhid() -> Result<BitBox, JavascriptError> {
         write_function,
         read_function,
     });
-    let communication = Box::new(communication::U2fCommunication::from(
+    let communication = Box::new(communication::U2fHidCommunication::from(
         read_write,
         communication::FIRMWARE_CMD,
     ));

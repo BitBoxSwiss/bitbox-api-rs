@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use super::communication::{
-    Error as CommuincationError, ReadWrite, U2fCommunication, FIRMWARE_CMD,
+    Error as CommuincationError, ReadWrite, U2fHidCommunication, FIRMWARE_CMD,
 };
 
 /// The hid product string of the multi edition firmware.
@@ -53,7 +53,7 @@ pub fn get_any_bitbox02() -> Result<Box<dyn ReadWrite>, UsbError> {
     for device_info in api.device_list() {
         if is_bitbox02(device_info) {
             let device = Box::new(device_info.open_device(&api)?);
-            let communication = Box::new(U2fCommunication::from(device, FIRMWARE_CMD));
+            let communication = Box::new(U2fHidCommunication::from(device, FIRMWARE_CMD));
             return Ok(communication);
         }
     }
