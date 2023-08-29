@@ -904,11 +904,14 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Before a multisig or policy script config can be used to display receive addresses or sign
     /// transcations, it must be registered on the device. This function checks if the script config
     /// was already registered.
+    ///
+    /// `keypath_account` must be set if the script config is multisig, and can be `None` if it is a
+    /// policy.
     pub async fn btc_is_script_config_registered(
         &self,
         coin: pb::BtcCoin,
         script_config: &pb::BtcScriptConfig,
-        keypath_account: &Keypath,
+        keypath_account: Option<&Keypath>,
     ) -> Result<bool, Error> {
         match self
             .query_proto_btc(pb::btc_request::Request::IsScriptConfigRegistered(
@@ -916,7 +919,7 @@ impl<R: Runtime> PairedBitBox<R> {
                     registration: Some(pb::BtcScriptConfigRegistration {
                         coin: coin as _,
                         script_config: Some(script_config.clone()),
-                        keypath: keypath_account.to_vec(),
+                        keypath: keypath_account.map_or(vec![], |kp| kp.to_vec()),
                     }),
                 },
             ))
@@ -935,11 +938,15 @@ impl<R: Runtime> PairedBitBox<R> {
     /// If no name is provided, the user will be asked to enter it on the device instead.  If
     /// provided, it must be non-empty, smaller or equal to 30 chars, consist only of printable
     /// ASCII characters, and contain no whitespace other than spaces.
+    ///
+    ///
+    /// `keypath_account` must be set if the script config is multisig, and can be `None` if it is a
+    /// policy.
     pub async fn btc_register_script_config(
         &self,
         coin: pb::BtcCoin,
         script_config: &pb::BtcScriptConfig,
-        keypath_account: &Keypath,
+        keypath_account: Option<&Keypath>,
         xpub_type: pb::btc_register_script_config_request::XPubType,
         name: Option<&str>,
     ) -> Result<(), Error> {
@@ -949,7 +956,7 @@ impl<R: Runtime> PairedBitBox<R> {
                     registration: Some(pb::BtcScriptConfigRegistration {
                         coin: coin as _,
                         script_config: Some(script_config.clone()),
-                        keypath: keypath_account.to_vec(),
+                        keypath: keypath_account.map_or(vec![], |kp| kp.to_vec()),
                     }),
                     name: name.unwrap_or("").into(),
                     xpub_type: xpub_type as _,

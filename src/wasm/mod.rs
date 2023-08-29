@@ -165,14 +165,17 @@ impl PairedBitBox {
         &self,
         coin: types::TsBtcCoin,
         script_config: types::TsBtcScriptConfig,
-        keypath_account: types::TsKeypath,
+        keypath_account: Option<types::TsKeypath>,
     ) -> Result<bool, JavascriptError> {
         Ok(self
             .0
             .btc_is_script_config_registered(
                 coin.try_into()?,
                 &script_config.try_into()?,
-                &keypath_account.try_into()?,
+                keypath_account
+                    .map(|kp| kp.try_into())
+                    .transpose()?
+                    .as_ref(),
             )
             .await?)
     }
@@ -182,7 +185,7 @@ impl PairedBitBox {
         &self,
         coin: types::TsBtcCoin,
         script_config: types::TsBtcScriptConfig,
-        keypath_account: types::TsKeypath,
+        keypath_account: Option<types::TsKeypath>,
         xpub_type: types::TsBtcRegisterXPubType,
         name: Option<String>,
     ) -> Result<(), JavascriptError> {
@@ -191,7 +194,10 @@ impl PairedBitBox {
             .btc_register_script_config(
                 coin.try_into()?,
                 &script_config.try_into()?,
-                &keypath_account.try_into()?,
+                keypath_account
+                    .map(|kp| kp.try_into())
+                    .transpose()?
+                    .as_ref(),
                 xpub_type.try_into()?,
                 name.as_deref(),
             )
