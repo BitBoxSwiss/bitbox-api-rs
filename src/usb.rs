@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use super::communication::{
-    Error as CommuincationError, ReadWrite, U2fHidCommunication, FIRMWARE_CMD,
+    Error as CommunicationError, ReadWrite, U2fHidCommunication, FIRMWARE_CMD,
 };
 
 /// The hid product string of the multi edition firmware.
@@ -13,15 +13,15 @@ const FIRMWARE_PRODUCT_STRING_BTCONLY: &str = "BitBox02BTC";
 
 #[async_trait(?Send)]
 impl ReadWrite for hidapi::HidDevice {
-    fn write(&self, msg: &[u8]) -> Result<usize, CommuincationError> {
+    fn write(&self, msg: &[u8]) -> Result<usize, CommunicationError> {
         let mut v = vec![0x00];
         v.extend_from_slice(msg);
-        hidapi::HidDevice::write(self, &v).or(Err(CommuincationError::Write))
+        hidapi::HidDevice::write(self, &v).or(Err(CommunicationError::Write))
     }
 
-    async fn read(&self) -> Result<Vec<u8>, CommuincationError> {
+    async fn read(&self) -> Result<Vec<u8>, CommunicationError> {
         let mut buf = [0u8; 64];
-        let res = hidapi::HidDevice::read(self, &mut buf).or(Err(CommuincationError::Read))?;
+        let res = hidapi::HidDevice::read(self, &mut buf).or(Err(CommunicationError::Read))?;
         Ok(buf[..res].to_vec())
     }
 }
