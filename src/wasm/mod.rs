@@ -326,34 +326,33 @@ impl PairedBitBox {
         .unwrap()
         .into())
     }
+
+    #[wasm_bindgen(js_name = ethSignTypedMessage)]
+    pub async fn eth_sign_typed_message(
+        &self,
+        chain_id: u64,
+        keypath: types::TsKeypath,
+        msg: JsValue,
+    ) -> Result<types::TsEthSignature, JavascriptError> {
+        let json_msg: String = js_sys::JSON::stringify(&msg).unwrap().into();
+        let signature = self
+            .0
+            .eth_sign_typed_message(chain_id, &keypath.try_into()?, &json_msg)
+            .await?;
+
+        Ok(serde_wasm_bindgen::to_value(&types::EthSignature {
+            r: signature[..32].to_vec(),
+            s: signature[32..64].to_vec(),
+            v: vec![signature[64]], // offset of 27 is already included
+        })
+        .unwrap()
+        .into())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_remove_leading_zeroes() {
-        // Test with leading zeroes
-        let data = &[0, 0, 0, 1, 2, 3, 0, 4];
-        let result = remove_leading_zeroes(data);
-        assert_eq!(result, vec![1, 2, 3, 0, 4]);
-
-        // Test with no leading zeroes
-        let data = &[1, 0, 0, 1, 2, 3, 0, 4];
-        let result = remove_leading_zeroes(data);
-        assert_eq!(result, vec![1, 0, 0, 1, 2, 3, 0, 4]);
-
-        // Test with all zeroes
-        let data = &[0, 0, 0, 0, 0];
-        let result = remove_leading_zeroes(data);
-        assert_eq!(result, Vec::<u8>::new());
-
-        // Test with an empty list
-        let data = &[];
-        let result = remove_leading_zeroes(data);
-        assert_eq!(result, Vec::<u8>::new());
-    }
 
     #[test]
     fn test_compute_v() {

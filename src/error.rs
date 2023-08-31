@@ -77,4 +77,7 @@ pub enum Error {
     #[error("Antiklepto verification failed: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "antiklepto".into()))]
     AntiKlepto(#[from] crate::antiklepto::Error),
+    #[error("EIP-712 typed message processing error: {0}")]
+    #[cfg_attr(feature = "wasm", assoc(js_code = "eth-typed-message".into()))]
+    EthTypedMessage(String),
 }

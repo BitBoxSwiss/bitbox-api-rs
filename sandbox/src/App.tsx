@@ -484,7 +484,7 @@ function EthSignMessage({ bb02 } : ActionProps) {
         arr[i] = str.charCodeAt(i);
     }
     return arr;
-}
+  }
 
   const submitForm = async (e: FormEvent) => {
     e.preventDefault();
@@ -516,7 +516,99 @@ function EthSignMessage({ bb02 } : ActionProps) {
         <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={4} cols={80} />
       </label>
       <br />
-      <button type='submit' disabled={running}>Sign transaction</button>
+      <button type='submit' disabled={running}>Sign message</button>
+      { result ? <p>Result: {JSON.stringify(result)}</p> : null }
+      <ShowError err={err} />
+    </form>
+  );
+}
+
+function EthSignTypedMessage({ bb02 } : ActionProps) {
+  const exampleMsg = `
+  {
+    "types": {
+        "EIP712Domain": [
+            { "name": "name", "type": "string" },
+            { "name": "version", "type": "string" },
+            { "name": "chainId", "type": "uint256" },
+            { "name": "verifyingContract", "type": "address" }
+        ],
+        "Attachment": [
+            { "name": "contents", "type": "string" }
+        ],
+        "Person": [
+            { "name": "name", "type": "string" },
+            { "name": "wallet", "type": "address" },
+            { "name": "age", "type": "uint8" }
+        ],
+        "Mail": [
+            { "name": "from", "type": "Person" },
+            { "name": "to", "type": "Person" },
+            { "name": "contents", "type": "string" },
+            { "name": "attachments", "type": "Attachment[]" }
+        ]
+    },
+    "primaryType": "Mail",
+    "domain": {
+        "name": "Ether Mail",
+        "version": "1",
+        "chainId": 1,
+        "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+    },
+    "message": {
+        "from": {
+            "name": "Cow",
+            "wallet": "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+            "age": 20
+        },
+        "to": {
+            "name": "Bob",
+            "wallet": "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+            "age": "0x1e"
+        },
+        "contents": "Hello, Bob!",
+        "attachments": [{ "contents": "attachment1" }, { "contents": "attachment2" }]
+    }
+}
+  `;
+  const [chainID, setChainID] = useState(1);
+  const [keypath, setKeypath] = useState('m/44\'/60\'/0\'/0/0');
+  const [msg, setMsg] = useState(exampleMsg);
+  const [result, setResult] = useState<bitbox.EthSignature | undefined>();
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState<bitbox.Error>();
+
+  const submitForm = async (e: FormEvent) => {
+    e.preventDefault();
+    setRunning(true);
+    setResult(undefined);
+    setErr(undefined);
+    try {
+      setResult(await bb02.ethSignTypedMessage(BigInt(chainID), keypath, JSON.parse(msg)));
+    } catch (err) {
+      setErr(bitbox.ensureError(err));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submitForm}>
+      <label>
+        chainID
+        <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
+      </label>
+      <label>
+        Keypath
+        <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+      </label>
+      <br />
+      <label>
+        EIP-712 typed message
+        <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={20} cols={80} />
+      </label>
+      <br />
+      <button type='submit' disabled={running}>Sign message</button>
       { result ? <p>Result: {JSON.stringify(result)}</p> : null }
       <ShowError err={err} />
     </form>
@@ -614,6 +706,9 @@ function App() {
         </div>
         <div className="action">
           <EthSignMessage bb02={bb02} />
+        </div>
+        <div className="action">
+          <EthSignTypedMessage bb02={bb02} />
         </div>
       </>
     );

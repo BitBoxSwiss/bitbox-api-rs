@@ -1,3 +1,51 @@
+const EIP712_MSG: &str = r#"
+        {
+    "types": {
+        "EIP712Domain": [
+            { "name": "name", "type": "string" },
+            { "name": "version", "type": "string" },
+            { "name": "chainId", "type": "uint256" },
+            { "name": "verifyingContract", "type": "address" }
+        ],
+        "Attachment": [
+            { "name": "contents", "type": "string" }
+        ],
+        "Person": [
+            { "name": "name", "type": "string" },
+            { "name": "wallet", "type": "address" },
+            { "name": "age", "type": "uint8" }
+        ],
+        "Mail": [
+            { "name": "from", "type": "Person" },
+            { "name": "to", "type": "Person" },
+            { "name": "contents", "type": "string" },
+            { "name": "attachments", "type": "Attachment[]" }
+        ]
+    },
+    "primaryType": "Mail",
+    "domain": {
+        "name": "Ether Mail",
+        "version": "1",
+        "chainId": 1,
+        "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+    },
+    "message": {
+        "from": {
+            "name": "Cow",
+            "wallet": "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+            "age": 20
+        },
+        "to": {
+            "name": "Bob",
+            "wallet": "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+            "age": "0x1e"
+        },
+        "contents": "Hello, Bob!",
+        "attachments": [{ "contents": "attachment1" }, { "contents": "attachment2" }]
+    }
+}
+    "#;
+
 async fn eth_demo<R: bitbox_api::runtime::Runtime>() {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
     let bitbox =
@@ -39,6 +87,13 @@ async fn eth_demo<R: bitbox_api::runtime::Runtime>() {
     println!("Signing a message...");
     let signature = paired_bitbox
         .eth_sign_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), b"message")
+        .await
+        .unwrap();
+    println!("Signature: {}", hex::encode(signature));
+
+    println!("Signign typed message...");
+    let signature = paired_bitbox
+        .eth_sign_typed_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), EIP712_MSG)
         .await
         .unwrap();
     println!("Signature: {}", hex::encode(signature));
