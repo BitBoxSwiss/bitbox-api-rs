@@ -73,11 +73,13 @@ impl ReadWrite for U2fHidCommunication {
     }
 }
 
+#[cfg(feature = "wasm")]
 pub struct U2fWsCommunication {
     read_write: Box<dyn ReadWrite>,
     u2fhid: u2fframing::U2fWs,
 }
 
+#[cfg(feature = "wasm")]
 impl U2fWsCommunication {
     pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
         U2fWsCommunication {
@@ -87,6 +89,7 @@ impl U2fWsCommunication {
     }
 }
 
+#[cfg(feature = "wasm")]
 #[async_trait(?Send)]
 impl ReadWrite for U2fWsCommunication {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
