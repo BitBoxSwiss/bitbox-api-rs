@@ -74,6 +74,7 @@ wasm = [
   "dep:enum-assoc",
   "dep:js-sys",
   "serde",
+  "dep:serde-wasm-bindgen",
   "dep:web-sys",
   # Reduces the secp256k1 precompute table to decrease the WASM binary
   # size significantly.
@@ -84,7 +85,6 @@ wasm = [
 serde = [
   "dep:serde",
   "dep:serde_json",
-  "dep:serde-wasm-bindgen",
   "hex/serde",
   "bitcoin/serde",
 ]
