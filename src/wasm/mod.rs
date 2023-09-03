@@ -129,14 +129,6 @@ impl PairingBitBox {
     }
 }
 
-fn remove_leading_zeroes(list: &[u8]) -> Vec<u8> {
-    if let Some(first_non_zero) = list.iter().position(|&x| x != 0) {
-        list[first_non_zero..].to_vec()
-    } else {
-        Vec::new()
-    }
-}
-
 fn compute_v(chain_id: u64, rec_id: u8) -> Option<u64> {
     let v_offset: u64 = chain_id.checked_mul(2)?.checked_add(8)?;
     (rec_id as u64 + 27).checked_add(v_offset)
@@ -300,7 +292,7 @@ impl PairedBitBox {
         Ok(serde_wasm_bindgen::to_value(&types::EthSignature {
             r: signature[..32].to_vec(),
             s: signature[32..64].to_vec(),
-            v: remove_leading_zeroes(&v.to_be_bytes()),
+            v: crate::util::remove_leading_zeroes(&v.to_be_bytes()),
         })
         .unwrap()
         .into())

@@ -421,11 +421,11 @@ impl<R: Runtime> PairedBitBox<R> {
         let request = pb::eth_request::Request::Sign(pb::EthSignRequest {
             coin: 0,
             keypath: keypath.to_vec(),
-            nonce: tx.nonce.clone(),
-            gas_price: tx.gas_price.clone(),
-            gas_limit: tx.gas_limit.clone(),
+            nonce: crate::util::remove_leading_zeroes(&tx.nonce),
+            gas_price: crate::util::remove_leading_zeroes(&tx.gas_price),
+            gas_limit: crate::util::remove_leading_zeroes(&tx.gas_limit),
             recipient: tx.recipient.to_vec(),
-            value: tx.value.clone(),
+            value: crate::util::remove_leading_zeroes(&tx.value),
             data: tx.data.clone(),
             host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),

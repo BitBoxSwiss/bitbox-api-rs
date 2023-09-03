@@ -15,6 +15,7 @@ mod communication;
 mod constants;
 mod keypath;
 mod u2fframing;
+mod util;
 
 /// BitBox protobuf messages.
 pub mod pb {
