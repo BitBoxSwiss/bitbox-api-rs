@@ -38,7 +38,9 @@ pub use keypath::Keypath;
 pub use noise::PersistedNoiseConfig;
 pub use noise::{NoiseConfig, NoiseConfigNoCache};
 
-use self::communication::HwwCommunication;
+use communication::HwwCommunication;
+
+pub use communication::Product;
 
 const OP_I_CAN_HAS_HANDSHAEK: u8 = b'h';
 const OP_HER_COMEZ_TEH_HANDSHAEK: u8 = b'H';
@@ -316,6 +318,11 @@ impl<R: Runtime> PairedBitBox<R> {
             Response::DeviceInfo(di) => Ok(di),
             _ => Err(Error::UnexpectedResponse),
         }
+    }
+
+    /// Returns which product we are connected to.
+    pub fn product(&self) -> Product {
+        self.communication.info.product
     }
 
     /// Returns the hex-encoded 4-byte root fingerprint.

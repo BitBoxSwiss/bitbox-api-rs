@@ -36,6 +36,11 @@ impl<R: Runtime> PairedBitBox<R> {
         }
     }
 
+    /// Does this device supprt ETH functionality? Currently this means BitBox02 Multi.
+    pub fn eth_supported(&self) -> bool {
+        matches!(self.product(), crate::Product::BitBox02Multi)
+    }
+
     /// Query the device for an xpub.
     pub async fn eth_xpub(&self, keypath: &Keypath) -> Result<String, Error> {
         match self

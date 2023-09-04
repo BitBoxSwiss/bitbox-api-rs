@@ -137,7 +137,7 @@ const HWW_RSP_BUSY: u8 = 0x02;
 // Bad request.
 const HWW_RSP_NACK: u8 = 0x03;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Product {
     Unknown,
     BitBox02Multi,

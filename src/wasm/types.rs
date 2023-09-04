@@ -10,6 +10,7 @@ extern "C" {
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPES: &'static str = r#"
+type Product = 'unknown' | 'bitbox02-multi' | 'bitbox02-btconly';
 type BtcCoin = 'btc' | 'tbtc' | 'ltc' | 'tltc';
 type BtcFormatUnit = 'default' | 'sat';
 type XPubType = 'tpub' | 'xpub' | 'ypub' | 'zpub' | 'vpub' | 'upub' | 'Vpub' | 'Zpub' | 'Upub' | 'Ypub';
@@ -60,6 +61,8 @@ type Error = {
 
 #[wasm_bindgen]
 extern "C" {
+    #[wasm_bindgen(typescript_type = "Product")]
+    pub type TsProduct;
     #[wasm_bindgen(typescript_type = "BtcCoin")]
     pub type TsBtcCoin;
     #[wasm_bindgen(typescript_type = "BtcFormatUnit")]

@@ -671,7 +671,7 @@ function App() {
   if (bb02 !== undefined) {
     return (
       <>
-        <h2>Connected</h2>
+        <h2>Connected. Product: {bb02.product()}</h2>
         <h3>Bitcoin</h3>
         <div className="action">
           <RootFingerprint bb02={bb02} />
@@ -694,22 +694,26 @@ function App() {
         <div className="action">
           <BtcMiniscriptAddress bb02={bb02} />
         </div>
-        <h3>Ethereum</h3>
-        <div className="action">
-          <EthXPub bb02={bb02} />
-        </div>
-        <div className="action">
-          <EthAddress bb02={bb02} />
-        </div>
-        <div className="action">
-          <EthSignTransaction bb02={bb02} />
-        </div>
-        <div className="action">
-          <EthSignMessage bb02={bb02} />
-        </div>
-        <div className="action">
-          <EthSignTypedMessage bb02={bb02} />
-        </div>
+        { bb02.ethSupported() ? (
+            <>
+              <h3>Ethereum</h3>
+              <div className="action">
+                <EthXPub bb02={bb02} />
+              </div>
+              <div className="action">
+                <EthAddress bb02={bb02} />
+              </div>
+              <div className="action">
+                <EthSignTransaction bb02={bb02} />
+              </div>
+              <div className="action">
+                <EthSignMessage bb02={bb02} />
+              </div>
+              <div className="action">
+                <EthSignTypedMessage bb02={bb02} />
+              </div>
+            </>
+        ) : null }
       </>
     );
   }

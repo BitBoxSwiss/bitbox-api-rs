@@ -142,6 +142,15 @@ impl PairedBitBox {
         Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
 
+    #[wasm_bindgen(js_name = product)]
+    pub fn product(&self) -> types::TsProduct {
+        match self.0.product() {
+            crate::Product::Unknown => JsValue::from_str("unknown").into(),
+            crate::Product::BitBox02Multi => JsValue::from_str("bitbox02-multi").into(),
+            crate::Product::BitBox02BtcOnly => JsValue::from_str("bitbox02-btconly").into(),
+        }
+    }
+
     #[wasm_bindgen(js_name = rootFingerprint)]
     pub async fn root_fingerprint(&self) -> Result<String, JavascriptError> {
         Ok(self.0.root_fingerprint().await?)
@@ -255,6 +264,11 @@ impl PairedBitBox {
             )
             .await?;
         Ok(psbt.to_string())
+    }
+
+    #[wasm_bindgen(js_name = ethSupported)]
+    pub fn eth_supported(&self) -> bool {
+        self.0.eth_supported()
     }
 
     #[wasm_bindgen(js_name = ethXpub)]
