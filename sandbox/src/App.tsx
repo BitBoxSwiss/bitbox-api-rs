@@ -619,19 +619,24 @@ function App() {
   const [bb02, setBB02] = useState<bitbox.PairedBitBox>();
   const [pairingCode, setPairingCode] = useState<string>();
   const [err, setErr] = useState<bitbox.Error>();
+  const onClose = () => {
+    setBB02(undefined);
+    setPairingCode(undefined);
+    setErr(undefined);
+  };
   const connect = async (method: 'webHID' | 'bridge' | 'auto') => {
     setErr(undefined);
     try {
       let device: bitbox.BitBox;
       switch (method) {
         case 'webHID':
-          device = await bitbox.bitbox02ConnectWebHID();
+          device = await bitbox.bitbox02ConnectWebHID(onClose);
           break;
         case 'bridge':
-          device = await bitbox.bitbox02ConnectBridge();
+          device = await bitbox.bitbox02ConnectBridge(onClose);
           break;
         case 'auto':
-          device = await bitbox.bitbox02ConnectAuto();
+          device = await bitbox.bitbox02ConnectAuto(onClose);
           break;
       }
       const pairing = await device.unlockAndPair();
@@ -655,11 +660,6 @@ function App() {
   }
   if (pairingCode !== undefined) {
     return (
-    /* socket.onclose = event => {
-     *   if (this.onCloseCb) {
-     *     this.onCloseCb();
-     *   }
-     * }; */
       <>
         <h2>Pairing code</h2>
         <pre>

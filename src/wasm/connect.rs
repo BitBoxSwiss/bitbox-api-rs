@@ -1,4 +1,4 @@
-use super::{noise, BitBox, JavascriptError};
+use super::{noise, types::TsOnCloseCb, BitBox, JavascriptError};
 use wasm_bindgen::prelude::*;
 
 struct JsReadWrite {
@@ -10,10 +10,14 @@ use crate::communication;
 #[wasm_bindgen(raw_module = "./webhid")]
 extern "C" {
     #[wasm_bindgen(catch)]
-    async fn getWebHIDDevice(vendorId: f64, productId: f64) -> Result<JsValue, JsValue>;
+    async fn getWebHIDDevice(
+        vendorId: f64,
+        productId: f64,
+        onCloseCb: TsOnCloseCb,
+    ) -> Result<JsValue, JsValue>;
 
     #[wasm_bindgen(catch)]
-    async fn getBridgeDevice() -> Result<JsValue, JsValue>;
+    async fn getBridgeDevice(onCloseCb: TsOnCloseCb) -> Result<JsValue, JsValue>;
 
     fn hasWebHID() -> bool;
 }
@@ -61,10 +65,11 @@ fn get_read_writer(result: &JsValue) -> Result<Box<JsReadWrite>, JavascriptError
 
 /// Connect to a BitBox02 using WebHID. WebHID is mainly supported by Chrome.
 #[wasm_bindgen(js_name = bitbox02ConnectWebHID)]
-pub async fn bitbox02_connect_webhid() -> Result<BitBox, JavascriptError> {
+pub async fn bitbox02_connect_webhid(on_close_cb: TsOnCloseCb) -> Result<BitBox, JavascriptError> {
     let result = getWebHIDDevice(
         crate::constants::VENDOR_ID as _,
         crate::constants::PRODUCT_ID as _,
+        on_close_cb,
     )
     .await
     .map_err(|_| JavascriptError::CouldNotOpenWebHID)?;
@@ -84,8 +89,8 @@ pub async fn bitbox02_connect_webhid() -> Result<BitBox, JavascriptError> {
 
 /// Connect to a BitBox02 by using the BitBoxBridge service.
 #[wasm_bindgen(js_name = bitbox02ConnectBridge)]
-pub async fn bitbox02_connect_bridge() -> Result<BitBox, JavascriptError> {
-    let result = getBridgeDevice().await.map_err(|err| {
+pub async fn bitbox02_connect_bridge(on_close_cb: TsOnCloseCb) -> Result<BitBox, JavascriptError> {
+    let result = getBridgeDevice(on_close_cb).await.map_err(|err| {
         let error_message = if err.is_instance_of::<js_sys::Error>() {
             let js_error: js_sys::Error = err.into();
             js_error.message().as_string().unwrap_or_default()
@@ -111,15 +116,10 @@ pub async fn bitbox02_connect_bridge() -> Result<BitBox, JavascriptError> {
 /// Connect to a BitBox02 using WebHID if available. If WebHID is not available, we attempt to
 /// connect using the BitBoxBridge.
 #[wasm_bindgen(js_name = bitbox02ConnectAuto)]
-pub async fn bitbox02_connect_auto() -> Result<BitBox, JavascriptError> {
+pub async fn bitbox02_connect_auto(on_close_cb: TsOnCloseCb) -> Result<BitBox, JavascriptError> {
     if hasWebHID() {
-        bitbox02_connect_webhid().await
+        bitbox02_connect_webhid(on_close_cb).await
     } else {
-        bitbox02_connect_bridge().await
+        bitbox02_connect_bridge(on_close_cb).await
     }
-    // if has_web_hid() {
-    //     bitbox02_connect_webhid().await
-    // } else {
-    //     bitbox02_connect_bridge().await
-    // }
 }

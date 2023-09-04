@@ -33,7 +33,7 @@ class MessageQueue {
   }
 }
 
-export async function getWebHIDDevice(vendorId, productId) {
+export async function getWebHIDDevice(vendorId, productId, onCloseCb) {
   let device;
   try {
     const devices = await navigator.hid.requestDevice({filters: [{vendorId, productId}]});
@@ -49,6 +49,19 @@ export async function getWebHIDDevice(vendorId, productId) {
     return null;
   }
   await device.open();
+
+  // This is suboptimal API in WebHID - ideally we want to attach this event only when the above
+  // device is disconnected. This way will likely break if multiple devices are connected at the
+  // same time.
+  navigator.hid.addEventListener('disconnect', event => {
+    const disconnectedDevice = event.device;
+    if (disconnectedDevice.vendorId === device.vendorId && disconnectedDevice.productId === device.productId) {
+      if (onCloseCb) {
+        onCloseCb();
+        onCloseCb = undefined;
+      }
+    }
+  });
 
   const msgQueue = new MessageQueue();
 
@@ -109,7 +122,7 @@ async function getDevicePath() {
   throw new Error('Expected exactly one BitBox02. If one is connected, it might already have an open connection another app. If so, please close the other app first.');
 }
 
-export async function getBridgeDevice() {
+export async function getBridgeDevice(onCloseCb) {
   let devicePath = await getDevicePath();
   const socket = new WebSocket('ws://127.0.0.1:8178/api/v1/socket/' + devicePath);
   const msgQueue = new MessageQueue();
@@ -117,6 +130,12 @@ export async function getBridgeDevice() {
   return new Promise((resolve, reject) => {
     socket.binaryType = 'arraybuffer';
     socket.onmessage = event => { msgQueue.addMessage(new Uint8Array(event.data)); };
+    socket.onclose = event => {
+      if (onCloseCb) {
+        onCloseCb();
+        onCloseCb = undefined;
+      }
+    };
     socket.onopen = function (event) {
       resolve({
         write: bytes => {
