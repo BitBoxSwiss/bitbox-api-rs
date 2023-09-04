@@ -533,6 +533,7 @@ pub fn make_script_config_simple(
     derive(serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
+#[derive(PartialEq)]
 pub struct KeyOriginInfo {
     pub root_fingerprint: Option<bitcoin::bip32::Fingerprint>,
     pub keypath: Option<Keypath>,
