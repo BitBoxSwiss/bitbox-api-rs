@@ -21,6 +21,7 @@ pub enum Error {
     MinVersion(&'static str),
 }
 
+#[cfg(not(feature = "multithreaded"))]
 #[async_trait(?Send)]
 pub trait ReadWrite {
     fn write(&self, msg: &[u8]) -> Result<usize, Error>;
@@ -32,13 +33,25 @@ pub trait ReadWrite {
     }
 }
 
-pub struct U2fHidCommunication {
-    read_write: Box<dyn ReadWrite>,
+#[cfg(feature = "multithreaded")]
+#[async_trait]
+pub trait ReadWrite: Sync + Send {
+    fn write(&self, msg: &[u8]) -> Result<usize, Error>;
+    async fn read(&self) -> Result<Vec<u8>, Error>;
+
+    async fn query(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
+        self.write(msg)?;
+        self.read().await
+    }
+}
+
+pub struct U2fHidCommunication<T: ReadWrite> {
+    read_write: T,
     u2fhid: u2fframing::U2fHid,
 }
 
-impl U2fHidCommunication {
-    pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
+impl<T: ReadWrite> U2fHidCommunication<T> {
+    pub fn from(read_write: T, cmd: u8) -> Self {
         U2fHidCommunication {
             read_write,
             u2fhid: u2fframing::U2fHid::new(cmd),
@@ -46,8 +59,9 @@ impl U2fHidCommunication {
     }
 }
 
+#[cfg(not(feature = "multithreaded"))]
 #[async_trait(?Send)]
-impl ReadWrite for U2fHidCommunication {
+impl<T: ReadWrite> ReadWrite for U2fHidCommunication<T> {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
         let size = self.u2fhid.encode(msg, &mut buf).unwrap();
@@ -68,6 +82,30 @@ impl ReadWrite for U2fHidCommunication {
                     let more = self.read_write.read().await?;
                     readbuf.extend_from_slice(&more);
                 }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "multithreaded")]
+#[async_trait]
+impl<T: ReadWrite> ReadWrite for U2fHidCommunication<T> {
+    fn write(&self, msg: &[u8]) -> Result<usize, Error> {
+        let mut buf = [0u8; u2fframing::MAX_LEN];
+        let size = self.u2fhid.encode(msg, &mut buf).unwrap();
+        for chunk in buf[..size].chunks(64) {
+            self.read_write.write(chunk)?;
+        }
+        Ok(size)
+    }
+
+    async fn read(&self) -> Result<Vec<u8>, Error> {
+        let mut buffer = Vec::<u8>::new();
+        loop {
+            let res = self.read_write.read().await?;
+            buffer.extend_from_slice(&res);
+            if let Some(d) = self.u2fhid.decode(&buffer).or(Err(Error::U2fDecode))? {
+                return Ok(d);
             }
         }
     }
@@ -157,7 +195,7 @@ pub struct HwwCommunication<R: Runtime> {
     marker: std::marker::PhantomData<R>,
 }
 
-async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
+async fn get_info(communication: &(dyn ReadWrite)) -> Result<Info, Error> {
     let response = communication.query(&[HWW_INFO]).await?;
     let (version_str_len, response) = (
         *response.first().ok_or(Error::Info)? as usize,

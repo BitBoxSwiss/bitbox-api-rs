@@ -43,7 +43,7 @@ impl communication::ReadWrite for JsReadWrite {
     }
 }
 
-fn get_read_writer(result: &JsValue) -> Result<Box<JsReadWrite>, JavascriptError> {
+fn get_read_writer(result: &JsValue) -> Result<JsReadWrite, JavascriptError> {
     let write_function: js_sys::Function = js_sys::Reflect::get(result, &"write".into())
         .or(Err(JavascriptError::InvalidType("`write` key missing")))?
         .dyn_into()
@@ -57,10 +57,10 @@ fn get_read_writer(result: &JsValue) -> Result<Box<JsReadWrite>, JavascriptError
             "`read` object is not a function",
         )))?;
 
-    Ok(Box::new(JsReadWrite {
+    Ok(JsReadWrite {
         write_function,
         read_function,
-    }))
+    })
 }
 
 /// Connect to a BitBox02 using WebHID. WebHID is mainly supported by Chrome.
@@ -104,7 +104,7 @@ pub async fn bitbox02_connect_bridge(on_close_cb: TsOnCloseCb) -> Result<BitBox,
     }
     let read_write = get_read_writer(&result)?;
     let communication = Box::new(communication::U2fWsCommunication::from(
-        read_write,
+        Box::new(read_write),
         communication::FIRMWARE_CMD,
     ));
 

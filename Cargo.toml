@@ -70,6 +70,7 @@ codegen-units = 1
 lto = true
 
 [features]
+multithreaded = []
 usb = ["dep:hidapi"]
 wasm = [
   "dep:enum-assoc",
