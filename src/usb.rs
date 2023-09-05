@@ -74,12 +74,12 @@ fn is_bitbox02(device_info: &hidapi::DeviceInfo) -> bool {
 /// Returns the first BitBox02 HID device that is found, or `Err(UsbError::NotFound)` if none is
 /// available.
 #[cfg(not(feature = "multithreaded"))]
-pub fn get_any_bitbox02() -> Result<Box<dyn ReadWrite>, UsbError> {
+pub fn get_any_bitbox02() -> Result<U2fHidCommunication<hidapi::HidDevice>, UsbError> {
     let api = hidapi::HidApi::new().unwrap();
     for device_info in api.device_list() {
         if is_bitbox02(device_info) {
             let device = device_info.open_device(&api)?;
-            let communication = Box::new(U2fHidCommunication::from(device, FIRMWARE_CMD));
+            let communication = U2fHidCommunication::from(device, FIRMWARE_CMD);
             return Ok(communication);
         }
     }
@@ -87,12 +87,12 @@ pub fn get_any_bitbox02() -> Result<Box<dyn ReadWrite>, UsbError> {
 }
 
 #[cfg(feature = "multithreaded")]
-pub fn get_any_bitbox02() -> Result<Box<dyn ReadWrite>, UsbError> {
+pub fn get_any_bitbox02() -> Result<U2fHidCommunication<MultithreadedHidDevice>, UsbError> {
     let api = hidapi::HidApi::new().unwrap();
     for device_info in api.device_list() {
         if is_bitbox02(device_info) {
             let device = MultithreadedHidDevice(Mutex::new(device_info.open_device(&api)?));
-            let communication = Box::new(U2fHidCommunication::from(device, FIRMWARE_CMD));
+            let communication = U2fHidCommunication::from(device, FIRMWARE_CMD);
             return Ok(communication);
         }
     }

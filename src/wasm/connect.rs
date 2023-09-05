@@ -1,7 +1,7 @@
 use super::{noise, types::TsOnCloseCb, BitBox, JavascriptError};
 use wasm_bindgen::prelude::*;
 
-struct JsReadWrite {
+pub struct JsReadWrite {
     write_function: js_sys::Function,
     read_function: js_sys::Function,
 }
@@ -77,10 +77,8 @@ pub async fn bitbox02_connect_webhid(on_close_cb: TsOnCloseCb) -> Result<BitBox,
         return Err(JavascriptError::UserAbort);
     }
     let read_write = get_read_writer(&result)?;
-    let communication = Box::new(communication::U2fHidCommunication::from(
-        read_write,
-        communication::FIRMWARE_CMD,
-    ));
+    let communication: Box<dyn communication::ReadWrite> =
+        communication::U2fHidCommunication::from(read_write, communication::FIRMWARE_CMD).into();
 
     Ok(BitBox(
         crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {})).await?,
@@ -103,10 +101,8 @@ pub async fn bitbox02_connect_bridge(on_close_cb: TsOnCloseCb) -> Result<BitBox,
         return Err(JavascriptError::UserAbort);
     }
     let read_write = get_read_writer(&result)?;
-    let communication = Box::new(communication::U2fWsCommunication::from(
-        Box::new(read_write),
-        communication::FIRMWARE_CMD,
-    ));
+    let communication: Box<dyn communication::ReadWrite> =
+        communication::U2fWsCommunication::from(read_write, communication::FIRMWARE_CMD).into();
 
     Ok(BitBox(
         crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {})).await?,

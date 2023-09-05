@@ -61,6 +61,18 @@ impl<T: ReadWrite> U2fHidCommunication<T> {
 
 #[cfg(not(feature = "multithreaded"))]
 #[async_trait(?Send)]
+impl ReadWrite for Box<dyn ReadWrite> {
+    fn write(&self, msg: &[u8]) -> Result<usize, Error> {
+        self.as_ref().write(msg)
+    }
+
+    async fn read(&self) -> Result<Vec<u8>, Error> {
+        self.as_ref().read().await
+    }
+}
+
+#[cfg(not(feature = "multithreaded"))]
+#[async_trait(?Send)]
 impl<T: ReadWrite> ReadWrite for U2fHidCommunication<T> {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
@@ -84,6 +96,13 @@ impl<T: ReadWrite> ReadWrite for U2fHidCommunication<T> {
                 }
             }
         }
+    }
+}
+
+#[cfg(not(feature = "multithreaded"))]
+impl<T: ReadWrite + 'static> From<U2fHidCommunication<T>> for Box<dyn ReadWrite> {
+    fn from(c: U2fHidCommunication<T>) -> Box<dyn ReadWrite> {
+        Box::new(c)
     }
 }
 
@@ -112,14 +131,14 @@ impl<T: ReadWrite> ReadWrite for U2fHidCommunication<T> {
 }
 
 #[cfg(feature = "wasm")]
-pub struct U2fWsCommunication {
-    read_write: Box<dyn ReadWrite>,
+pub struct U2fWsCommunication<T: ReadWrite> {
+    read_write: T,
     u2fhid: u2fframing::U2fWs,
 }
 
 #[cfg(feature = "wasm")]
-impl U2fWsCommunication {
-    pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
+impl<T: ReadWrite> U2fWsCommunication<T> {
+    pub fn from(read_write: T, cmd: u8) -> Self {
         U2fWsCommunication {
             read_write,
             u2fhid: u2fframing::U2fWs::new(cmd),
@@ -129,7 +148,7 @@ impl U2fWsCommunication {
 
 #[cfg(feature = "wasm")]
 #[async_trait(?Send)]
-impl ReadWrite for U2fWsCommunication {
+impl<T: ReadWrite> ReadWrite for U2fWsCommunication<T> {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
         let size = self.u2fhid.encode(msg, &mut buf).unwrap();
@@ -149,6 +168,13 @@ impl ReadWrite for U2fWsCommunication {
                 }
             }
         }
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl<T: ReadWrite + 'static> From<U2fWsCommunication<T>> for Box<dyn ReadWrite> {
+    fn from(c: U2fWsCommunication<T>) -> Box<dyn ReadWrite> {
+        Box::new(c)
     }
 }
 
@@ -189,8 +215,8 @@ pub struct Info {
     pub unlocked: bool,
 }
 
-pub struct HwwCommunication<R: Runtime> {
-    communication: Box<dyn ReadWrite>,
+pub struct HwwCommunication<R: Runtime, T: ReadWrite> {
+    communication: T,
     pub info: Info,
     marker: std::marker::PhantomData<R>,
 }
@@ -232,9 +258,9 @@ async fn get_info(communication: &(dyn ReadWrite)) -> Result<Info, Error> {
     })
 }
 
-impl<R: Runtime> HwwCommunication<R> {
-    pub async fn from(communication: Box<dyn ReadWrite>) -> Result<Self, Error> {
-        let info = get_info(communication.as_ref()).await?;
+impl<T: ReadWrite, R: Runtime> HwwCommunication<R, T> {
+    pub async fn from(communication: T) -> Result<Self, Error> {
+        let info = get_info(&communication).await?;
         Ok(HwwCommunication {
             communication,
             info,

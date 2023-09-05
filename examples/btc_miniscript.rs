@@ -2,9 +2,10 @@ use std::str::FromStr;
 
 use bitbox_api::pb;
 
-async fn get_bitbox02() -> bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime> {
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
-    let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from(
+    let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime, _>::from(
         bitbox_api::usb::get_any_bitbox02().unwrap(),
         noise_config,
     )
@@ -14,12 +15,7 @@ async fn get_bitbox02() -> bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRu
     if let Some(pairing_code) = pairing_bitbox.get_pairing_code().as_ref() {
         println!("Pairing code\n{}", pairing_code);
     }
-    pairing_bitbox.wait_confirm().await.unwrap()
-}
-
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
-    let paired_bitbox = get_bitbox02().await;
+    let paired_bitbox = pairing_bitbox.wait_confirm().await.unwrap();
 
     let coin = pb::BtcCoin::Tbtc;
     let policy = "wsh(andor(pk(@0/**),older(12960),pk(@1/**)))";

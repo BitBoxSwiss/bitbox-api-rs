@@ -3,7 +3,7 @@ use bitbox_api::pb;
 async fn signtx<R: bitbox_api::runtime::Runtime>() {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
     let bitbox =
-        bitbox_api::BitBox::<R>::from(bitbox_api::usb::get_any_bitbox02().unwrap(), noise_config)
+        bitbox_api::BitBox::<R, _>::from(bitbox_api::usb::get_any_bitbox02().unwrap(), noise_config)
             .await
             .unwrap();
     let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();

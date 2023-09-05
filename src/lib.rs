@@ -31,7 +31,7 @@ use runtime::Runtime;
 use noise_protocol::DH;
 use prost::Message;
 
-use std::sync::Mutex;
+use std::{io::Read, sync::Mutex};
 
 pub use keypath::Keypath;
 #[cfg(feature = "serde")]
@@ -57,23 +57,23 @@ type HandshakeState =
 
 type CipherState = noise_protocol::CipherState<Cipher>;
 
-pub struct BitBox<R: Runtime> {
-    communication: communication::HwwCommunication<R>,
+pub struct BitBox<R: Runtime, T: communication::ReadWrite> {
+    communication: communication::HwwCommunication<R, T>,
     noise_config: Box<dyn NoiseConfig>,
 }
 
 pub type PairingCode = String;
 
-impl<R: Runtime> BitBox<R> {
+impl<R: Runtime, T: communication::ReadWrite> BitBox<R, T> {
     /// Creates a new BitBox instance. The provided noise config determines how the pairing
     /// information is persisted.
     ///
     /// Use `bitbox_api::PersistedNoiseConfig::new(...)` to persist the pairing in a JSON file
     /// (`serde` feature required) or provide your own implementation of the `NoiseConfig` trait.
     pub async fn from(
-        device: Box<dyn communication::ReadWrite>,
+        device: T,
         noise_config: Box<dyn NoiseConfig>,
-    ) -> Result<BitBox<R>, Error> {
+    ) -> Result<BitBox<R, T>, Error> {
         Ok(BitBox {
             communication: HwwCommunication::from(device).await?,
             noise_config,
@@ -81,7 +81,7 @@ impl<R: Runtime> BitBox<R> {
     }
 
     /// Invokes the device unlock and pairing.
-    pub async fn unlock_and_pair(self) -> Result<PairingBitBox<R>, Error> {
+    pub async fn unlock_and_pair(self) -> Result<PairingBitBox<R, T>, Error> {
         self.communication
             .query(&[OP_UNLOCK])
             .await
@@ -110,7 +110,7 @@ impl<R: Runtime> BitBox<R> {
         Ok(response.split_off(1))
     }
 
-    async fn pair(self) -> Result<PairingBitBox<R>, Error> {
+    async fn pair(self) -> Result<PairingBitBox<R, T>, Error> {
         let mut config_data = self.noise_config.read_config()?;
         let host_static_key = match config_data.get_app_static_privkey() {
             Some(k) => noise_rust_crypto::sensitive::Sensitive::from(k),
@@ -188,16 +188,16 @@ impl<R: Runtime> BitBox<R> {
 
 /// BitBox in the pairing state. Use `get_pairing_code()` to display the pairing code to the user
 /// and `wait_confirm()` to proceed to the paired state.
-pub struct PairingBitBox<R: Runtime> {
-    communication: communication::HwwCommunication<R>,
+pub struct PairingBitBox<R: Runtime, T: communication::ReadWrite> {
+    communication: communication::HwwCommunication<R, T>,
     host: HandshakeState,
     noise_config: Box<dyn NoiseConfig>,
     pairing_code: Option<String>,
 }
 
-impl<R: Runtime> PairingBitBox<R> {
+impl<R: Runtime, T: communication::ReadWrite> PairingBitBox<R, T> {
     fn from(
-        communication: communication::HwwCommunication<R>,
+        communication: communication::HwwCommunication<R, T>,
         host: HandshakeState,
         noise_config: Box<dyn NoiseConfig>,
         pairing_code: Option<String>,
@@ -222,7 +222,7 @@ impl<R: Runtime> PairingBitBox<R> {
     }
 
     /// Proceed to the paired state.
-    pub async fn wait_confirm(self) -> Result<PairedBitBox<R>, Error> {
+    pub async fn wait_confirm(self) -> Result<PairedBitBox<R, T>, Error> {
         if self.pairing_code.is_some() {
             let response = self
                 .communication
@@ -243,14 +243,14 @@ impl<R: Runtime> PairingBitBox<R> {
 
 /// Paired BitBox. This is where you can invoke most API functions like getting xpubs, displaying
 /// receive addresses, etc.
-pub struct PairedBitBox<R: Runtime> {
-    communication: communication::HwwCommunication<R>,
+pub struct PairedBitBox<R: Runtime, T: communication::ReadWrite> {
+    communication: communication::HwwCommunication<R, T>,
     noise_send: Mutex<CipherState>,
     noise_recv: Mutex<CipherState>,
 }
 
-impl<R: Runtime> PairedBitBox<R> {
-    fn from(communication: communication::HwwCommunication<R>, host: HandshakeState) -> Self {
+impl<R: Runtime, T: communication::ReadWrite> PairedBitBox<R, T> {
+    fn from(communication: communication::HwwCommunication<R, T>, host: HandshakeState) -> Self {
         let (send, recv) = host.get_ciphers();
         PairedBitBox {
             communication,

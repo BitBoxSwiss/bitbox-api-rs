@@ -5,6 +5,8 @@ mod localstorage;
 mod noise;
 mod types;
 
+use crate::communication;
+
 use wasm_bindgen::prelude::*;
 
 use thiserror::Error;
@@ -100,13 +102,13 @@ impl crate::runtime::Runtime for WasmRuntime {
 }
 
 #[wasm_bindgen]
-pub struct BitBox(crate::BitBox<WasmRuntime>);
+pub struct BitBox(crate::BitBox<WasmRuntime, Box<dyn communication::ReadWrite>>);
 
 #[wasm_bindgen]
-pub struct PairingBitBox(crate::PairingBitBox<WasmRuntime>);
+pub struct PairingBitBox(crate::PairingBitBox<WasmRuntime, Box<dyn communication::ReadWrite>>);
 
 #[wasm_bindgen]
-pub struct PairedBitBox(crate::PairedBitBox<WasmRuntime>);
+pub struct PairedBitBox(crate::PairedBitBox<WasmRuntime, Box<dyn communication::ReadWrite>>);
 
 #[wasm_bindgen]
 impl BitBox {

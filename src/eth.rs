@@ -8,8 +8,8 @@ use crate::pb::{
     request::Request,
     response::Response,
 };
-use crate::Keypath;
-use crate::PairedBitBox;
+
+use crate::{communication, Keypath, PairedBitBox};
 
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -18,7 +18,7 @@ use num_bigint::{BigInt, BigUint};
 //use num_traits::ToPrimitive;
 use serde_json::Value;
 
-impl<R: Runtime> PairedBitBox<R> {
+impl<R: Runtime, T: communication::ReadWrite> PairedBitBox<R, T> {
     async fn query_proto_eth(
         &self,
         request: pb::eth_request::Request,
@@ -384,7 +384,7 @@ fn get_value(
     }
 }
 
-impl<R: Runtime> PairedBitBox<R> {
+impl<R: Runtime, T: communication::ReadWrite> PairedBitBox<R, T> {
     async fn handle_antiklepto(
         &self,
         response: &pb::eth_response::Response,
