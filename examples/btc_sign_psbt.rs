@@ -33,5 +33,5 @@ async fn main() {
     let mut psbt = bitcoin::psbt::PartiallySignedTransaction::from_str(buffer.trim()).unwrap();
     sign_psbt::<bitbox_api::runtime::TokioRuntime>(&mut psbt).await;
     println!("signed:");
-    println!("{}", psbt.to_string());
+    println!("{}", psbt);
 }

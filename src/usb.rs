@@ -16,11 +16,13 @@ impl ReadWrite for hidapi::HidDevice {
     fn write(&self, msg: &[u8]) -> Result<usize, CommunicationError> {
         let mut v = vec![0x00];
         v.extend_from_slice(msg);
+        #[allow(clippy::needless_borrow)]
         hidapi::HidDevice::write(self, &v).or(Err(CommunicationError::Write))
     }
 
     async fn read(&self) -> Result<Vec<u8>, CommunicationError> {
         let mut buf = [0u8; 64];
+        #[allow(clippy::needless_borrow)]
         let res = hidapi::HidDevice::read(self, &mut buf).or(Err(CommunicationError::Read))?;
         Ok(buf[..res].to_vec())
     }

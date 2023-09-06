@@ -34,7 +34,6 @@ use prost::Message;
 use std::cell::RefCell;
 
 pub use keypath::Keypath;
-#[cfg(feature = "serde")]
 pub use noise::PersistedNoiseConfig;
 pub use noise::{NoiseConfig, NoiseConfigNoCache};
 

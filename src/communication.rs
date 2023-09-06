@@ -3,6 +3,7 @@ use crate::runtime::Runtime;
 use async_trait::async_trait;
 use thiserror::Error;
 
+#[cfg(any(feature = "wasm", feature = "usb"))]
 pub const FIRMWARE_CMD: u8 = 0x80 + 0x40 + 0x01;
 
 #[derive(Error, Debug)]

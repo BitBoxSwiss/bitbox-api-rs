@@ -4,8 +4,7 @@ use thiserror::Error;
 #[error("{0}")]
 pub struct ConfigError(pub String);
 
-#[derive(Default, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct NoiseConfigData {
     pub app_static_privkey: Option<[u8; 32]>,
     pub device_static_pubkeys: Vec<Vec<u8>>,
@@ -52,12 +51,10 @@ pub trait NoiseConfig {
 pub struct NoiseConfigNoCache;
 impl NoiseConfig for NoiseConfigNoCache {}
 
-#[cfg(feature = "serde")]
 pub struct PersistedNoiseConfig {
     config_dir: String,
 }
 
-#[cfg(feature = "serde")]
 impl PersistedNoiseConfig {
     /// Creates a new persisting noise config, which stores the pairing information in "bitbox.json"
     /// in the provided directory.
@@ -68,7 +65,6 @@ impl PersistedNoiseConfig {
     }
 }
 
-#[cfg(feature = "serde")]
 impl NoiseConfig for PersistedNoiseConfig {
     fn read_config(&self) -> Result<NoiseConfigData, ConfigError> {
         use std::io::Read;
