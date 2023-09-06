@@ -1,6 +1,7 @@
 //! Rust BitBox hardware wallet client library.
 
 pub mod btc;
+pub mod cardano;
 pub mod error;
 pub mod eth;
 mod noise;

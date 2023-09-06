@@ -8,6 +8,8 @@ example-btc-miniscript:
 	cargo run --example btc_miniscript --features=usb,tokio/rt,tokio/macros
 example-eth:
 	cargo run --example eth --features=usb,tokio/rt,tokio/macros,rlp
+example-cardano:
+	cargo run --example cardano --features=usb,tokio/rt,tokio/macros
 wasm:
 	wasm-pack build --release --features=wasm
 	cp webhid.js pkg/

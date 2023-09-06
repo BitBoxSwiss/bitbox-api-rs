@@ -52,6 +52,73 @@ type EthSignature = {
   s: Uint8Array;
   v: Uint8Array;
 };
+type CardanoXpub = Uint8Array;
+type CardanoXpubs = CardanoXpub[];
+type CardanoNetwork = 'mainnet' | 'testnet';
+type CardanoScriptConfig = {
+  pkhSkh: {
+    keypathPayment: Keypath;
+    keypathStake: Keypath;
+  };
+};
+type CardanoInput = {
+  keypath: Keypath;
+  prevOutHash: Uint8Array;
+  prevOutIndex: number;
+};
+type CardanoAssetGroupToken = {
+  assetName: Uint8Array;
+  value: bigint;
+}
+type CardanoAssetGroup = {
+  policyId: Uint8Array;
+  tokens: CardanoAssetGroupToken[];
+}
+type CardanoOutput = {
+  encodedAddress: string;
+  value: bigint;
+  scriptConfig?: CardanoScriptConfig;
+  assetGroups?: CardanoAssetGroup[];
+}
+type CardanoCertificate =
+  | {
+      stakeRegistration: {
+        keypath: Keypath
+      }
+    }
+  | {
+      stakeDeregistration: {
+        keypath: Keypath
+      }
+    }
+  | {
+      stakeDelegation: {
+        keypath: Keypath
+        poolKeyhash: Uint8Array
+      }
+    };
+type CardanoWithdrawal = {
+  keypath: Keypath;
+  value: bigint;
+}
+type CardanoTransaction = {
+  network: CardanoNetwork;
+  inputs: CardanoInput[];
+  outputs: CardanoOutput[];
+  fee: bigint;
+  ttl: bigint;
+  certificates: CardanoCertificate[];
+  withdrawals: CardanoWithdrawal[];
+  validityIntervalStart: bigint;
+  allowZeroTTL: boolean;
+};
+type CardanoShelleyWitness = {
+  signature: Uint8Array;
+  publicKey: Uint8Array;
+}
+type CardanoSignTransactionResult = {
+  shelleyWitnesses: CardanoShelleyWitness[];
+};
 type Error = {
   code: string;
   message: string;
@@ -92,6 +159,18 @@ extern "C" {
     pub type TsEthTransaction;
     #[wasm_bindgen(typescript_type = "EthSignature")]
     pub type TsEthSignature;
+    #[wasm_bindgen(typescript_type = "CardanoXpub")]
+    pub type TsCardanoXpub;
+    #[wasm_bindgen(typescript_type = "CardanoXpubs")]
+    pub type TsCardanoXpubs;
+    #[wasm_bindgen(typescript_type = "CardanoNetwork")]
+    pub type TsCardanoNetwork;
+    #[wasm_bindgen(typescript_type = "CardanoScriptConfig")]
+    pub type TsCardanoScriptConfig;
+    #[wasm_bindgen(typescript_type = "CardanoTransaction")]
+    pub type TsCardanoTransaction;
+    #[wasm_bindgen(typescript_type = "CardanoSignTransactionResult")]
+    pub type TsCardanoSignTransactionResult;
     #[wasm_bindgen(typescript_type = "Error")]
     pub type TsError;
 }
@@ -166,6 +245,31 @@ impl TryFrom<TsEthTransaction> for crate::eth::Transaction {
     fn try_from(value: TsEthTransaction) -> Result<Self, Self::Error> {
         serde_wasm_bindgen::from_value(value.into())
             .map_err(|_| JavascriptError::InvalidType("wrong type for EthTransaction"))
+    }
+}
+
+impl TryFrom<TsCardanoNetwork> for crate::pb::CardanoNetwork {
+    type Error = JavascriptError;
+    fn try_from(value: TsCardanoNetwork) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value.into())
+            .map_err(|_| JavascriptError::InvalidType("wrong type for CardanoNetwork"))
+    }
+}
+
+impl TryFrom<TsCardanoScriptConfig> for crate::pb::CardanoScriptConfig {
+    type Error = JavascriptError;
+    fn try_from(value: TsCardanoScriptConfig) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value.into())
+            .map_err(|_| JavascriptError::InvalidType("wrong type for CardanoScriptConfig"))
+    }
+}
+
+impl TryFrom<TsCardanoTransaction> for crate::pb::CardanoSignTransactionRequest {
+    type Error = JavascriptError;
+
+    fn try_from(value: TsCardanoTransaction) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value.into())
+            .map_err(|e| JavascriptError::Foo(format!("wrong type for CardanoTransaction {:?}", e)))
     }
 }
 

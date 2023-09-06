@@ -14,6 +14,7 @@ examples=(
   "--example btc_sign_psbt --features=usb,tokio/rt,tokio/macros"
   "--example btc_miniscript --features=usb,tokio/rt,tokio/macros"
   "--example eth --features=usb,tokio/rt,tokio/macros,rlp"
+  "--example cardano --features=usb,tokio/rt,tokio/macros"
 )
 
 cargo fmt --check

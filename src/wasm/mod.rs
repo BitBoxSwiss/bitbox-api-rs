@@ -41,6 +41,9 @@ pub enum JavascriptError {
     #[error("invalid JavaScript type: {0}")]
     #[assoc(js_code = "invalid-type".into())]
     InvalidType(&'static str),
+    #[error("invalid JavaScript type: {0}")]
+    #[assoc(js_code = "invalid-type".into())]
+    Foo(String),
     #[error("PSBT parse error: {0}")]
     #[assoc(js_code = "psbt-parse".into())]
     PsbtParseError(#[from] bitcoin::psbt::PsbtParseError),
@@ -353,6 +356,53 @@ impl PairedBitBox {
         })
         .unwrap()
         .into())
+    }
+
+    #[wasm_bindgen(js_name = cardanoSupported)]
+    pub fn cardano_supported(&self) -> bool {
+        self.0.cardano_supported()
+    }
+
+    #[wasm_bindgen(js_name = cardanoXpubs)]
+    pub async fn cardano_xpubs(
+        &self,
+        keypaths: Vec<types::TsKeypath>,
+    ) -> Result<types::TsCardanoXpubs, JavascriptError> {
+        let xpubs = self
+            .0
+            .cardano_xpubs(
+                keypaths
+                    .into_iter()
+                    .map(|kp| kp.try_into())
+                    .collect::<Result<Vec<crate::Keypath>, _>>()?
+                    .as_slice(),
+            )
+            .await?;
+        Ok(serde_wasm_bindgen::to_value(&xpubs).unwrap().into())
+    }
+
+    #[wasm_bindgen(js_name = cardanoAddress)]
+    pub async fn cardano_address(
+        &self,
+        network: types::TsCardanoNetwork,
+        script_config: types::TsCardanoScriptConfig,
+        display: bool,
+    ) -> Result<String, JavascriptError> {
+        Ok(self
+            .0
+            .cardano_address(network.try_into()?, &script_config.try_into()?, display)
+            .await?)
+    }
+
+    #[wasm_bindgen(js_name = cardanoSignTransaction)]
+    pub async fn cardano_sign_transaction(
+        &self,
+        transaction: types::TsCardanoTransaction,
+    ) -> Result<types::TsCardanoSignTransactionResult, JavascriptError> {
+        let tt = transaction.try_into()?;
+        log(&format!("LOL {:?}", tt));
+        let result = self.0.cardano_sign_transaction(tt).await?;
+        Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
 }
 

@@ -64,6 +64,14 @@ impl From<&bitcoin::bip32::DerivationPath> for Keypath {
     }
 }
 
+impl From<&Keypath> for crate::pb::Keypath {
+    fn from(value: &Keypath) -> Self {
+        crate::pb::Keypath {
+            keypath: value.to_vec(),
+        }
+    }
+}
+
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Keypath {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

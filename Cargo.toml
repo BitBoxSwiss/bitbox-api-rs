@@ -63,6 +63,10 @@ required-features = ["usb", "tokio/rt", "tokio/macros"]
 name = "eth"
 required-features = ["usb", "tokio/rt", "tokio/macros", "rlp"]
 
+[[example]]
+name = "cardano"
+required-features = ["usb", "tokio/rt", "tokio/macros"]
+
 [profile.release]
 # Reduce wasm binary size.
 opt-level = 'z'
