@@ -2,6 +2,9 @@ use super::constants::{PRODUCT_ID, VENDOR_ID};
 use async_trait::async_trait;
 use thiserror::Error;
 
+#[cfg(feature = "multithreaded")]
+use std::sync::Mutex;
+
 use super::communication::{
     Error as CommunicationError, ReadWrite, U2fHidCommunication, FIRMWARE_CMD,
 };
@@ -11,19 +14,52 @@ const FIRMWARE_PRODUCT_STRING_MULTI: &str = "BitBox02";
 /// The hid product string of the btc-only edition firmware.
 const FIRMWARE_PRODUCT_STRING_BTCONLY: &str = "BitBox02BTC";
 
-#[async_trait(?Send)]
-impl ReadWrite for hidapi::HidDevice {
+#[cfg(feature = "multithreaded")]
+pub struct HidDevice(Mutex<hidapi::HidDevice>);
+
+#[cfg(not(feature = "multithreaded"))]
+pub struct HidDevice(hidapi::HidDevice);
+
+impl crate::util::Threading for HidDevice {}
+
+impl HidDevice {
+    #[cfg(feature = "multithreaded")]
+    fn new(device: hidapi::HidDevice) -> Self {
+        HidDevice(Mutex::new(device))
+    }
+
+    #[cfg(not(feature = "multithreaded"))]
+    fn new(device: hidapi::HidDevice) -> Self {
+        HidDevice(device)
+    }
+
+    #[cfg(feature = "multithreaded")]
+    fn get(&self) -> std::sync::MutexGuard<'_, hidapi::HidDevice> {
+        self.0.lock().unwrap()
+    }
+
+    #[cfg(not(feature = "multithreaded"))]
+    fn get(&self) -> &hidapi::HidDevice {
+        &self.0
+    }
+}
+
+#[cfg_attr(feature = "multithreaded", async_trait)]
+#[cfg_attr(not(feature="multithreaded"), async_trait(?Send))]
+impl ReadWrite for HidDevice {
     fn write(&self, msg: &[u8]) -> Result<usize, CommunicationError> {
+        let device = self.get();
         let mut v = vec![0x00];
         v.extend_from_slice(msg);
         #[allow(clippy::needless_borrow)]
-        hidapi::HidDevice::write(self, &v).or(Err(CommunicationError::Write))
+        hidapi::HidDevice::write(&device, &v).or(Err(CommunicationError::Write))
     }
 
     async fn read(&self) -> Result<Vec<u8>, CommunicationError> {
+        let device = self.get();
         let mut buf = [0u8; 64];
         #[allow(clippy::needless_borrow)]
-        let res = hidapi::HidDevice::read(self, &mut buf).or(Err(CommunicationError::Read))?;
+        let res = hidapi::HidDevice::read(&device, &mut buf).or(Err(CommunicationError::Read))?;
         Ok(buf[..res].to_vec())
     }
 }
@@ -54,7 +90,7 @@ pub fn get_any_bitbox02() -> Result<Box<dyn ReadWrite>, UsbError> {
     let api = hidapi::HidApi::new().unwrap();
     for device_info in api.device_list() {
         if is_bitbox02(device_info) {
-            let device = Box::new(device_info.open_device(&api)?);
+            let device = Box::new(HidDevice::new(device_info.open_device(&api)?));
             let communication = Box::new(U2fHidCommunication::from(device, FIRMWARE_CMD));
             return Ok(communication);
         }

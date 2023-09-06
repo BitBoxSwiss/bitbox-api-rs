@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
-#[async_trait(?Send)]
+#[cfg_attr(feature = "multithreaded", async_trait)]
+#[cfg_attr(not(feature="multithreaded"), async_trait(?Send))]
 pub trait Runtime {
     async fn sleep(dur: std::time::Duration);
 }
@@ -9,7 +10,8 @@ pub trait Runtime {
 /// Useful if using futures::executor::block_on() to run synchronously.
 pub struct DefaultRuntime;
 
-#[async_trait(?Send)]
+#[cfg_attr(feature = "multithreaded", async_trait)]
+#[cfg_attr(not(feature="multithreaded"), async_trait(?Send))]
 impl Runtime for DefaultRuntime {
     async fn sleep(dur: std::time::Duration) {
         std::thread::sleep(dur);
@@ -20,7 +22,8 @@ impl Runtime for DefaultRuntime {
 pub struct TokioRuntime;
 
 #[cfg(feature = "tokio")]
-#[async_trait(?Send)]
+#[cfg_attr(feature = "multithreaded", async_trait)]
+#[cfg_attr(not(feature="multithreaded"), async_trait(?Send))]
 impl Runtime for TokioRuntime {
     async fn sleep(dur: std::time::Duration) {
         tokio::time::sleep(dur).await

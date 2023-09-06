@@ -1,5 +1,7 @@
-example:
-	cargo run --example connect --features=usb,tokio/rt,tokio/macros
+example-singlethreaded:
+	cargo run --example singlethreaded --features=usb,tokio/rt,tokio/macros
+example-multithreaded:
+	cargo run --example multithreaded --features=usb,tokio/rt,tokio/macros,tokio/rt-multi-thread,multithreaded
 example-btc-signtx:
 	cargo run --example btc_signtx --features=usb,tokio/rt,tokio/macros
 example-btc-psbt:

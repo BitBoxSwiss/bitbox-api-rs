@@ -1,5 +1,6 @@
 use super::u2fframing::{self, U2FFraming};
 use crate::runtime::Runtime;
+use crate::util::Threading;
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -22,8 +23,9 @@ pub enum Error {
     Version(&'static str),
 }
 
-#[async_trait(?Send)]
-pub trait ReadWrite {
+#[cfg_attr(feature = "multithreaded", async_trait)]
+#[cfg_attr(not(feature="multithreaded"), async_trait(?Send))]
+pub trait ReadWrite: Threading {
     fn write(&self, msg: &[u8]) -> Result<usize, Error>;
     async fn read(&self) -> Result<Vec<u8>, Error>;
 
@@ -38,6 +40,8 @@ pub struct U2fHidCommunication {
     u2fhid: u2fframing::U2fHid,
 }
 
+impl crate::util::Threading for U2fHidCommunication {}
+
 impl U2fHidCommunication {
     pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
         U2fHidCommunication {
@@ -47,7 +51,8 @@ impl U2fHidCommunication {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(feature = "multithreaded", async_trait)]
+#[cfg_attr(not(feature="multithreaded"),async_trait(?Send))]
 impl ReadWrite for U2fHidCommunication {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
@@ -79,6 +84,9 @@ pub struct U2fWsCommunication {
     read_write: Box<dyn ReadWrite>,
     u2fhid: u2fframing::U2fWs,
 }
+
+#[cfg(feature = "wasm")]
+impl Threading for U2fWsCommunication {}
 
 #[cfg(feature = "wasm")]
 impl U2fWsCommunication {

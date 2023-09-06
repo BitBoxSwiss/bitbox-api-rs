@@ -6,10 +6,12 @@ features=(
   "usb"
   "usb,serde"
   "wasm"
+  "multithreaded,usb,serde"
 )
 
 examples=(
-  "--example connect --features=usb,tokio/rt,tokio/macros"
+  "--example singlethreaded --features=usb,tokio/rt,tokio/macros"
+  "--example multithreaded --features=usb,tokio/rt,tokio/macros,tokio/rt-multi-thread,multithreaded"
   " --example btc_signtx --features=usb,tokio/rt,tokio/macros"
   "--example btc_sign_psbt --features=usb,tokio/rt,tokio/macros"
   "--example btc_miniscript --features=usb,tokio/rt,tokio/macros"

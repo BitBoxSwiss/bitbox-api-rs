@@ -1,3 +1,4 @@
+use crate::util::Threading;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -39,7 +40,7 @@ impl NoiseConfigData {
     }
 }
 
-pub trait NoiseConfig {
+pub trait NoiseConfig: Threading {
     fn read_config(&self) -> Result<NoiseConfigData, ConfigError> {
         Ok(NoiseConfigData::default())
     }
@@ -50,10 +51,13 @@ pub trait NoiseConfig {
 
 pub struct NoiseConfigNoCache;
 impl NoiseConfig for NoiseConfigNoCache {}
+impl Threading for NoiseConfigNoCache {}
 
 pub struct PersistedNoiseConfig {
     config_dir: String,
 }
+
+impl Threading for PersistedNoiseConfig {}
 
 impl PersistedNoiseConfig {
     /// Creates a new persisting noise config, which stores the pairing information in "bitbox.json"

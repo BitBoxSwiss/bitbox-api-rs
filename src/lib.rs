@@ -1,5 +1,8 @@
 //! Rust BitBox hardware wallet client library.
 
+#[cfg(all(feature = "wasm", feature = "multithreaded"))]
+compile_error!("wasm and multithreaded can't both be active");
+
 pub mod btc;
 pub mod cardano;
 pub mod error;
@@ -32,7 +35,7 @@ use runtime::Runtime;
 use noise_protocol::DH;
 use prost::Message;
 
-use std::cell::RefCell;
+use std::sync::Mutex;
 
 pub use keypath::Keypath;
 pub use noise::PersistedNoiseConfig;
@@ -55,7 +58,7 @@ type Cipher = noise_rust_crypto::ChaCha20Poly1305;
 type HandshakeState =
     noise_protocol::HandshakeState<noise_rust_crypto::X25519, Cipher, noise_rust_crypto::Sha256>;
 
-type CipherState = RefCell<noise_protocol::CipherState<Cipher>>;
+type CipherState = noise_protocol::CipherState<Cipher>;
 
 pub struct BitBox<R: Runtime> {
     communication: communication::HwwCommunication<R>,
@@ -110,7 +113,7 @@ impl<R: Runtime> BitBox<R> {
                 k
             }
         };
-        let host = RefCell::new(HandshakeState::new(
+        let mut host = HandshakeState::new(
             noise_protocol::patterns::noise_xx(),
             true,
             b"Noise_XX_25519_ChaChaPoly_SHA256",
@@ -118,7 +121,7 @@ impl<R: Runtime> BitBox<R> {
             None,
             None,
             None,
-        ));
+        );
 
         if self
             .communication
@@ -130,22 +133,15 @@ impl<R: Runtime> BitBox<R> {
             return Err(Error::Noise);
         }
 
-        let host_handshake_1 = host
-            .borrow_mut()
-            .write_message_vec(b"")
-            .or(Err(Error::Noise))?;
+        let host_handshake_1 = host.write_message_vec(b"").or(Err(Error::Noise))?;
         let bb02_handshake_1 = self.handshake_query(&host_handshake_1).await?;
 
-        host.borrow_mut()
-            .read_message_vec(&bb02_handshake_1)
+        host.read_message_vec(&bb02_handshake_1)
             .or(Err(Error::Noise))?;
-        let host_handshake_2 = host
-            .borrow_mut()
-            .write_message_vec(b"")
-            .or(Err(Error::Noise))?;
+        let host_handshake_2 = host.write_message_vec(b"").or(Err(Error::Noise))?;
 
         let bb02_handshake_2 = self.handshake_query(&host_handshake_2).await?;
-        let remote_static_pubkey = host.borrow().get_rs().ok_or(Error::Noise)?;
+        let remote_static_pubkey = host.get_rs().ok_or(Error::Noise)?;
         let pairing_verfication_required_by_app = !self
             .noise_config
             .read_config()?
@@ -162,8 +158,7 @@ impl<R: Runtime> BitBox<R> {
                     &encoded[15..20]
                 )
             };
-            let handshake_hash: [u8; 32] =
-                host.borrow().get_hash().try_into().or(Err(Error::Noise))?;
+            let handshake_hash: [u8; 32] = host.get_hash().try_into().or(Err(Error::Noise))?;
             let pairing_code = format_hash(&handshake_hash);
 
             Ok(PairingBitBox::from(
@@ -187,7 +182,7 @@ impl<R: Runtime> BitBox<R> {
 /// and `wait_confirm()` to proceed to the paired state.
 pub struct PairingBitBox<R: Runtime> {
     communication: communication::HwwCommunication<R>,
-    host: RefCell<HandshakeState>,
+    host: HandshakeState,
     noise_config: Box<dyn NoiseConfig>,
     pairing_code: Option<String>,
 }
@@ -195,7 +190,7 @@ pub struct PairingBitBox<R: Runtime> {
 impl<R: Runtime> PairingBitBox<R> {
     fn from(
         communication: communication::HwwCommunication<R>,
-        host: RefCell<HandshakeState>,
+        host: HandshakeState,
         noise_config: Box<dyn NoiseConfig>,
         pairing_code: Option<String>,
     ) -> Self {
@@ -229,7 +224,7 @@ impl<R: Runtime> PairingBitBox<R> {
                 return Err(Error::NoisePairingRejected);
             }
 
-            let remote_static_pubkey = self.host.borrow().get_rs().ok_or(Error::Noise)?;
+            let remote_static_pubkey = self.host.get_rs().ok_or(Error::Noise)?;
             let mut config_data = self.noise_config.read_config()?;
             config_data.add_device_static_pubkey(&remote_static_pubkey);
             self.noise_config.store_config(&config_data)?;
@@ -242,20 +237,17 @@ impl<R: Runtime> PairingBitBox<R> {
 /// receive addresses, etc.
 pub struct PairedBitBox<R: Runtime> {
     communication: communication::HwwCommunication<R>,
-    noise_send: CipherState,
-    noise_recv: CipherState,
+    noise_send: Mutex<CipherState>,
+    noise_recv: Mutex<CipherState>,
 }
 
 impl<R: Runtime> PairedBitBox<R> {
-    fn from(
-        communication: communication::HwwCommunication<R>,
-        host: RefCell<HandshakeState>,
-    ) -> Self {
-        let (send, recv) = host.borrow().get_ciphers();
+    fn from(communication: communication::HwwCommunication<R>, host: HandshakeState) -> Self {
+        let (send, recv) = host.get_ciphers();
         PairedBitBox {
             communication,
-            noise_send: RefCell::new(send),
-            noise_recv: RefCell::new(recv),
+            noise_send: Mutex::new(send),
+            noise_recv: Mutex::new(recv),
         }
     }
 
@@ -273,7 +265,7 @@ impl<R: Runtime> PairedBitBox<R> {
     async fn query_proto(&self, request: Request) -> Result<Response, Error> {
         let mut encrypted = vec![OP_NOISE_MSG];
         encrypted.extend_from_slice({
-            let mut send = self.noise_send.borrow_mut();
+            let mut send = self.noise_send.lock().unwrap();
             let proto_msg = pb::Request {
                 request: Some(request),
             };
@@ -285,7 +277,7 @@ impl<R: Runtime> PairedBitBox<R> {
             return Err(Error::UnexpectedResponse);
         }
         let decrypted = {
-            let mut recv = self.noise_recv.borrow_mut();
+            let mut recv = self.noise_recv.lock().unwrap();
             recv.decrypt_vec(&response[1..]).or(Err(Error::Noise))?
         };
         match pb::Response::decode(&decrypted[..]) {

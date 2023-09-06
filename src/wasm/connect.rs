@@ -1,11 +1,13 @@
 use super::{noise, types::TsOnCloseCb, BitBox, JavascriptError};
+use crate::communication;
 use wasm_bindgen::prelude::*;
 
 struct JsReadWrite {
     write_function: js_sys::Function,
     read_function: js_sys::Function,
 }
-use crate::communication;
+
+impl crate::util::Threading for JsReadWrite {}
 
 #[wasm_bindgen(raw_module = "./webhid")]
 extern "C" {

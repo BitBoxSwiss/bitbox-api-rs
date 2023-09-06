@@ -44,8 +44,12 @@ futures = { version = "0.3.28", default-features = false, features = ["executor"
 prost-build = { version = "0.11" }
 
 [[example]]
-name = "connect"
+name = "singlethreaded"
 required-features = ["usb", "tokio/rt", "tokio/macros"]
+
+[[example]]
+name = "multithreaded"
+required-features = ["usb", "tokio/rt", "tokio/macros", "tokio/rt-multi-thread", "multithreaded"]
 
 [[example]]
 name = "btc_signtx"
@@ -74,6 +78,9 @@ codegen-units = 1
 lto = true
 
 [features]
+# Implement Sync+Send for PairedBitBox and PairingBitBox.
+# This may or may not cause trouble on macOS, see: https://github.com/libusb/hidapi/issues/503
+multithreaded = []
 usb = ["dep:hidapi"]
 wasm = [
   "dep:enum-assoc",
