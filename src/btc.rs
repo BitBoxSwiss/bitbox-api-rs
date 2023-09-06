@@ -35,17 +35,10 @@ where
     }))
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrevTxInput {
-    #[cfg_attr(feature = "wasm", serde(with = "hex"))]
     pub prev_out_hash: Vec<u8>,
     pub prev_out_index: u32,
-    #[cfg_attr(feature = "wasm", serde(with = "hex"))]
     pub signature_script: Vec<u8>,
     pub sequence: u32,
 }
@@ -60,16 +53,9 @@ impl From<&bitcoin::TxIn> for PrevTxInput {
         }
     }
 }
-
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrevTxOutput {
     pub value: u64,
-    #[cfg_attr(feature = "wasm", serde(with = "hex"))]
     pub pubkey_script: Vec<u8>,
 }
 
@@ -82,11 +68,6 @@ impl From<&bitcoin::TxOut> for PrevTxOutput {
     }
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrevTx {
     pub version: u32,
@@ -106,14 +87,8 @@ impl From<&bitcoin::Transaction> for PrevTx {
     }
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Debug, PartialEq)]
 pub struct TxInput {
-    #[cfg_attr(feature = "wasm", serde(with = "hex"))]
     pub prev_out_hash: Vec<u8>,
     pub prev_out_index: u32,
     pub prev_out_value: u64,
@@ -124,11 +99,6 @@ pub struct TxInput {
     pub prev_tx: Option<PrevTx>,
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Debug, PartialEq)]
 pub struct TxInternalOutput {
     pub keypath: Keypath,
@@ -136,14 +106,8 @@ pub struct TxInternalOutput {
     pub script_config_index: u32,
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Debug, PartialEq)]
 pub struct Payload {
-    #[cfg_attr(feature = "wasm", serde(with = "hex"))]
     pub data: Vec<u8>,
     pub output_type: pb::BtcOutputType,
 }
@@ -203,11 +167,6 @@ impl Payload {
     }
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Debug, PartialEq)]
 pub struct TxExternalOutput {
     pub payload: Payload,
@@ -225,22 +184,12 @@ impl TryFrom<&bitcoin::TxOut> for TxExternalOutput {
     }
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Debug, PartialEq)]
 pub enum TxOutput {
     Internal(TxInternalOutput),
     External(TxExternalOutput),
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 #[derive(Debug, PartialEq)]
 pub struct Transaction {
     pub script_configs: Vec<pb::BtcScriptConfigWithKeypath>,
@@ -529,7 +478,7 @@ pub fn make_script_config_simple(
 
 #[derive(Clone)]
 #[cfg_attr(
-    feature = "wasm",
+    feature = "serde",
     derive(serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
