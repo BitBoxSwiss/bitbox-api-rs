@@ -88,17 +88,6 @@ impl<R: Runtime> BitBox<R> {
         self.pair().await
     }
 
-    // fn validate_version(&self, comparison: &str) -> Result<(), ()> {
-    //     if semver::VersionReq::parse(comparison)
-    //         .or(Err(()))?
-    //         .matches(&self.communication.info.version)
-    //     {
-    //         Ok(())
-    //     } else {
-    //         Err(())
-    //     }
-    // }
-
     async fn handshake_query(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
         let mut framed_msg = vec![OP_HER_COMEZ_TEH_HANDSHAEK];
         framed_msg.extend_from_slice(msg);
@@ -266,6 +255,17 @@ impl<R: Runtime> PairedBitBox<R> {
             communication,
             noise_send: RefCell::new(send),
             noise_recv: RefCell::new(recv),
+        }
+    }
+
+    fn validate_version(&self, comparison: &'static str) -> Result<(), Error> {
+        if semver::VersionReq::parse(comparison)
+            .or(Err(Error::Unknown))?
+            .matches(&self.communication.info.version)
+        {
+            Ok(())
+        } else {
+            Err(Error::Version(comparison))
         }
     }
 

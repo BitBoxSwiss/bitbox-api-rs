@@ -422,6 +422,9 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath: &Keypath,
         tx: &Transaction,
     ) -> Result<[u8; 65], Error> {
+        // passing chainID instead of coin only since v9.10.0
+        self.validate_version(">=9.10.0")?;
+
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::eth_request::Request::Sign(pb::EthSignRequest {
             coin: 0,
@@ -451,6 +454,9 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath: &Keypath,
         msg: &[u8],
     ) -> Result<[u8; 65], Error> {
+        // passing chainID instead of coin only since v9.10.0
+        self.validate_version(">=9.10.0")?;
+
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::eth_request::Request::SignMsg(pb::EthSignMessageRequest {
             coin: 0,
@@ -476,6 +482,8 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath: &Keypath,
         json_msg: &str,
     ) -> Result<[u8; 65], Error> {
+        self.validate_version(">=9.12.0")?;
+
         let msg: Eip712Message = serde_json::from_str(json_msg)
             .map_err(|_| Error::EthTypedMessage("Could not parse EIP-712 JSON message".into()))?;
 

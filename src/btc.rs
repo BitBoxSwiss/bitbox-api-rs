@@ -631,7 +631,10 @@ impl<R: Runtime> PairedBitBox<R> {
         transaction: &Transaction,
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<Vec<Vec<u8>>, Error> {
-        // TODO antiklepto
+        self.validate_version(">=9.4.0")?; // anti-klepto since 9.4.0
+        if transaction.script_configs.iter().any(is_taproot) {
+            self.validate_version(">=9.10.0")?; // taproot since 9.10.0
+        }
 
         let mut sigs: Vec<Vec<u8>> = Vec::new();
 

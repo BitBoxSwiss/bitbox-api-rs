@@ -18,8 +18,8 @@ pub enum Error {
     U2fDecode,
     #[error("error querying device info")]
     Info,
-    #[error("firmware version {0} or later required")]
-    MinVersion(&'static str),
+    #[error("firmware version {0} required")]
+    Version(&'static str),
 }
 
 #[async_trait(?Send)]
@@ -198,6 +198,14 @@ async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
 impl<R: Runtime> HwwCommunication<R> {
     pub async fn from(communication: Box<dyn ReadWrite>) -> Result<Self, Error> {
         let info = get_info(communication.as_ref()).await?;
+        // communication message framing since 7.0.0
+        if !semver::VersionReq::parse(">=7.0.0")
+            .or(Err(Error::Unknown))?
+            .matches(&info.version)
+        {
+            return Err(Error::Version(">=7.0.0"));
+        }
+
         Ok(HwwCommunication {
             communication,
             info,
@@ -206,14 +214,6 @@ impl<R: Runtime> HwwCommunication<R> {
     }
 
     pub async fn query(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
-        if !semver::VersionReq::parse(">=7.0.0")
-            .or(Err(Error::Unknown))?
-            .matches(&self.info.version)
-        {
-            // msg framing since 7.0.0
-            return Err(Error::MinVersion("7.0.0"));
-        }
-
         let mut framed_msg = Vec::from([HWW_REQ_NEW]);
         framed_msg.extend_from_slice(msg);
 

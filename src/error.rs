@@ -3,6 +3,8 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use enum_assoc::Assoc;
 
+use crate::communication;
+
 #[cfg_attr(feature = "wasm", derive(Assoc), func(pub const fn js_code(&self) -> &'static str))]
 #[derive(Error, Debug)]
 pub enum BitBoxError {
@@ -44,9 +46,12 @@ pub enum Error {
     #[error("unknown error")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "unknown".into()))]
     Unknown,
+    #[error("firmware version {0} required")]
+    #[cfg_attr(feature = "wasm", assoc(js_code = "version".into()))]
+    Version(&'static str),
     #[error("communication error: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "communication".into()))]
-    Communication(#[from] crate::communication::Error),
+    Communication(communication::Error),
     #[error("noise channel error")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "noise".into()))]
     Noise,
@@ -80,4 +85,13 @@ pub enum Error {
     #[error("EIP-712 typed message processing error: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "eth-typed-message".into()))]
     EthTypedMessage(String),
+}
+
+impl From<communication::Error> for Error {
+    fn from(value: communication::Error) -> Self {
+        match value {
+            communication::Error::Version(s) => Error::Version(s),
+            e => Error::Communication(e),
+        }
+    }
 }
