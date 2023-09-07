@@ -13,7 +13,7 @@ pub use bitcoin::bip32::{ExtendedPubKey, Fingerprint};
 use enum_assoc::Assoc;
 
 #[cfg(feature = "serde")]
-pub fn serde_deserialize_simple_type<'de, D>(deserializer: D) -> Result<i32, D::Error>
+pub(crate) fn serde_deserialize_simple_type<'de, D>(deserializer: D) -> Result<i32, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -22,17 +22,16 @@ where
 }
 
 #[cfg(feature = "serde")]
-pub fn serde_deserialize_script_config<'de, D>(
-    deserializer: D,
-) -> Result<Option<pb::BtcScriptConfig>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::Deserialize;
-    let config = pb::btc_script_config::Config::deserialize(deserializer)?;
-    Ok(Some(pb::BtcScriptConfig {
-        config: Some(config),
-    }))
+#[derive(serde::Deserialize)]
+pub(crate) struct SerdeScriptConfig(pb::btc_script_config::Config);
+
+#[cfg(feature = "serde")]
+impl From<SerdeScriptConfig> for pb::BtcScriptConfig {
+    fn from(value: SerdeScriptConfig) -> Self {
+        pb::BtcScriptConfig {
+            config: Some(value.0),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

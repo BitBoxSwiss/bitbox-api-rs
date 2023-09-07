@@ -148,12 +148,8 @@ impl TryFrom<TsBtcPolicy> for crate::pb::btc_script_config::Policy {
 impl TryFrom<TsBtcScriptConfig> for crate::pb::BtcScriptConfig {
     type Error = JavascriptError;
     fn try_from(value: TsBtcScriptConfig) -> Result<Self, Self::Error> {
-        let config: crate::pb::btc_script_config::Config =
-            serde_wasm_bindgen::from_value(value.into())
-                .map_err(|_| JavascriptError::InvalidType("wrong type for BtcScriptConfig"))?;
-        Ok(crate::pb::BtcScriptConfig {
-            config: Some(config),
-        })
+        serde_wasm_bindgen::from_value(value.into())
+            .map_err(|_| JavascriptError::InvalidType("wrong type for BtcScriptConfig"))
     }
 }
 
