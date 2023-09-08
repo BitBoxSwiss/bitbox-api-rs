@@ -68,12 +68,7 @@ pub struct BitBox<R: Runtime> {
 pub type PairingCode = String;
 
 impl<R: Runtime> BitBox<R> {
-    /// Creates a new BitBox instance. The provided noise config determines how the pairing
-    /// information is persisted.
-    ///
-    /// Use `bitbox_api::PersistedNoiseConfig::new(...)` to persist the pairing in a JSON file
-    /// (`serde` feature required) or provide your own implementation of the `NoiseConfig` trait.
-    pub async fn from(
+    async fn from(
         device: Box<dyn communication::ReadWrite>,
         noise_config: Box<dyn NoiseConfig>,
     ) -> Result<BitBox<R>, Error> {
@@ -81,6 +76,23 @@ impl<R: Runtime> BitBox<R> {
             communication: HwwCommunication::from(device).await?,
             noise_config,
         })
+    }
+
+    /// Creates a new BitBox instance. The provided noise config determines how the pairing
+    /// information is persisted. Use `usb::get_any_bitbox02()` to find a BitBox02 HID device.
+    ///
+    /// Use `bitbox_api::PersistedNoiseConfig::new(...)` to persist the pairing in a JSON file
+    /// (`serde` feature required) or provide your own implementation of the `NoiseConfig` trait.
+    #[cfg(feature = "usb")]
+    pub async fn from_hid_device(
+        device: hidapi::HidDevice,
+        noise_config: Box<dyn NoiseConfig>,
+    ) -> Result<BitBox<R>, Error> {
+        let comm = Box::new(communication::U2fHidCommunication::from(
+            Box::new(crate::usb::HidDevice::new(device)),
+            communication::FIRMWARE_CMD,
+        ));
+        Self::from(comm, noise_config).await
     }
 
     /// Invokes the device unlock and pairing.

@@ -1,9 +1,11 @@
 async fn demo<R: bitbox_api::runtime::Runtime + Sync + Send>() {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
-    let bitbox =
-        bitbox_api::BitBox::<R>::from(bitbox_api::usb::get_any_bitbox02().unwrap(), noise_config)
-            .await
-            .unwrap();
+    let bitbox = bitbox_api::BitBox::<R>::from_hid_device(
+        bitbox_api::usb::get_any_bitbox02().unwrap(),
+        noise_config,
+    )
+    .await
+    .unwrap();
     let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
     if let Some(pairing_code) = pairing_bitbox.get_pairing_code().as_ref() {
         println!("Pairing code\n{}", pairing_code);

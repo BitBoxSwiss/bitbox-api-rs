@@ -49,6 +49,9 @@ pub enum Error {
     #[error("firmware version {0} required")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "version".into()))]
     Version(&'static str),
+    #[cfg(feature = "usb")]
+    #[error("hid error: {0}")]
+    Hid(#[from] hidapi::HidError),
     #[error("communication error: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "communication".into()))]
     Communication(communication::Error),

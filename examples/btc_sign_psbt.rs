@@ -5,10 +5,12 @@ async fn sign_psbt<R: bitbox_api::runtime::Runtime>(
     psbt: &mut bitcoin::psbt::PartiallySignedTransaction,
 ) {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
-    let d =
-        bitbox_api::BitBox::<R>::from(bitbox_api::usb::get_any_bitbox02().unwrap(), noise_config)
-            .await
-            .unwrap();
+    let d = bitbox_api::BitBox::<R>::from_hid_device(
+        bitbox_api::usb::get_any_bitbox02().unwrap(),
+        noise_config,
+    )
+    .await
+    .unwrap();
     let pairing_device = d.unlock_and_pair().await.unwrap();
     if let Some(pairing_code) = pairing_device.get_pairing_code().as_ref() {
         println!("Pairing code\n{}", pairing_code);

@@ -4,7 +4,7 @@ use bitbox_api::pb;
 
 async fn get_bitbox02() -> bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime> {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
-    let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from(
+    let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from_hid_device(
         bitbox_api::usb::get_any_bitbox02().unwrap(),
         noise_config,
     )

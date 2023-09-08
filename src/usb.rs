@@ -5,9 +5,7 @@ use thiserror::Error;
 #[cfg(feature = "multithreaded")]
 use std::sync::Mutex;
 
-use super::communication::{
-    Error as CommunicationError, ReadWrite, U2fHidCommunication, FIRMWARE_CMD,
-};
+use super::communication::{Error as CommunicationError, ReadWrite};
 
 /// The hid product string of the multi edition firmware.
 const FIRMWARE_PRODUCT_STRING_MULTI: &str = "BitBox02";
@@ -15,21 +13,21 @@ const FIRMWARE_PRODUCT_STRING_MULTI: &str = "BitBox02";
 const FIRMWARE_PRODUCT_STRING_BTCONLY: &str = "BitBox02BTC";
 
 #[cfg(feature = "multithreaded")]
-pub struct HidDevice(Mutex<hidapi::HidDevice>);
+pub(crate) struct HidDevice(Mutex<hidapi::HidDevice>);
 
 #[cfg(not(feature = "multithreaded"))]
-pub struct HidDevice(hidapi::HidDevice);
+pub(crate) struct HidDevice(hidapi::HidDevice);
 
 impl crate::util::Threading for HidDevice {}
 
 impl HidDevice {
     #[cfg(feature = "multithreaded")]
-    fn new(device: hidapi::HidDevice) -> Self {
+    pub(crate) fn new(device: hidapi::HidDevice) -> Self {
         HidDevice(Mutex::new(device))
     }
 
     #[cfg(not(feature = "multithreaded"))]
-    fn new(device: hidapi::HidDevice) -> Self {
+    pub(crate) fn new(device: hidapi::HidDevice) -> Self {
         HidDevice(device)
     }
 
@@ -72,7 +70,9 @@ pub enum UsbError {
     NotFound,
 }
 
-fn is_bitbox02(device_info: &hidapi::DeviceInfo) -> bool {
+/// Returns true if this device is a BitBox02 device (any edition). This does not identify BitBox02
+/// bootloaders.
+pub fn is_bitbox02(device_info: &hidapi::DeviceInfo) -> bool {
     (matches!(
         device_info.product_string(),
         Some(FIRMWARE_PRODUCT_STRING_MULTI)
@@ -84,15 +84,13 @@ fn is_bitbox02(device_info: &hidapi::DeviceInfo) -> bool {
         && (device_info.usage_page() == 0xffff || device_info.interface_number() == 0)
 }
 
-/// Returns the first BitBox02 HID device that is found, or `Err(UsbError::NotFound)` if none is
-/// available.
-pub fn get_any_bitbox02() -> Result<Box<dyn ReadWrite>, UsbError> {
+/// Returns the first BitBox02 HID device info that is found, or `Err(UsbError::NotFound)` if none
+/// is available.
+pub fn get_any_bitbox02() -> Result<hidapi::HidDevice, UsbError> {
     let api = hidapi::HidApi::new().unwrap();
     for device_info in api.device_list() {
         if is_bitbox02(device_info) {
-            let device = Box::new(HidDevice::new(device_info.open_device(&api)?));
-            let communication = Box::new(U2fHidCommunication::from(device, FIRMWARE_CMD));
-            return Ok(communication);
+            return Ok(device_info.open_device(&api)?);
         }
     }
     Err(UsbError::NotFound)
