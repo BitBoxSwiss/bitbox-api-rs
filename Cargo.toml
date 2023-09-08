@@ -38,7 +38,6 @@ web-sys = { version = "0.3.64", features = ["Storage", "Window"], optional = tru
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
-futures = { version = "0.3.28", default-features = false, features = ["executor"] }
 
 [build-dependencies]
 prost-build = { version = "0.11" }
