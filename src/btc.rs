@@ -419,15 +419,8 @@ impl Transaction {
         let mut outputs: Vec<TxOutput> = Vec::new();
         for (tx_output, psbt_output) in psbt.unsigned_tx.output.iter().zip(&psbt.outputs) {
             let our_key = find_our_key(our_root_fingerprint, psbt_output);
+            // Either change output or a non-change output owned by the BitBox.
             match our_key {
-                // Either change output or a non-change output owned by the BitBox.
-                //
-                // TODO: the BitBox rejects outputs that come with a keypath which are not change
-                // keypaths. Some wallets supply the keypath for outputs even for non-change
-                // outputs. Normally we could check here if the second-to-last keypath element is a
-                // `1`, but that does not work for wallet policies using multipath, like
-                // `wsh(pk/@0/<10;11>/*))`, where the change element would be `11`.  The BitBox
-                // probably needs to relax the output change requirement.
                 Ok(our_key) => {
                     let script_config_index = if is_script_config_forced {
                         0
@@ -824,6 +817,11 @@ impl<R: Runtime> PairedBitBox<R> {
         force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<(), Error> {
+        // since v9.15.0, the BitBox02 accepts "internal" outputs (ones sent to the BitBox02 with
+        // the keypath) even if the keypath is not a change keypath. PSBTs often contain the key
+        // origin info in outputs even in regular send-to-self outputs.
+        self.validate_version(">=9.15.0")?;
+
         let our_root_fingerprint = hex::decode(&self.root_fingerprint().await?).unwrap();
         let (transaction, our_keys) =
             Transaction::from_psbt(&our_root_fingerprint, psbt, force_script_config)?;
