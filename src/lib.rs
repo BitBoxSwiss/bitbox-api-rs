@@ -23,7 +23,7 @@ mod util;
 
 /// BitBox protobuf messages.
 pub mod pb {
-    include!(concat!(env!("OUT_DIR"), "/shiftcrypto.bitbox02.rs"));
+    include!("./shiftcrypto.bitbox02.rs");
 }
 
 use crate::error::{BitBoxError, Error};

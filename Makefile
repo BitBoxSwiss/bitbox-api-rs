@@ -1,3 +1,5 @@
+build-protos:
+	rust-script scripts/build-protos.rs
 example-singlethreaded:
 	cargo run --example singlethreaded --features=usb,tokio/rt,tokio/macros
 example-multithreaded:

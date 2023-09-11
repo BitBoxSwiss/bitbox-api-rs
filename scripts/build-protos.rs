@@ -1,6 +1,10 @@
+//! ```cargo
+//! [dependencies]
+//! prost-build = { version = "0.11" }
+//! ```
+
 use std::io::Result;
 
-#[cfg(feature = "serde")]
 fn add_serde_attrs(c: &mut prost_build::Config) {
     let type_attrs = &[
         (".", "derive(serde::Serialize, serde::Deserialize)"),
@@ -86,19 +90,22 @@ fn add_serde_attrs(c: &mut prost_build::Config) {
     ];
 
     for (path, attr) in type_attrs {
-        c.type_attribute(path, &format!("#[{}]", attr));
+        c.type_attribute(path, &format!("#[cfg_attr(feature=\"serde\", {})]", attr));
     }
 
     for (path, attr) in field_attrs {
-        c.field_attribute(path, &format!("#[{}]", attr));
+        c.field_attribute(path, &format!("#[cfg_attr(feature=\"serde\", {})]", attr));
     }
 }
 
-fn main() -> Result<()> {
+fn generate_proto() -> Result<()> {
     let mut config = prost_build::Config::new();
-    #[cfg(feature = "serde")]
+    config.out_dir("src/");
     add_serde_attrs(&mut config);
 
-    config.compile_protos(&["src/messages/hww.proto"], &["src/messages/"])?;
-    Ok(())
+    config.compile_protos(&["messages/hww.proto"], &["messages/"])
+}
+
+fn main() -> Result<()> {
+    generate_proto()
 }
