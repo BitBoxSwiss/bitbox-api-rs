@@ -72,7 +72,7 @@ impl From<&Keypath> for crate::pb::Keypath {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "wasm")]
 impl<'de> serde::Deserialize<'de> for Keypath {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -83,7 +83,7 @@ impl<'de> serde::Deserialize<'de> for Keypath {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "wasm")]
 pub fn serde_deserialize<'de, D>(deserializer: D) -> Result<Vec<u32>, D::Error>
 where
     D: serde::Deserializer<'de>,

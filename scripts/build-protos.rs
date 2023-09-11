@@ -90,11 +90,11 @@ fn add_serde_attrs(c: &mut prost_build::Config) {
     ];
 
     for (path, attr) in type_attrs {
-        c.type_attribute(path, &format!("#[cfg_attr(feature=\"serde\", {})]", attr));
+        c.type_attribute(path, &format!("#[cfg_attr(feature=\"wasm\", {})]", attr));
     }
 
     for (path, attr) in field_attrs {
-        c.field_attribute(path, &format!("#[cfg_attr(feature=\"serde\", {})]", attr));
+        c.field_attribute(path, &format!("#[cfg_attr(feature=\"wasm\", {})]", attr));
     }
 }
 

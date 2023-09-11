@@ -84,18 +84,14 @@ usb = ["dep:hidapi"]
 wasm = [
   "dep:enum-assoc",
   "dep:js-sys",
-  "serde",
   "dep:serde-wasm-bindgen",
   "dep:web-sys",
   "dep:wasm-bindgen",
   "dep:wasm-bindgen-futures",
+  "hex/serde",
+  "bitcoin/serde",
   # Reduces the secp256k1 precompute table to decrease the WASM binary
   # size significantly.
   "bitcoin/secp-lowmemory",
   "getrandom/js",
-]
-
-serde = [
-  "hex/serde",
-  "bitcoin/serde",
 ]

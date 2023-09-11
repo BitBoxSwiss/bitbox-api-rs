@@ -1,29 +1,29 @@
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PubResponse {
     #[prost(string, tag = "1")]
     pub r#pub: ::prost::alloc::string::String,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RootFingerprintRequest {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RootFingerprintResponse {
     #[prost(bytes = "vec", tag = "1")]
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "hex::serde::deserialize"))]
+    #[cfg_attr(feature = "wasm", serde(deserialize_with = "hex::serde::deserialize"))]
     pub fingerprint: ::prost::alloc::vec::Vec<u8>,
 }
 /// See <https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki.>
 /// version field dropped as it will set dynamically based on the context (xpub, ypub, etc.).
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct XPub {
@@ -39,21 +39,21 @@ pub struct XPub {
     pub public_key: ::prost::alloc::vec::Vec<u8>,
 }
 /// This message exists for use in oneof or repeated fields, where one can't inline `repeated uint32` due to protobuf rules.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Keypath {
     #[prost(uint32, repeated, tag = "1")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "serde", serde(try_from = "crate::btc::KeyOriginInfo"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", serde(try_from = "crate::btc::KeyOriginInfo"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct KeyOriginInfo {
@@ -61,23 +61,23 @@ pub struct KeyOriginInfo {
     pub root_fingerprint: ::prost::alloc::vec::Vec<u8>,
     #[prost(uint32, repeated, tag = "2")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
     #[prost(message, optional, tag = "3")]
     pub xpub: ::core::option::Option<XPub>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckBackupRequest {
     #[prost(bool, tag = "1")]
     pub silent: bool,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckBackupResponse {
@@ -85,8 +85,8 @@ pub struct CheckBackupResponse {
     pub id: ::prost::alloc::string::String,
 }
 /// Timestamp must be in UTC
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateBackupRequest {
@@ -95,13 +95,13 @@ pub struct CreateBackupRequest {
     #[prost(int32, tag = "2")]
     pub timezone_offset: i32,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListBackupsRequest {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BackupInfo {
@@ -113,16 +113,16 @@ pub struct BackupInfo {
     #[prost(string, tag = "4")]
     pub name: ::prost::alloc::string::String,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListBackupsResponse {
     #[prost(message, repeated, tag = "1")]
     pub info: ::prost::alloc::vec::Vec<BackupInfo>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RestoreBackupRequest {
@@ -133,26 +133,26 @@ pub struct RestoreBackupRequest {
     #[prost(int32, tag = "3")]
     pub timezone_offset: i32,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckSdCardRequest {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckSdCardResponse {
     #[prost(bool, tag = "1")]
     pub inserted: bool,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeviceInfoRequest {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeviceInfoResponse {
@@ -170,8 +170,8 @@ pub struct DeviceInfoResponse {
     #[prost(string, tag = "6")]
     pub securechip_model: ::prost::alloc::string::String,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InsertRemoveSdCardRequest {
@@ -180,8 +180,8 @@ pub struct InsertRemoveSdCardRequest {
 }
 /// Nested message and enum types in `InsertRemoveSDCardRequest`.
 pub mod insert_remove_sd_card_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -219,62 +219,62 @@ pub mod insert_remove_sd_card_request {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResetRequest {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetDeviceLanguageRequest {
     #[prost(string, tag = "1")]
     pub language: ::prost::alloc::string::String,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetDeviceNameRequest {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetPasswordRequest {
     #[prost(bytes = "vec", tag = "1")]
     pub entropy: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AntiKleptoHostNonceCommitment {
     #[prost(bytes = "vec", tag = "1")]
     pub commitment: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AntiKleptoSignerCommitment {
     #[prost(bytes = "vec", tag = "1")]
     pub commitment: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AntiKleptoSignatureRequest {
     #[prost(bytes = "vec", tag = "1")]
     pub host_nonce: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "serde", serde(try_from = "crate::btc::SerdeScriptConfig"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", serde(try_from = "crate::btc::SerdeScriptConfig"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcScriptConfig {
@@ -283,8 +283,8 @@ pub struct BtcScriptConfig {
 }
 /// Nested message and enum types in `BTCScriptConfig`.
 pub mod btc_script_config {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Multisig {
@@ -303,8 +303,8 @@ pub mod btc_script_config {
     }
     /// Nested message and enum types in `Multisig`.
     pub mod multisig {
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+        #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
         #[derive(
             Clone,
             Copy,
@@ -346,8 +346,8 @@ pub mod btc_script_config {
     }
     /// A policy as specified by 'Wallet policies':
     /// <https://github.com/bitcoin/bips/pull/1389>
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Policy {
@@ -357,8 +357,8 @@ pub mod btc_script_config {
         pub keys: ::prost::alloc::vec::Vec<super::KeyOriginInfo>,
     }
     /// SimpleType is a "simple" script: one public key, no additional inputs.
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -398,14 +398,14 @@ pub mod btc_script_config {
             }
         }
     }
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Config {
         #[prost(enumeration = "SimpleType", tag = "1")]
         #[cfg_attr(
-            feature = "serde",
+            feature = "wasm",
             serde(deserialize_with = "crate::btc::serde_deserialize_simple_type")
         )]
         SimpleType(i32),
@@ -415,8 +415,8 @@ pub mod btc_script_config {
         Policy(Policy),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcPubRequest {
@@ -424,7 +424,7 @@ pub struct BtcPubRequest {
     pub coin: i32,
     #[prost(uint32, repeated, tag = "2")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -435,8 +435,8 @@ pub struct BtcPubRequest {
 }
 /// Nested message and enum types in `BTCPubRequest`.
 pub mod btc_pub_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -459,16 +459,16 @@ pub mod btc_pub_request {
         Vpub = 4,
         Upub = 5,
         /// Vpub
-        #[cfg_attr(feature = "serde", serde(rename = "Vpub"))]
+        #[cfg_attr(feature = "wasm", serde(rename = "Vpub"))]
         CapitalVpub = 6,
         /// Zpub
-        #[cfg_attr(feature = "serde", serde(rename = "Zpub"))]
+        #[cfg_attr(feature = "wasm", serde(rename = "Zpub"))]
         CapitalZpub = 7,
         /// Upub
-        #[cfg_attr(feature = "serde", serde(rename = "Upub"))]
+        #[cfg_attr(feature = "wasm", serde(rename = "Upub"))]
         CapitalUpub = 8,
         /// Ypub
-        #[cfg_attr(feature = "serde", serde(rename = "Ypub"))]
+        #[cfg_attr(feature = "wasm", serde(rename = "Ypub"))]
         CapitalYpub = 9,
     }
     impl XPubType {
@@ -507,8 +507,8 @@ pub mod btc_pub_request {
             }
         }
     }
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Output {
@@ -518,8 +518,8 @@ pub mod btc_pub_request {
         ScriptConfig(super::BtcScriptConfig),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcScriptConfigWithKeypath {
@@ -527,13 +527,13 @@ pub struct BtcScriptConfigWithKeypath {
     pub script_config: ::core::option::Option<BtcScriptConfig>,
     #[prost(uint32, repeated, tag = "3")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSignInitRequest {
@@ -557,8 +557,8 @@ pub struct BtcSignInitRequest {
 }
 /// Nested message and enum types in `BTCSignInitRequest`.
 pub mod btc_sign_init_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -598,8 +598,8 @@ pub mod btc_sign_init_request {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSignNextResponse {
@@ -624,8 +624,8 @@ pub struct BtcSignNextResponse {
 }
 /// Nested message and enum types in `BTCSignNextResponse`.
 pub mod btc_sign_next_response {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -679,8 +679,8 @@ pub mod btc_sign_next_response {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSignInputRequest {
@@ -696,7 +696,7 @@ pub struct BtcSignInputRequest {
     /// all inputs must be ours.
     #[prost(uint32, repeated, tag = "6")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -706,8 +706,8 @@ pub struct BtcSignInputRequest {
     #[prost(message, optional, tag = "8")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSignOutputRequest {
@@ -725,7 +725,7 @@ pub struct BtcSignOutputRequest {
     /// if ours is true
     #[prost(uint32, repeated, tag = "5")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -733,8 +733,8 @@ pub struct BtcSignOutputRequest {
     #[prost(uint32, tag = "6")]
     pub script_config_index: u32,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcScriptConfigRegistration {
@@ -745,34 +745,34 @@ pub struct BtcScriptConfigRegistration {
     /// Unused for policy registrations.
     #[prost(uint32, repeated, tag = "3")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSuccess {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcIsScriptConfigRegisteredRequest {
     #[prost(message, optional, tag = "1")]
     pub registration: ::core::option::Option<BtcScriptConfigRegistration>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcIsScriptConfigRegisteredResponse {
     #[prost(bool, tag = "1")]
     pub is_registered: bool,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcRegisterScriptConfigRequest {
@@ -786,8 +786,8 @@ pub struct BtcRegisterScriptConfigRequest {
 }
 /// Nested message and enum types in `BTCRegisterScriptConfigRequest`.
 pub mod btc_register_script_config_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -827,8 +827,8 @@ pub mod btc_register_script_config_request {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcPrevTxInitRequest {
@@ -841,8 +841,8 @@ pub struct BtcPrevTxInitRequest {
     #[prost(uint32, tag = "4")]
     pub locktime: u32,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcPrevTxInputRequest {
@@ -855,8 +855,8 @@ pub struct BtcPrevTxInputRequest {
     #[prost(uint32, tag = "4")]
     pub sequence: u32,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcPrevTxOutputRequest {
@@ -865,8 +865,8 @@ pub struct BtcPrevTxOutputRequest {
     #[prost(bytes = "vec", tag = "2")]
     pub pubkey_script: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSignMessageRequest {
@@ -879,8 +879,8 @@ pub struct BtcSignMessageRequest {
     #[prost(message, optional, tag = "4")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSignMessageResponse {
@@ -888,8 +888,8 @@ pub struct BtcSignMessageResponse {
     #[prost(bytes = "vec", tag = "1")]
     pub signature: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcRequest {
@@ -898,8 +898,8 @@ pub struct BtcRequest {
 }
 /// Nested message and enum types in `BTCRequest`.
 pub mod btc_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Request {
@@ -919,8 +919,8 @@ pub mod btc_request {
         AntikleptoSignature(super::AntiKleptoSignatureRequest),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcResponse {
@@ -929,8 +929,8 @@ pub struct BtcResponse {
 }
 /// Nested message and enum types in `BTCResponse`.
 pub mod btc_response {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Response {
@@ -946,8 +946,8 @@ pub mod btc_response {
         AntikleptoSignerCommitment(super::AntiKleptoSignerCommitment),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum BtcCoin {
@@ -980,8 +980,8 @@ impl BtcCoin {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum BtcOutputType {
@@ -1020,25 +1020,25 @@ impl BtcOutputType {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoXpubsRequest {
     #[prost(message, repeated, tag = "1")]
     pub keypaths: ::prost::alloc::vec::Vec<Keypath>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoXpubsResponse {
     #[prost(bytes = "vec", repeated, tag = "1")]
     pub xpubs: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "serde", serde(try_from = "crate::cardano::SerdeScriptConfig"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", serde(try_from = "crate::cardano::SerdeScriptConfig"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoScriptConfig {
@@ -1051,20 +1051,20 @@ pub struct CardanoScriptConfig {
 }
 /// Nested message and enum types in `CardanoScriptConfig`.
 pub mod cardano_script_config {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct PkhSkh {
         #[prost(uint32, repeated, tag = "1")]
         #[cfg_attr(
-            feature = "serde",
+            feature = "wasm",
             serde(deserialize_with = "crate::keypath::serde_deserialize")
         )]
         pub keypath_payment: ::prost::alloc::vec::Vec<u32>,
         #[prost(uint32, repeated, tag = "2")]
         #[cfg_attr(
-            feature = "serde",
+            feature = "wasm",
             serde(deserialize_with = "crate::keypath::serde_deserialize")
         )]
         pub keypath_stake: ::prost::alloc::vec::Vec<u32>,
@@ -1073,8 +1073,8 @@ pub mod cardano_script_config {
     /// <https://github.com/cardano-foundation/CIPs/blob/6c249ef48f8f5b32efc0ec768fadf4321f3173f2/CIP-0019/CIP-0019.md>
     /// See also:
     /// <https://github.com/input-output-hk/cardano-ledger-specs/blob/d0aa86ded0b973b09b629e5aa62aa1e71364d088/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L137>
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Config {
@@ -1083,8 +1083,8 @@ pub mod cardano_script_config {
         PkhSkh(PkhSkh),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoAddressRequest {
@@ -1100,14 +1100,14 @@ pub struct CardanoAddressRequest {
 /// can fit the whole request in RAM and don't need to stream.
 ///
 /// See also: <https://github.com/input-output-hk/cardano-ledger-specs/blob/d0aa86ded0b973b09b629e5aa62aa1e71364d088/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L50>
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoSignTransactionRequest {
     #[prost(enumeration = "CardanoNetwork", tag = "1")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::cardano::serde_deserialize_network")
     )]
     pub network: i32,
@@ -1131,19 +1131,19 @@ pub struct CardanoSignTransactionRequest {
     pub validity_interval_start: u64,
     /// include ttl even if it is zero
     #[prost(bool, tag = "9")]
-    #[cfg_attr(feature = "serde", serde(rename = "allowZeroTTL"))]
+    #[cfg_attr(feature = "wasm", serde(rename = "allowZeroTTL"))]
     pub allow_zero_ttl: bool,
 }
 /// Nested message and enum types in `CardanoSignTransactionRequest`.
 pub mod cardano_sign_transaction_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Input {
         #[prost(uint32, repeated, tag = "1")]
         #[cfg_attr(
-            feature = "serde",
+            feature = "wasm",
             serde(deserialize_with = "crate::keypath::serde_deserialize")
         )]
         pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -1153,8 +1153,8 @@ pub mod cardano_sign_transaction_request {
         pub prev_out_index: u32,
     }
     /// <https://github.com/input-output-hk/cardano-ledger/blob/d0aa86ded0b973b09b629e5aa62aa1e71364d088/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L358>
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct AssetGroup {
@@ -1165,8 +1165,8 @@ pub mod cardano_sign_transaction_request {
     }
     /// Nested message and enum types in `AssetGroup`.
     pub mod asset_group {
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+        #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Token {
@@ -1177,9 +1177,9 @@ pub mod cardano_sign_transaction_request {
             pub value: u64,
         }
     }
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", serde(default))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Output {
@@ -1194,9 +1194,9 @@ pub mod cardano_sign_transaction_request {
         pub asset_groups: ::prost::alloc::vec::Vec<AssetGroup>,
     }
     /// See <https://github.com/input-output-hk/cardano-ledger-specs/blob/d0aa86ded0b973b09b629e5aa62aa1e71364d088/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L150>
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    #[cfg_attr(feature = "serde", serde(try_from = "crate::cardano::SerdeCert"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", serde(try_from = "crate::cardano::SerdeCert"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Certificate {
@@ -1205,22 +1205,22 @@ pub mod cardano_sign_transaction_request {
     }
     /// Nested message and enum types in `Certificate`.
     pub mod certificate {
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+        #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct StakeDelegation {
             #[prost(uint32, repeated, tag = "1")]
             #[cfg_attr(
-                feature = "serde",
+                feature = "wasm",
                 serde(deserialize_with = "crate::keypath::serde_deserialize")
             )]
             pub keypath: ::prost::alloc::vec::Vec<u32>,
             #[prost(bytes = "vec", tag = "2")]
             pub pool_keyhash: ::prost::alloc::vec::Vec<u8>,
         }
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+        #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Oneof)]
         pub enum Cert {
@@ -1232,14 +1232,14 @@ pub mod cardano_sign_transaction_request {
             StakeDelegation(StakeDelegation),
         }
     }
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Withdrawal {
         #[prost(uint32, repeated, tag = "1")]
         #[cfg_attr(
-            feature = "serde",
+            feature = "wasm",
             serde(deserialize_with = "crate::keypath::serde_deserialize")
         )]
         pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -1247,8 +1247,8 @@ pub mod cardano_sign_transaction_request {
         pub value: u64,
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoSignTransactionResponse {
@@ -1259,8 +1259,8 @@ pub struct CardanoSignTransactionResponse {
 }
 /// Nested message and enum types in `CardanoSignTransactionResponse`.
 pub mod cardano_sign_transaction_response {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct ShelleyWitness {
@@ -1270,8 +1270,8 @@ pub mod cardano_sign_transaction_response {
         pub signature: ::prost::alloc::vec::Vec<u8>,
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoRequest {
@@ -1280,8 +1280,8 @@ pub struct CardanoRequest {
 }
 /// Nested message and enum types in `CardanoRequest`.
 pub mod cardano_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Request {
@@ -1293,8 +1293,8 @@ pub mod cardano_request {
         SignTransaction(super::CardanoSignTransactionRequest),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CardanoResponse {
@@ -1303,8 +1303,8 @@ pub struct CardanoResponse {
 }
 /// Nested message and enum types in `CardanoResponse`.
 pub mod cardano_response {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Response {
@@ -1316,14 +1316,14 @@ pub mod cardano_response {
         SignTransaction(super::CardanoSignTransactionResponse),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum CardanoNetwork {
-    #[cfg_attr(feature = "serde", serde(rename = "mainnet"))]
+    #[cfg_attr(feature = "wasm", serde(rename = "mainnet"))]
     CardanoMainnet = 0,
-    #[cfg_attr(feature = "serde", serde(rename = "testnet"))]
+    #[cfg_attr(feature = "wasm", serde(rename = "testnet"))]
     CardanoTestnet = 1,
 }
 impl CardanoNetwork {
@@ -1346,14 +1346,14 @@ impl CardanoNetwork {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthPubRequest {
     #[prost(uint32, repeated, tag = "1")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -1372,8 +1372,8 @@ pub struct EthPubRequest {
 }
 /// Nested message and enum types in `ETHPubRequest`.
 pub mod eth_pub_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -1411,8 +1411,8 @@ pub mod eth_pub_request {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthSignRequest {
@@ -1421,7 +1421,7 @@ pub struct EthSignRequest {
     pub coin: i32,
     #[prost(uint32, repeated, tag = "2")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -1448,8 +1448,8 @@ pub struct EthSignRequest {
     #[prost(uint64, tag = "10")]
     pub chain_id: u64,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthSignMessageRequest {
@@ -1458,7 +1458,7 @@ pub struct EthSignMessageRequest {
     pub coin: i32,
     #[prost(uint32, repeated, tag = "2")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -1470,8 +1470,8 @@ pub struct EthSignMessageRequest {
     #[prost(uint64, tag = "5")]
     pub chain_id: u64,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthSignResponse {
@@ -1479,8 +1479,8 @@ pub struct EthSignResponse {
     #[prost(bytes = "vec", tag = "1")]
     pub signature: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthSignTypedMessageRequest {
@@ -1488,7 +1488,7 @@ pub struct EthSignTypedMessageRequest {
     pub chain_id: u64,
     #[prost(uint32, repeated, tag = "2")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
@@ -1501,8 +1501,8 @@ pub struct EthSignTypedMessageRequest {
 }
 /// Nested message and enum types in `ETHSignTypedMessageRequest`.
 pub mod eth_sign_typed_message_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct MemberType {
@@ -1517,8 +1517,8 @@ pub mod eth_sign_typed_message_request {
         #[prost(message, optional, boxed, tag = "4")]
         pub array_type: ::core::option::Option<::prost::alloc::boxed::Box<MemberType>>,
     }
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Member {
@@ -1527,8 +1527,8 @@ pub mod eth_sign_typed_message_request {
         #[prost(message, optional, tag = "2")]
         pub r#type: ::core::option::Option<MemberType>,
     }
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct StructType {
@@ -1537,8 +1537,8 @@ pub mod eth_sign_typed_message_request {
         #[prost(message, repeated, tag = "2")]
         pub members: ::prost::alloc::vec::Vec<Member>,
     }
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -1597,8 +1597,8 @@ pub mod eth_sign_typed_message_request {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthTypedMessageValueResponse {
@@ -1609,8 +1609,8 @@ pub struct EthTypedMessageValueResponse {
 }
 /// Nested message and enum types in `ETHTypedMessageValueResponse`.
 pub mod eth_typed_message_value_response {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -1651,16 +1651,16 @@ pub mod eth_typed_message_value_response {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthTypedMessageValueRequest {
     #[prost(bytes = "vec", tag = "1")]
     pub value: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthRequest {
@@ -1669,8 +1669,8 @@ pub struct EthRequest {
 }
 /// Nested message and enum types in `ETHRequest`.
 pub mod eth_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Request {
@@ -1688,8 +1688,8 @@ pub mod eth_request {
         TypedMsgValue(super::EthTypedMessageValueRequest),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthResponse {
@@ -1698,8 +1698,8 @@ pub struct EthResponse {
 }
 /// Nested message and enum types in `ETHResponse`.
 pub mod eth_response {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Response {
@@ -1714,8 +1714,8 @@ pub mod eth_response {
     }
 }
 /// Kept for backwards compatibility. Use chain_id instead, introduced in v9.10.0.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum EthCoin {
@@ -1747,33 +1747,33 @@ impl EthCoin {
         }
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ElectrumEncryptionKeyRequest {
     #[prost(uint32, repeated, tag = "1")]
     #[cfg_attr(
-        feature = "serde",
+        feature = "wasm",
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ElectrumEncryptionKeyResponse {
     #[prost(string, tag = "1")]
     pub key: ::prost::alloc::string::String,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ShowMnemonicRequest {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RestoreFromMnemonicRequest {
@@ -1782,16 +1782,16 @@ pub struct RestoreFromMnemonicRequest {
     #[prost(int32, tag = "2")]
     pub timezone_offset: i32,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetMnemonicPassphraseEnabledRequest {
     #[prost(bool, tag = "1")]
     pub enabled: bool,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RebootRequest {
@@ -1800,8 +1800,8 @@ pub struct RebootRequest {
 }
 /// Nested message and enum types in `RebootRequest`.
 pub mod reboot_request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[derive(
         Clone,
         Copy,
@@ -1840,8 +1840,8 @@ pub mod reboot_request {
     }
 }
 /// Deprecated, last used in v1.0.0
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PerformAttestationRequest {
@@ -1850,8 +1850,8 @@ pub struct PerformAttestationRequest {
     pub challenge: ::prost::alloc::vec::Vec<u8>,
 }
 /// Deprecated, last used in v1.0.0
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PerformAttestationResponse {
@@ -1866,8 +1866,8 @@ pub struct PerformAttestationResponse {
     #[prost(bytes = "vec", tag = "5")]
     pub challenge_signature: ::prost::alloc::vec::Vec<u8>,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Error {
@@ -1876,13 +1876,13 @@ pub struct Error {
     #[prost(string, tag = "2")]
     pub message: ::prost::alloc::string::String,
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Success {}
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Request {
@@ -1894,8 +1894,8 @@ pub struct Request {
 }
 /// Nested message and enum types in `Request`.
 pub mod request {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Request {
@@ -1953,8 +1953,8 @@ pub mod request {
         Cardano(super::CardanoRequest),
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Response {
@@ -1966,8 +1966,8 @@ pub struct Response {
 }
 /// Nested message and enum types in `Response`.
 pub mod response {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Response {

@@ -5,7 +5,7 @@ use crate::pb::{self, request::Request, response::Response};
 use crate::Keypath;
 use crate::PairedBitBox;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "wasm")]
 pub(crate) fn serde_deserialize_network<'de, D>(deserializer: D) -> Result<i32, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -15,11 +15,11 @@ where
     Ok(network as i32)
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "wasm")]
 #[derive(serde::Deserialize)]
 pub(crate) struct SerdeScriptConfig(pb::cardano_script_config::Config);
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "wasm")]
 impl From<SerdeScriptConfig> for pb::CardanoScriptConfig {
     fn from(value: SerdeScriptConfig) -> Self {
         pb::CardanoScriptConfig {
@@ -28,11 +28,11 @@ impl From<SerdeScriptConfig> for pb::CardanoScriptConfig {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "wasm")]
 #[derive(serde::Deserialize)]
 pub(crate) struct SerdeCert(pb::cardano_sign_transaction_request::certificate::Cert);
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "wasm")]
 impl From<SerdeCert> for pb::cardano_sign_transaction_request::Certificate {
     fn from(value: SerdeCert) -> Self {
         pb::cardano_sign_transaction_request::Certificate {

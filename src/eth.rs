@@ -84,7 +84,7 @@ impl<R: Runtime> PairedBitBox<R> {
 }
 
 #[cfg_attr(
-    feature = "serde",
+    feature = "wasm",
     derive(serde::Deserialize),
     serde(rename_all = "camelCase")
 )]

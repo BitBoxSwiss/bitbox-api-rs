@@ -4,9 +4,8 @@ set -e
 
 features=(
   "usb"
-  "usb,serde"
   "wasm"
-  "multithreaded,usb,serde"
+  "multithreaded,usb"
 )
 
 examples=(
