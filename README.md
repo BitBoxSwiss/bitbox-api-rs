@@ -1,7 +1,7 @@
 # BitBox02 Rust and TypeScript library
 
-The APIs of these libraries are currenly highly unstable. Expect frequent breaking changes until
-version 1.0.0.
+The APIs of these libraries are currenly unstable. Expect frequent breaking changes until version
+1.0.0.
 
 This repo contains both a BitBox02 client library for Rust and for TypeScript. The latter is
 produced from the Rust code using [Rust WASM](https://rustwasm.github.io/docs/book/).
@@ -11,11 +11,11 @@ package](https://www.npmjs.com/package/bitbox02-api).
 
 ## Rust
 
-Check out [examples/connect.rs](examples/connect.rs) for an example.
+Check out [examples/singlethreaded.rs](examples/singlethreaded.rs) for an example.
 
 To run the example:
 
-    cargo run --example connect --features=usb,tokio/rt,tokio/macros
+    cargo run --example singlethreaded --features=usb,tokio/rt,tokio/macros
 
 See Cargo.toml or the Makefile for further examples.
 
@@ -65,7 +65,7 @@ Run the sandbox using:
 Hot-reloading is supported - you can recompile the WASM or change the sandbox files without
 restarting the server.
 
-## Comand to update the BitBox02 protobuf message files
+## Command to update the BitBox02 protobuf message files
 
 Normally, Prost protobuf files are generated in `build.rs` during each compilation. This has a
 number of downsides:
