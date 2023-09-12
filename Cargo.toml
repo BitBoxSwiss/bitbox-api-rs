@@ -2,9 +2,13 @@
 name = "bitbox-api"
 authors = ["Marko Bencun <benma@bitbox.swiss>"]
 version = "0.1.0"
+homepage = "https://bitbox.swiss/"
+repository = "https://github.com/digitalbitbox/bitbox-api-rs/"
 edition = "2021"
 license = "Apache-2.0"
 description = "A library to interact with the BitBox02 hardware wallet"
+keywords = ["bitbox", "api", "bitcoin", "wasm"]
+categories = ["api-bindings", "cryptography"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
