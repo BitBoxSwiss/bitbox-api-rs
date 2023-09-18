@@ -446,8 +446,8 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Signs an Ethereum message. The provided msg will be prefixed with "\x19Ethereum message\n" +
     /// len(msg) in the hardware, e.g. "\x19Ethereum\n5hello" (yes, the len prefix is the ascii
-    /// representation with no fixed size or delimiter, WTF).  It returns a 65 byte signature (R, S,
-    /// and 1 byte recID). 27 is added to the recID to denote an uncompressed pubkey.
+    /// representation with no fixed size or delimiter).  It returns a 65 byte signature (R, S, and
+    /// 1 byte recID). 27 is added to the recID to denote an uncompressed pubkey.
     pub async fn eth_sign_message(
         &self,
         chain_id: u64,

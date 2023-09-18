@@ -42,7 +42,7 @@ impl From<SerdeCert> for pb::cardano_sign_transaction_request::Certificate {
 }
 
 /// Create a Shelley PaymentKeyHash/StakeKeyHash config.
-/// https://github.com/cardano-foundation/CIPs/blob/6c249ef48f8f5b32efc0ec768fadf4321f3173f2/CIP-0019/CIP-0019.md#shelley-addresses
+/// <https://github.com/cardano-foundation/CIPs/blob/6c249ef48f8f5b32efc0ec768fadf4321f3173f2/CIP-0019/CIP-0019.md#shelley-addresses>
 pub fn make_script_config_pkh_skh(
     keypath_payment: &Keypath,
     keypath_stake: &Keypath,
@@ -120,6 +120,7 @@ impl<R: Runtime> PairedBitBox<R> {
         }
     }
 
+    /// Sign a Cardano transaction.
     pub async fn cardano_sign_transaction(
         &self,
         transaction: pb::CardanoSignTransactionRequest,

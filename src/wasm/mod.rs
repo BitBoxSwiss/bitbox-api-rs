@@ -63,6 +63,17 @@ impl From<JavascriptError> for JsValue {
     }
 }
 
+/// Run any exception raised by this library through this function to get a typed error.
+///
+/// Example:
+/// ```
+/// try { ... }
+/// catch (err) {
+///   const typedErr: Error = bitbox.ensureError(err);
+///   // Handle error by checking the error code, displaying the error message, etc.
+/// }
+///
+/// See also: `isUserAbort()`.
 #[wasm_bindgen(js_name = ensureError)]
 pub fn ensure_error(err: JsValue) -> types::TsError {
     let code = js_sys::Reflect::get(&err, &"code".into());
@@ -77,6 +88,7 @@ pub fn ensure_error(err: JsValue) -> types::TsError {
     }
 }
 
+/// Returns true if the user cancelled an operation.
 #[wasm_bindgen(js_name = isUserAbort)]
 pub fn is_user_abort(err: types::TsError) -> bool {
     match js_sys::Reflect::get(&err, &"code".into()) {
@@ -102,33 +114,51 @@ impl crate::runtime::Runtime for WasmRuntime {
     }
 }
 
+/// BitBox client. Instantiate it using `bitbox02ConnectAuto()`.
 #[wasm_bindgen]
 pub struct BitBox(crate::BitBox<WasmRuntime>);
 
+/// BitBox in the pairing state. Use `getPairingCode()` to display the pairing code to the user and
+/// `waitConfirm()` to proceed to the paired state.
 #[wasm_bindgen]
 pub struct PairingBitBox(crate::PairingBitBox<WasmRuntime>);
 
+/// Paired BitBox. This is where you can invoke most API functions like getting xpubs, displaying
+/// receive addresses, etc.
 #[wasm_bindgen]
 pub struct PairedBitBox(crate::PairedBitBox<WasmRuntime>);
 
 #[wasm_bindgen]
 impl BitBox {
+    /// Invokes the device unlock and pairing. After this, stop using this instance and continue
+    /// with the returned instance of type `PairingBitBox`.
     #[wasm_bindgen(js_name = unlockAndPair)]
     pub async fn unlock_and_pair(self) -> Result<PairingBitBox, JavascriptError> {
         Ok(self.0.unlock_and_pair().await.map(PairingBitBox)?)
     }
 }
 
+/// BitBox in the pairing state. Use `getPairingCode()` to display the pairing code to the user and
+/// `waitConfirm()` to proceed to the paired state.
 #[wasm_bindgen]
 impl PairingBitBox {
-    #[wasm_bindgen(js_name = waitConfirm)]
-    pub async fn wait_confirm(self) -> Result<PairedBitBox, JavascriptError> {
-        Ok(self.0.wait_confirm().await.map(PairedBitBox)?)
-    }
-
+    /// If a pairing code confirmation is required, this returns the pairing code. You must display
+    /// it to the user and then call `waitConfirm()` to wait until the user confirms the code on
+    /// the BitBox.
+    ///
+    /// If the BitBox was paired before and the pairing was persisted, the pairing step is
+    /// skipped. In this case, `undefined` is returned. Also in this case, call `waitConfirm()` to
+    /// establish the encrypted connection.
     #[wasm_bindgen(js_name = getPairingCode)]
     pub fn get_pairing_code(&self) -> Option<String> {
         self.0.get_pairing_code()
+    }
+
+    /// Proceed to the paired state. After this, stop using this instance and continue with the
+    /// returned instance of type `PairedBitBox`.
+    #[wasm_bindgen(js_name = waitConfirm)]
+    pub async fn wait_confirm(self) -> Result<PairedBitBox, JavascriptError> {
+        Ok(self.0.wait_confirm().await.map(PairedBitBox)?)
     }
 }
 
@@ -137,6 +167,8 @@ fn compute_v(chain_id: u64, rec_id: u8) -> Option<u64> {
     (rec_id as u64 + 27).checked_add(v_offset)
 }
 
+/// Paired BitBox. This is where you can invoke most API functions like getting xpubs, displaying
+/// receive addresses, etc.
 #[wasm_bindgen]
 impl PairedBitBox {
     #[wasm_bindgen(js_name = deviceInfo)]
@@ -145,6 +177,7 @@ impl PairedBitBox {
         Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
 
+    /// Returns which product we are connected to.
     #[wasm_bindgen(js_name = product)]
     pub fn product(&self) -> types::TsProduct {
         match self.0.product() {
@@ -154,16 +187,20 @@ impl PairedBitBox {
         }
     }
 
+    /// Returns the hex-encoded 4-byte root fingerprint.
     #[wasm_bindgen(js_name = rootFingerprint)]
     pub async fn root_fingerprint(&self) -> Result<String, JavascriptError> {
         Ok(self.0.root_fingerprint().await?)
     }
 
+    /// Show recovery words on the Bitbox.
     #[wasm_bindgen(js_name = showMnemonic)]
     pub async fn show_mnemonic(&self) -> Result<(), JavascriptError> {
         Ok(self.0.show_mnemonic().await?)
     }
 
+    /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
+    /// `display` is false.
     #[wasm_bindgen(js_name = btcXpub)]
     pub async fn btc_xpub(
         &self,
@@ -183,6 +220,12 @@ impl PairedBitBox {
             .await?)
     }
 
+    /// Before a multisig or policy script config can be used to display receive addresses or sign
+    /// transactions, it must be registered on the device. This function checks if the script config
+    /// was already registered.
+    ///
+    /// `keypath_account` must be set if the script config is multisig, and can be `undefined` if it
+    /// is a policy.
     #[wasm_bindgen(js_name = btcIsScriptConfigRegistered)]
     pub async fn btc_is_script_config_registered(
         &self,
@@ -203,6 +246,16 @@ impl PairedBitBox {
             .await?)
     }
 
+    /// Before a multisig or policy script config can be used to display receive addresses or sign
+    /// transcations, it must be registered on the device.
+    ///
+    /// If no name is provided, the user will be asked to enter it on the device instead.  If
+    /// provided, it must be non-empty, smaller or equal to 30 chars, consist only of printable
+    /// ASCII characters, and contain no whitespace other than spaces.
+    ///
+    ///
+    /// `keypath_account` must be set if the script config is multisig, and can be `undefined` if it
+    /// is a policy.
     #[wasm_bindgen(js_name = btcRegisterScriptConfig)]
     pub async fn btc_register_script_config(
         &self,
@@ -227,6 +280,10 @@ impl PairedBitBox {
             .await?)
     }
 
+    /// Retrieves a Bitcoin address at the provided keypath.
+    ///
+    /// For the simple script configs (single-sig), the keypath must follow the
+    /// BIP44/BIP49/BIP84/BIP86 conventions.
     #[wasm_bindgen(js_name = btcAddress)]
     pub async fn btc_address(
         &self,
@@ -246,6 +303,14 @@ impl PairedBitBox {
             .await?)
     }
 
+    /// Sign a PSBT.
+    ///
+    /// If `force_script_config` is `undefined`, we attempt to infer the involved script
+    /// configs. For the simple script config (single sig), we infer the script config from the
+    /// involved redeem scripts and provided derviation paths.
+    ///
+    /// Multisig and policy configs are currently not inferred and must be provided using
+    /// `force_script_config`.
     #[wasm_bindgen(js_name = btcSignPSBT)]
     pub async fn btc_sign_psbt(
         &self,
@@ -269,16 +334,19 @@ impl PairedBitBox {
         Ok(psbt.to_string())
     }
 
+    /// Does this device support ETH functionality? Currently this means BitBox02 Multi.
     #[wasm_bindgen(js_name = ethSupported)]
     pub fn eth_supported(&self) -> bool {
         self.0.eth_supported()
     }
 
+    /// Query the device for an xpub.
     #[wasm_bindgen(js_name = ethXpub)]
     pub async fn eth_xpub(&self, keypath: types::TsKeypath) -> Result<String, JavascriptError> {
         Ok(self.0.eth_xpub(&keypath.try_into()?).await?)
     }
 
+    /// Query the device for an Ethereum address.
     #[wasm_bindgen(js_name = ethAddress)]
     pub async fn eth_address(
         &self,
@@ -292,6 +360,7 @@ impl PairedBitBox {
             .await?)
     }
 
+    /// Signs an Ethereum transaction. It returns a 65 byte signature (R, S, and 1 byte recID).
     #[wasm_bindgen(js_name = ethSignTransaction)]
     pub async fn eth_sign_transaction(
         &self,
@@ -315,6 +384,10 @@ impl PairedBitBox {
         .into())
     }
 
+    /// Signs an Ethereum message. The provided msg will be prefixed with "\x19Ethereum message\n" +
+    /// len(msg) in the hardware, e.g. "\x19Ethereum\n5hello" (yes, the len prefix is the ascii
+    /// representation with no fixed size or delimiter).  It returns a 65 byte signature (R, S, and
+    /// 1 byte recID). 27 is added to the recID to denote an uncompressed pubkey.
     #[wasm_bindgen(js_name = ethSignMessage)]
     pub async fn eth_sign_message(
         &self,
@@ -336,6 +409,8 @@ impl PairedBitBox {
         .into())
     }
 
+    /// Signs an Ethereum EIP-712 typed message. It returns a 65 byte signature (R, S, and 1 byte
+    /// recID). 27 is added to the recID to denote an uncompressed pubkey.
     #[wasm_bindgen(js_name = ethSignTypedMessage)]
     pub async fn eth_sign_typed_message(
         &self,
@@ -358,11 +433,14 @@ impl PairedBitBox {
         .into())
     }
 
+    /// Does this device support Cardano functionality? Currently this means BitBox02 Multi.
     #[wasm_bindgen(js_name = cardanoSupported)]
     pub fn cardano_supported(&self) -> bool {
         self.0.cardano_supported()
     }
 
+    /// Query the device for xpubs. The result contains one xpub per requested keypath. Each xpub is
+    /// 64 bytes: 32 byte chain code + 32 byte pubkey.
     #[wasm_bindgen(js_name = cardanoXpubs)]
     pub async fn cardano_xpubs(
         &self,
@@ -381,6 +459,7 @@ impl PairedBitBox {
         Ok(serde_wasm_bindgen::to_value(&xpubs).unwrap().into())
     }
 
+    /// Query the device for a Cardano address.
     #[wasm_bindgen(js_name = cardanoAddress)]
     pub async fn cardano_address(
         &self,
@@ -394,6 +473,7 @@ impl PairedBitBox {
             .await?)
     }
 
+    /// Sign a Cardano transaction.
     #[wasm_bindgen(js_name = cardanoSignTransaction)]
     pub async fn cardano_sign_transaction(
         &self,

@@ -504,7 +504,7 @@ impl From<KeyOriginInfo> for pb::KeyOriginInfo {
 }
 
 /// Create a wallet policy script config according to the wallet policies BIP:
-/// https://github.com/bitcoin/bips/pull/1389
+/// <https://github.com/bitcoin/bips/pull/1389>
 ///
 /// At least one of the keys must be ours, i.e. contain our root fingerprint and a keypath to one of
 /// our xpubs.
@@ -805,11 +805,12 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Sign a PSBT.
     ///
-    /// If force_script_config is None, we attempt to infer the involved script configs. For the
+    /// If `force_script_config` is None, we attempt to infer the involved script configs. For the
     /// simple script config (single sig), we infer the script config from the involved redeem
     /// scripts and provided derviation paths.
     ///
-    /// Multisig and policy configs are currently not inferred and must be provided.
+    /// Multisig and policy configs are currently not inferred and must be provided using
+    /// `force_script_config`.
     pub async fn btc_sign_psbt(
         &self,
         coin: pb::BtcCoin,
@@ -852,7 +853,7 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     /// Before a multisig or policy script config can be used to display receive addresses or sign
-    /// transcations, it must be registered on the device. This function checks if the script config
+    /// transactions, it must be registered on the device. This function checks if the script config
     /// was already registered.
     ///
     /// `keypath_account` must be set if the script config is multisig, and can be `None` if it is a

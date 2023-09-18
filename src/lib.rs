@@ -60,6 +60,7 @@ type HandshakeState =
 
 type CipherState = noise_protocol::CipherState<Cipher>;
 
+/// BitBox client. See `from_hid_device()`.
 pub struct BitBox<R: Runtime> {
     communication: communication::HwwCommunication<R>,
     noise_config: Box<dyn NoiseConfig>,
@@ -218,7 +219,7 @@ impl<R: Runtime> PairingBitBox<R> {
     /// it to the user and then call `wait_confirm()` to wait until the user confirms the code on
     /// the BitBox.
     ///
-    /// If the BitBox was paired before and the pairing was peristed, the pairing step is
+    /// If the BitBox was paired before and the pairing was persisted, the pairing step is
     /// skipped. In this case, `None` is returned. Also in this case, call `wait_confirm()` to
     /// establish the encrypted connection.
     pub fn get_pairing_code(&self) -> Option<String> {
