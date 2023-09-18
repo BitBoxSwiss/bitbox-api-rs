@@ -290,7 +290,7 @@ pub mod btc_script_config {
     pub struct Multisig {
         #[prost(uint32, tag = "1")]
         pub threshold: u32,
-        /// xpubs are acount-level xpubs. Addresses are going to be derived from it using: m/<change>/<receive>.
+        /// xpubs are acount-level xpubs. Addresses are going to be derived from it using: `m/<change>/<receive>`.
         /// The number of xpubs defines the number of cosigners.
         #[prost(message, repeated, tag = "2")]
         pub xpubs: ::prost::alloc::vec::Vec<super::XPub>,
