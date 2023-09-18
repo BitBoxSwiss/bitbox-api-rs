@@ -400,7 +400,6 @@ impl PairedBitBox {
         transaction: types::TsCardanoTransaction,
     ) -> Result<types::TsCardanoSignTransactionResult, JavascriptError> {
         let tt = transaction.try_into()?;
-        log(&format!("LOL {:?}", tt));
         let result = self.0.cardano_sign_transaction(tt).await?;
         Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
