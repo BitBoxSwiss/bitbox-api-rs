@@ -13,11 +13,8 @@ To run the example:
 
 See Cargo.toml or the Makefile for further examples.
 
-To see the library docs:
-
-    cargo doc --open
-
 ## TypeScript
+
 If you also need a TypeScript library follow these steps as well.
 
 Install wasm-pack using:
@@ -35,6 +32,7 @@ The Rust library can be compiled to WASM package including TypeScript definition
 The output of this compilation will be in `./pkg`, which is a NPM package ready to be used.
 
 ### M1 Macs
+
 The default system clang installation currently cannot build wasm32 targets on M1 Macs.
 Therefore a new clang compiler and archiver needs to be installed via:
 
@@ -45,6 +43,7 @@ In order to use that new clang compiler and archiver specify it when runing `mak
     AR=/opt/homebrew/opt/llvm/bin/llvm-ar CC=/opt/homebrew/opt/llvm/bin/clang make wasm
 
 ## Sandbox
+
 The [sandbox](sandbox/) subfolder contains a React project showcasing the TypeScript API. It
 has the library in `./pkg` as a dependency.
 
