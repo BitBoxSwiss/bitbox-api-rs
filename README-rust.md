@@ -1,6 +1,6 @@
 # BitBox02 library
 
-This is helps you to interact with the BitBox02 hardware wallet.
+A library to interact with the BitBox02 hardware wallet.
 
 Check out [examples/singlethreaded.rs](examples/singlethreaded.rs) for an example.
 

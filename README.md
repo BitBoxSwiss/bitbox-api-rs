@@ -1,6 +1,6 @@
 # BitBox02 TypeScript/WASM library
 
-This is helps you to interact with the BitBox02 hardware wallet.
+A library to interact with the BitBox02 hardware wallet.
 
 Check out the [sandbox project](./sandbox) project that shows how to use this library.
 
