@@ -2,7 +2,7 @@
 
 A library to interact with the BitBox02 hardware wallet.
 
-Check out the [sandbox project](./sandbox) project that shows how to use this library.
+Check out the [sandbox project](./sandbox) that shows how to use this library.
 
 Example:
 
