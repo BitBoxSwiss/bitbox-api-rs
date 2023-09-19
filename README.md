@@ -1,13 +1,7 @@
 # BitBox02 Rust and TypeScript library
 
-The APIs of these libraries are currenly unstable. Expect frequent breaking changes until version
-1.0.0.
-
 This repo contains both a BitBox02 client library for Rust and for TypeScript. The latter is
 produced from the Rust code using [Rust WASM](https://rustwasm.github.io/docs/book/).
-
-The TypeScript library is experimental. Over time, it might replace the [bitbox02-api NPM
-package](https://www.npmjs.com/package/bitbox02-api).
 
 ## Rust
 
