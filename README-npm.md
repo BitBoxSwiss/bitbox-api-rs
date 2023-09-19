@@ -12,6 +12,9 @@ import * as bitbox from 'bitbox-api';
 // Run this in an e.g. a button onClick event handler.
 async function example() {
   try {
+    const onClose = () => {
+      // Handle disconnect.
+    };
     const unpaired = await bitbox.bitbox02ConnectAuto(onClose);
     const pairing = await unpaired.unlockAndPair();
     const pairingCode = pairing.getPairingCode();
@@ -20,7 +23,7 @@ async function example() {
     }
     const bb02 = await pairing.waitConfirm();
     console.log('Product', bb02.product());
-    console.log('Suports Ethereum functionality (Multi edition?', bb02.ethSupported());
+    console.log('Supports Ethereum functionality (Multi edition)?', bb02.ethSupported());
     const deviceInfos = await bb02.deviceInfo();
     console.log('Device infos:', deviceInfos);
   } catch (err) {
