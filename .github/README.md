@@ -9,7 +9,7 @@ See [README-rust.md](../README-rust.md).
 
 ## TypeScript
 
-The NPM package's README is located at [README.md](../README.md).
+The NPM package's README is located at [README-npm.md](../README-npm.md).
 
 To build the TypeScript library, follow these steps:
 
