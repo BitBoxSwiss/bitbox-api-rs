@@ -1,4 +1,4 @@
-async fn demo<R: bitbox_api::runtime::Runtime + Sync + Send>() {
+async fn demo<R: bitbox_api::runtime::Runtime>() {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
     let bitbox = bitbox_api::BitBox::<R>::from_hid_device(
         bitbox_api::usb::get_any_bitbox02().unwrap(),

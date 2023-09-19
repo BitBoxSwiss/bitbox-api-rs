@@ -1,0 +1,23 @@
+# Demo WebApp project
+
+This folder contains a React project showcasing the TypeScript API. It has the library in `../pkg`
+as a dependency. See how to build this depdenency locally at the [main README](../.github/README.md).
+
+The main entry point of the sandbox is at <./sandbox/src/App.tsx>.
+
+The full package API is described by the TypeScript definitions file `../pkg/bitbox_api.d.ts`.
+
+Install the deps using:
+
+    npm i
+
+Run the sandbox using:
+
+    npm run dev
+
+Hot-reloading is supported - you can recompile the WASM or change the sandbox files without
+restarting the server.
+
+To build the sandbox:
+
+    npm run build

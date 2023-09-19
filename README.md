@@ -1,102 +1,66 @@
-# BitBox02 Rust and TypeScript library
+# BitBox02 TypeScript/WASM library
 
-This repo contains both a BitBox02 client library for Rust and for TypeScript. The latter is
-produced from the Rust code using [Rust WASM](https://rustwasm.github.io/docs/book/).
+This is helps you to interact with the BitBox02 hardware wallet.
 
-## Rust
+Check out the [sandbox project](./sandbox) project that shows how to use this library.
 
-Check out [examples/singlethreaded.rs](examples/singlethreaded.rs) for an example.
+Example:
 
-To run the example:
+```typescript
+import * as bitbox from 'bitbox-api';
 
-    cargo run --example singlethreaded --features=usb,tokio/rt,tokio/macros
-
-See Cargo.toml or the Makefile for further examples.
-
-## TypeScript
-
-If you also need a TypeScript library follow these steps as well.
-
-Install wasm-pack using:
-
-    cargo install wasm-pack
-
-If not yet installed, install clang so libsecp256k1 can be cross compiled, e.g. on Ubuntu:
-
-    sudo apt-get install clang
-
-The Rust library can be compiled to WASM package including TypeScript definitions using:
-
-    make wasm
-
-The output of this compilation will be in `./pkg`, which is a NPM package ready to be used.
-
-### M1 Macs
-
-The default system clang installation currently cannot build wasm32 targets on M1 Macs.
-Therefore a new clang compiler and archiver needs to be installed via:
-
-    brew install llvm
-
-In order to use that new clang compiler and archiver specify it when runing `make wasm`:
-
-    AR=/opt/homebrew/opt/llvm/bin/llvm-ar CC=/opt/homebrew/opt/llvm/bin/clang make wasm
-
-## Sandbox
-
-The [sandbox](sandbox/) subfolder contains a React project showcasing the TypeScript API. It
-has the library in `./pkg` as a dependency.
-
-The main entry point of the sandbox is at [./sandbox/src/App.tsx](./sandbox/src/App.tsx).
-
-The full package API is described by the TypeScript definitions file `./pkg/bitbox_api.d.ts`.
-
-Run the sandbox using:
-
-    make run-sandbox
-
-Hot-reloading is supported - you can recompile the WASM or change the sandbox files without
-restarting the server.
-
-## Command to update the BitBox02 protobuf message files
-
-Normally, Prost protobuf files are generated in `build.rs` during each compilation. This has a
-number of downsides:
-
-- The generated .rs file is not committed and depends on the particular version of `prost-build`
-  that is used, as well as on the system installation of the `protoc` compiler.
-- As a consequence, re-building older version of this library might become tricky if the particular
-  versions of these tools are not easy to install in the future.
-- Downstream projects need to install `protoc` in order to build this library, on dev-machines, in
-  CI scripts, etc.
-
-By pre-generating the file and making it a regular committed source file, these problems fall away.
-
-As a maintainer/developer of this library, to update the protobuf messages, follow these steps:
-
-Clone the [BitBox02 firmware repo](https://github.com/digitalbitbox/bitbox02-firmware):
-
-Make sure you have `protoc` installed:
-
-On Ubuntu:
-
-    sudo apt-get install protobuf-compiler
-
-On MacOS:
-
-    brew install protobuf
-
-Install `rust-script`:
-
-    cargo install rust-script
-
-Then:
-
-```sh
-rm -rf messages/*.proto
-cp /path/to/bitbox02-firmware/messages/*.proto messages/
-rm messages/backup.proto
-make build-protos
+// Run this in an e.g. a button onClick event handler.
+async function example() {
+  try {
+    const unpaired = await bitbox.bitbox02ConnectAuto(onClose);
+    const pairing = await unpaired.unlockAndPair();
+    const pairingCode = pairing.getPairingCode();
+    if (pairingCode !== undefined) {
+      // Display pairingCode to user
+    }
+    const bb02 = await pairing.waitConfirm();
+    console.log('Product', bb02.product());
+    console.log('Suports Ethereum functionality (Multi edition?', bb02.ethSupported());
+    const deviceInfos = await bb02.deviceInfo();
+    console.log('Device infos:', deviceInfos);
+  } catch (err) {
+    const typedErr = bitbox.ensureError(err);
+    console.log(typedErr);
+  }
+}
 ```
 
-This will generate/update `./src/shiftcrypto.bitbox02.rs`.
+The package's `bitbox_api.d.ts` file contain a documentation of all types and functions.
+
+## WebPack
+
+In WebPack projects, enable the `asyncWebAssembly` and `topLeveLAwait` features in your
+`webpack.config.js` (see https://webpack.js.org/configuration/experiments/):
+
+```
+module.exports = {
+  //...
+  experiments: {
+    asyncWebAssembly: true,
+    topLevelAwait: true,
+  },
+};
+```
+
+## Vite:
+
+Here is a sample `vite.config.ts`:
+
+```
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react-swc'
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react(), wasm(), topLevelAwait()],
+})
+```
+
+You need to install the wasm and topLevelAwait plugins to add them to the project.
