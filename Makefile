@@ -17,6 +17,7 @@ example-cardano:
 wasm:
 	wasm-pack build --release --features=wasm
 	cp webhid.js pkg/
+	jq '.files += ["webhid.js"]' pkg/package.json > tmp.json && mv tmp.json pkg/package.json
 	cp README-npm.md pkg/README.md
 	du -sh pkg/bitbox_api_bg.wasm
 run-sandbox:

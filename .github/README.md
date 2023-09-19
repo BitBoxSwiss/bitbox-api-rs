@@ -21,6 +21,10 @@ If not yet installed, install clang so libsecp256k1 can be cross compiled, e.g. 
 
     sudo apt-get install clang
 
+Also install the `jq` tool:
+
+    sudo apt-get install jq
+
 The Rust library can be compiled to WASM package including TypeScript definitions using:
 
     make wasm
