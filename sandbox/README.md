@@ -1,9 +1,10 @@
 # Demo WebApp project
 
-This folder contains a React project showcasing the TypeScript API. It has the library in `../pkg`
-as a dependency. See how to build this depdenency locally at the [main README](../.github/README.md).
+This folder contains a React project showcasing the TypeScript API. It has the bitbox-api library in
+`../pkg` as a dependency. See how to build this dependency locally at the [main
+README](../.github/README.md).
 
-The main entry point of the sandbox is at <./sandbox/src/App.tsx>.
+The main entry point of the sandbox is at [./src/App.tsx](./src/App.tsx).
 
 The full package API is described by the TypeScript definitions file `../pkg/bitbox_api.d.ts`.
 
