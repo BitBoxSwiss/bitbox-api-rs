@@ -9,7 +9,7 @@ Example:
 ```typescript
 import * as bitbox from 'bitbox-api';
 
-// Run this in an e.g. a button onClick event handler.
+// Run this in e.g. a button onClick event handler.
 async function example() {
   try {
     const onClose = () => {
