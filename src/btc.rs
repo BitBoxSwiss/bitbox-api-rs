@@ -823,7 +823,7 @@ impl<R: Runtime> PairedBitBox<R> {
         // origin info in outputs even in regular send-to-self outputs.
         self.validate_version(">=9.15.0")?;
 
-        let our_root_fingerprint = hex::decode(&self.root_fingerprint().await?).unwrap();
+        let our_root_fingerprint = hex::decode(self.root_fingerprint().await?).unwrap();
         let (transaction, our_keys) =
             Transaction::from_psbt(&our_root_fingerprint, psbt, force_script_config)?;
         let signatures = self.btc_sign(coin, &transaction, format_unit).await?;
