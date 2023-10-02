@@ -39,7 +39,7 @@ use std::sync::Mutex;
 
 pub use keypath::Keypath;
 pub use noise::PersistedNoiseConfig;
-pub use noise::{NoiseConfig, NoiseConfigData, NoiseConfigNoCache};
+pub use noise::{ConfigError, NoiseConfig, NoiseConfigData, NoiseConfigNoCache};
 pub use util::Threading;
 
 use communication::HwwCommunication;
