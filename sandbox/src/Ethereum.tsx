@@ -30,17 +30,31 @@ function EthXPub({ bb02 } : Props) {
   const keypaths = ['m/44\'/60\'/0\'/0', 'm/44\'/1\'/0\'/0'];
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
+    <div>
+      <h4>XPub</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
         Keypath
         <select value={keypath} onChange={e => setKeypath(e.target.value)}>
           {keypaths.map(option => <option key={option} value={option}>{option}</option>)}
         </select>
-      </label>
-      <button type='submit' disabled={running}>Get xpub</button>
-      { result ? <p>Result: {result}</p> : null }
-      <ShowError err={err} />
-    </form>
+        </label>
+        <button type='submit' disabled={running}>Get XPub</button>
+        {result ? <>
+          <div className="resultContainer">
+            <label>Result</label>
+            {
+              <textarea
+              rows={result.split('\n').length + 2}
+              readOnly
+              defaultValue={result}
+              />
+            }
+          </div>
+        </> : null}
+        <ShowError err={err} />
+      </form>
+    </div>
   );
 }
 
@@ -68,23 +82,31 @@ function EthAddress({ bb02 } : Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        chainID
-        <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
-      </label>
-      <label>
-        Keypath
-        <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
-      </label>
-      <label>
-        Display
-        <input type='checkbox' checked={display} onChange={e => setDisplay(e.target.checked)} />
-      </label>
-      <button type='submit' disabled={running}>Get address</button>
-      { result ? <p>Result: {result}</p> : null }
-      <ShowError err={err} />
-    </form>
+    <div>
+      <h4>Address</h4>
+        <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          Chain ID
+          <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
+        </label>
+        <label>
+          Keypath
+          <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+        </label>
+        <label>
+          Display on device
+          <input type='checkbox' checked={display} onChange={e => setDisplay(e.target.checked)} />
+        </label>
+        <button type='submit' disabled={running}>Get address</button>
+        {result ? (
+            <div className="resultContainer">
+              <label>Result: <b><code>{result}</code></b></label>
+            </div>
+          ) : null }
+        <ShowError err={err} />
+      </form>
+    </div>
+    
   );
 }
 
@@ -103,6 +125,8 @@ function EthSignTransaction({ bb02 } : Props) {
   const [result, setResult] = useState<bitbox.EthSignature | undefined>();
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState<bitbox.Error>();
+
+  const parsedResult = result ? JSON.stringify(result, undefined, 2) : '';
 
   const submitForm = async (e: FormEvent) => {
     e.preventDefault();
@@ -128,25 +152,39 @@ function EthSignTransaction({ bb02 } : Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        chainID
-        <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
-      </label>
-      <label>
-        Keypath
-        <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
-      </label>
-      <br />
-      <label>
-        Transaction
-        <textarea value={txJson} onChange={e => setTxJson(e.target.value)} rows={20} cols={80} />
-      </label>
-      <br />
-      <button type='submit' disabled={running}>Sign transaction</button>
-      { result ? <p>Result: {JSON.stringify(result)}</p> : null }
-      <ShowError err={err} />
-    </form>
+    <div>
+      <h4>Sign Transaction</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          Chain ID
+          <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
+        </label>
+        <label>
+          Keypath
+          <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+        </label>
+        <label>
+          Transaction
+        </label>
+        <textarea value={txJson} onChange={e => setTxJson(e.target.value)} rows={9} />
+        <br />
+        <button type='submit' disabled={running}>Sign transaction</button>
+        {result ? <>
+          <div className="resultContainer">
+            <label>Result</label>
+            {
+              <textarea
+              rows={32}
+              readOnly
+              defaultValue={parsedResult}
+              />
+            }
+          </div>
+        </> : null}
+        <ShowError err={err} />       
+      </form>
+    </div>
+    
   );
 }
 
@@ -157,6 +195,8 @@ function EthSignMessage({ bb02 } : Props) {
   const [result, setResult] = useState<bitbox.EthSignature | undefined>();
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState<bitbox.Error>();
+
+  const parsedResult = result ? JSON.stringify(result, undefined, 2) : '';
 
   const stringToUint8Array = (str: string) => {
     const arr = new Uint8Array(str.length);
@@ -181,25 +221,38 @@ function EthSignMessage({ bb02 } : Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        chainID
-        <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
-      </label>
-      <label>
-        Keypath
-        <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
-      </label>
-      <br />
-      <label>
-        Message
+    <div>
+      <h4>Sign Message</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          Chain ID
+          <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
+        </label>
+        <label>
+          Keypath
+          <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+        </label>
+        <label>
+          Message
+        </label>
         <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={4} cols={80} />
-      </label>
-      <br />
-      <button type='submit' disabled={running}>Sign message</button>
-      { result ? <p>Result: {JSON.stringify(result)}</p> : null }
-      <ShowError err={err} />
-    </form>
+        <button type='submit' disabled={running}>Sign message</button>
+        {result ? <>
+          <div className="resultContainer">
+            <label>Result</label>
+            {
+              <textarea
+              rows={32}
+              readOnly
+              defaultValue={parsedResult}
+              />
+            }
+          </div>
+        </> : null}
+        <ShowError err={err} />
+      </form>
+    </div>
+   
   );
 }
 
@@ -258,6 +311,8 @@ function EthSignTypedMessage({ bb02 } : Props) {
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState<bitbox.Error>();
 
+  const parsedResult = result ? JSON.stringify(result, undefined, 2) : '';
+
   const submitForm = async (e: FormEvent) => {
     e.preventDefault();
     setRunning(true);
@@ -273,25 +328,37 @@ function EthSignTypedMessage({ bb02 } : Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        chainID
-        <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
-      </label>
-      <label>
-        Keypath
-        <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
-      </label>
-      <br />
-      <label>
-        EIP-712 typed message
+    <div>
+      <h4>Sign Typed Message</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          Chain ID
+          <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
+        </label>
+        <label>
+          Keypath
+          <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+        </label>
+        <label>
+          EIP-712 typed message
+        </label>
         <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={20} cols={80} />
-      </label>
-      <br />
-      <button type='submit' disabled={running}>Sign message</button>
-      { result ? <p>Result: {JSON.stringify(result)}</p> : null }
-      <ShowError err={err} />
-    </form>
+        <button type='submit' disabled={running}>Sign typed message</button>
+        {result ? <>
+          <div className="resultContainer">
+            <label>Result</label>
+            {
+              <textarea
+              rows={32}
+              readOnly
+              defaultValue={parsedResult}
+              />
+            }
+          </div>
+        </> : null}
+        <ShowError err={err} />
+      </form>
+    </div>
   );
 }
 

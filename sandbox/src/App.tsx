@@ -6,6 +6,8 @@ import { Bitcoin } from './Bitcoin';
 import { Cardano } from './Cardano';
 import { Ethereum } from './Ethereum';
 import { General } from './General';
+import { ErrorNotification } from './ErrorNotification';
+import { Accordion } from './Accordion';
 
 function App() {
   const [bb02, setBB02] = useState<bitbox.PairedBitBox>();
@@ -40,56 +42,49 @@ function App() {
     }
   };
 
-  if (err !== undefined) {
-    return (
-      <>
-        <h2>Error</h2>
-        <pre>
-          { JSON.stringify(err) }
-        </pre>
-      </>
-    );
-  }
+ 
   if (pairingCode !== undefined) {
     return (
-      <>
+      <div className="container">
         <h2>Pairing code</h2>
         <pre>
-          { pairingCode }
+          {pairingCode}
         </pre>
-      </>
+      </div>
     );
   }
   if (bb02 !== undefined) {
     return (
-      <>
-        <h2>Connected. Product: {bb02.product()}</h2>
-        <h3>General</h3>
-        <General bb02={bb02} />
-        <h3>Bitcoin</h3>
-        <Bitcoin bb02={bb02} />
+      <div className="contentContainer">
+        <h2 style={{textAlign: 'left'}}>BitBox02 sandbox</h2>
+        <h4 style={{textAlign: 'left'}}>Connected product: {bb02.product()}</h4>
+        <Accordion opened title="General">
+          <General bb02={bb02} />
+        </Accordion>
+        <Accordion title="Bitcoin">
+          <Bitcoin bb02={bb02} />
+        </Accordion>
         { bb02.ethSupported() ? (
-            <>
-              <h3>Ethereum</h3>
+            <Accordion title="Ethereum">
               <Ethereum bb02={bb02} />
-            </>
+            </Accordion>
         ) : null }
         { bb02.cardanoSupported() ? (
-            <>
-              <h3>Cardano</h3>
+            <Accordion title="Cardano">
               <Cardano bb02={bb02} />
-            </>
+            </Accordion>
         ) : null }
-      </>
+      </div>
     );
   }
   return (
-    <>
+    <div className="container">
       <h1>BitBox sandbox</h1>
-      <button onClick={() => connect('webHID')}>Connect using WebHID</button><br />
-      <button onClick={() => connect('bridge')}>Connect using BitBoxBridge</button><br />
-      <button onClick={() => connect('auto')}>Choose automatically</button>
-    </>
+      <button className="menuButton" onClick={() => connect('webHID')}>Connect using WebHID</button><br />
+      <button className="menuButton" onClick={() => connect('bridge')}>Connect using BitBoxBridge</button><br />
+      <button className="menuButton" onClick={() => connect('auto')}>Choose automatically</button>
+      {err !== undefined && <ErrorNotification err={JSON.stringify(err)} onClose={() => setErr(undefined)} /> }
+    </div>
   );
 }
 

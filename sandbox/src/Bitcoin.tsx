@@ -34,31 +34,46 @@ function BtcXPub({ bb02 } : Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        Coin
-        <select value={coin} onChange={e => setCoin(e.target.value as bitbox.BtcCoin)}>
-          {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        Keypath
-        <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
-      </label>
-      <label>
-        XPub Type
-        <select value={xpubType} onChange={e => setXpubType(e.target.value as bitbox.XPubType)}>
-          {xpubTypeOptions.map(option => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        Display
-        <input type='checkbox' checked={display} onChange={e => setDisplay(e.target.checked)} />
-      </label>
-      <button type='submit' disabled={running}>Get xpub</button>
-      { result ? <p>Result: {result}</p> : null }
-      <ShowError err={err} />
-    </form>
+    <div>
+      <h4>XPub</h4>
+      <form onSubmit={submitForm} className="verticalForm">
+        <label>
+          Coin
+          <select value={coin} onChange={e => setCoin(e.target.value as bitbox.BtcCoin)}>
+            {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Keypath
+          <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+        </label>
+        <label>
+          XPub Type
+          <select value={xpubType} onChange={e => setXpubType(e.target.value as bitbox.XPubType)}>
+            {xpubTypeOptions.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Display
+          <input type='checkbox' checked={display} onChange={e => setDisplay(e.target.checked)} />
+        </label>
+        <button type='submit' disabled={running}>Get XPub</button>
+        {result ? <>
+          <div className="resultContainer">
+            <label>Result</label>
+            {
+              <textarea
+              rows={result.split('\n').length + 2}
+              readOnly
+              defaultValue={result}
+              />
+            }
+          </div>
+        </> : null}
+        <ShowError err={err} />
+      </form>
+    </div>
+   
   );
 }
 
@@ -112,40 +127,47 @@ function BtcAddressSimple({ bb02 }: Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        Coin
-        <select value={coin} onChange={(e: ChangeEvent<HTMLSelectElement>) => setCoin(e.target.value as bitbox.BtcCoin)}>
-          {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        Simple Type
-        <select value={simpleType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setSimpleType(e.target.value as bitbox.BtcSimpleType)}>
-          {simpleTypeOptions.map(option => <option key={option} value={option} disabled={option === 'p2tr' && (coin === 'ltc' || coin === 'tltc')}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        Account
-        <input type='number' min='0' value={account} onChange={(e: ChangeEvent<HTMLInputElement>) => setAccount(Number(e.target.value))} />
-      </label>
-      <label>
-        Change
-        <input type='checkbox' checked={isChange} onChange={(e: ChangeEvent<HTMLInputElement>) => setIsChange(e.target.checked)} />
-      </label>
-      <label>
-        Address Index
-        <input type='number' min='0' value={addressIndex} onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressIndex(Number(e.target.value))} />
-      </label>
-      <label>
-        Display
-        <input type='checkbox' checked={display} onChange={(e: ChangeEvent<HTMLInputElement>) => setDisplay(e.target.checked)} />
-      </label>
-      <p>Keypath: { getKeypath() }</p>
-      <button type='submit' disabled={running}>Get address</button>
-      { result ? <p>Result: {result}</p> : null }
-      <ShowError err={err} />
-    </form>
+    <div>
+      <h4>Address</h4>
+      <form className="verticalForm" onSubmit={submitForm}>
+        <label>
+          Coin
+          <select value={coin} onChange={(e: ChangeEvent<HTMLSelectElement>) => setCoin(e.target.value as bitbox.BtcCoin)}>
+            {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Simple Type
+          <select value={simpleType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setSimpleType(e.target.value as bitbox.BtcSimpleType)}>
+            {simpleTypeOptions.map(option => <option key={option} value={option} disabled={option === 'p2tr' && (coin === 'ltc' || coin === 'tltc')}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Account
+          <input type='number' min='0' value={account} onChange={(e: ChangeEvent<HTMLInputElement>) => setAccount(Number(e.target.value))} />
+        </label>
+        <label>
+          Change
+          <input type='checkbox' checked={isChange} onChange={(e: ChangeEvent<HTMLInputElement>) => setIsChange(e.target.checked)} />
+        </label>
+        <label>
+          Address Index
+          <input type='number' min='0' value={addressIndex} onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressIndex(Number(e.target.value))} />
+        </label>
+        <label>
+          Display On Device
+          <input type='checkbox' checked={display} onChange={(e: ChangeEvent<HTMLInputElement>) => setDisplay(e.target.checked)} />
+        </label>
+        <p>Keypath: { getKeypath() }</p>
+        <button type='submit' disabled={running}>Get address</button>
+        {result ? (
+          <div className="resultContainer">
+            <label>Result: <b><code>{result}</code></b></label>
+          </div>
+        ) : null }
+        <ShowError err={err} />
+      </form>
+    </div>
   );
 }
 
@@ -173,31 +195,40 @@ function BtcSignPSBT({ bb02 }: Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        Coin
-        <select value={coin} onChange={(e: ChangeEvent<HTMLSelectElement>) => setCoin(e.target.value as bitbox.BtcCoin)}>
-          {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        Format unit
-        <select value={formatUnit} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormatUnit(e.target.value as bitbox.BtcFormatUnit)}>
-          {['default', 'sat'].map(option => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        PSBT
-        <textarea
-          value={psbt}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPSBT(e.target.value)}
-          placeholder="base64 PSBT"
-        />
-      </label>
-      <button type='submit' disabled={running}>Sign PSBT</button>
-      { result ? <pre>Result: <code>{result}</code></pre> : null }
-      <ShowError err={err} />
-    </form>
+    <div> 
+      <h4>Sign PSBT</h4>
+      <form className="verticalForm" onSubmit={submitForm}>
+        <label>
+          Coin
+          <select value={coin} onChange={(e: ChangeEvent<HTMLSelectElement>) => setCoin(e.target.value as bitbox.BtcCoin)}>
+            {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Format unit
+          <select value={formatUnit} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormatUnit(e.target.value as bitbox.BtcFormatUnit)}>
+            {['default', 'sat'].map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          PSBT
+          <textarea
+            value={psbt}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPSBT(e.target.value)}
+            placeholder="base64 PSBT"
+          />
+        </label>
+        <button type='submit' disabled={running}>Sign PSBT</button>
+        {
+          result ? (
+            <div className="resultContainer">
+              <label>Result: <b><code>{result}</code></b></label>
+            </div>
+          ) : null
+        }
+        <ShowError err={err} />
+      </form>
+    </div>
   );
 }
 
@@ -246,13 +277,21 @@ function BtcMiniscriptAddress({ bb02 }: Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      Address for policy <pre><code>{policy}</code></pre> using the BitBox02 xpub at
-      <pre>{keypath}</pre> and some other arbitrary xpub: <pre><code>{someXPub}</code></pre>
-      <button type='submit' disabled={running}>Miniscript address</button>
-      { result ? <pre>Result: <code>{result}</code></pre> : null }
-      <ShowError err={err} />
-    </form>
+    <div>
+      <h4>Miniscript</h4>
+      <form className="verticalForm" onSubmit={submitForm}>
+        Address for policy <pre><code>{policy}</code></pre> using the BitBox02 xpub at
+        <pre>{keypath}</pre>
+        <p>and some other arbitrary xpub: <code>{someXPub}</code></p>
+        <button type='submit' disabled={running}>Miniscript address</button>
+        {result ? (
+            <div className="resultContainer">
+              <label>Result: <b><code>{result}</code></b></label>
+            </div>
+        ) : null }
+        <ShowError err={err} />
+      </form>
+    </div>
   );
 }
 
