@@ -6,6 +6,12 @@ pub fn remove_leading_zeroes(list: &[u8]) -> Vec<u8> {
     }
 }
 
+#[cfg(feature = "multithreaded")]
+pub trait Threading: Sync + Send {}
+
+#[cfg(not(feature = "multithreaded"))]
+pub trait Threading {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -32,9 +38,3 @@ mod tests {
         assert_eq!(result, Vec::<u8>::new());
     }
 }
-
-#[cfg(feature = "multithreaded")]
-pub trait Threading: Sync + Send {}
-
-#[cfg(not(feature = "multithreaded"))]
-pub trait Threading {}
