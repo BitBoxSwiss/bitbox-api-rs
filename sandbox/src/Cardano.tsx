@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, Fragment, useState } from 'react'
+import { ChangeEvent, FormEvent, useState } from 'react'
 import * as bitbox from 'bitbox-api';
 import hexToArrayBuffer from 'hex-to-array-buffer'
 
@@ -26,27 +26,31 @@ function CardanoXpubs({ bb02 } : Props) {
     }
   }
 
+
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        Keypaths
+    <div>
+      <h4>XPubs</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          Keypaths
+        </label>
         <textarea value={keypaths} onChange={e => setKeypaths(e.target.value)} rows={5} cols={80} />
-      </label>
-      <br />
-      <button type='submit' disabled={running}>Get xpubs</button>
-      { result ?
-        <p>
-          Result: <br />
-          {
-            result.map((xpub, i) => (
-              <Fragment key={i}>
-                {i}: { JSON.stringify(xpub) }<br />
-              </Fragment>
-            ))
-          }
-        </p> : null }
-    <ShowError err={err} />
-    </form>
+        <button type='submit' disabled={running}>Get XPubs</button>
+          {result ? <>
+            <div className="resultContainer">
+              <label>Result</label>
+              {
+                result.map((xpub, i) => (
+                  <code key={i}>
+                    {i}: <b>{ JSON.stringify(xpub) }</b><br />
+                  </code>
+                ))
+              }
+            </div>
+          </> : null}
+        <ShowError err={err} />
+      </form>
+    </div>
   );
 }
 
@@ -92,35 +96,44 @@ function CardanoAddress({ bb02 }: Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        Network
-        <select value={network} onChange={(e: ChangeEvent<HTMLSelectElement>) => setNetwork(e.target.value as bitbox.CardanoNetwork)}>
-          {networkOptions.map(option => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        Account
-        <input type='number' min='0' value={account} onChange={(e: ChangeEvent<HTMLInputElement>) => setAccount(Number(e.target.value))} />
-      </label>
-      <label>
-        Change
-        <input type='checkbox' checked={isChange} onChange={(e: ChangeEvent<HTMLInputElement>) => setIsChange(e.target.checked)} />
-      </label>
-      <label>
-        Address Index
-        <input type='number' min='0' value={addressIndex} onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressIndex(Number(e.target.value))} />
-      </label>
-      <label>
-        Display
-          <input type='checkbox' checked={display} onChange={(e: ChangeEvent<HTMLInputElement>) => setDisplay(e.target.checked)} />
-      </label>
-      <p>Keypath payment: { getKeypathPayment() }</p>
-      <p>Keypath stake: { getKeypathStake() }</p>
-      <button type='submit' disabled={running}>Get address</button>
-      { result ? <p>Result: {result}</p> : null }
-      <ShowError err={err} />
-    </form>
+    <div>
+      <h4>Address</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          Network
+          <select value={network} onChange={(e: ChangeEvent<HTMLSelectElement>) => setNetwork(e.target.value as bitbox.CardanoNetwork)}>
+            {networkOptions.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Account
+          <input type='number' min='0' value={account} onChange={(e: ChangeEvent<HTMLInputElement>) => setAccount(Number(e.target.value))} />
+        </label>
+        <label>
+          Change
+          <input type='checkbox' checked={isChange} onChange={(e: ChangeEvent<HTMLInputElement>) => setIsChange(e.target.checked)} />
+        </label>
+        <label>
+          Address Index
+          <input type='number' min='0' value={addressIndex} onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressIndex(Number(e.target.value))} />
+        </label>
+        <label>
+          Display
+            <input type='checkbox' checked={display} onChange={(e: ChangeEvent<HTMLInputElement>) => setDisplay(e.target.checked)} />
+        </label>
+        <p>Keypath payment: { getKeypathPayment() }</p>
+        <p>Keypath stake: { getKeypathStake() }</p>
+        <button type='submit' disabled={running}>Get address</button>
+        {result ? (
+            <div className="resultContainer">
+              <label>Result: <b><code>{result}</code></b></label>
+            </div>
+        ) : null
+        }
+        <ShowError err={err} />
+      </form>
+    </div>
+    
   );
 }
 
@@ -130,6 +143,8 @@ function CardanoSignTransaction({ bb02 }: Props) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<bitbox.CardanoSignTransactionResult | undefined>();
   const [err, setErr] = useState<bitbox.Error>();
+
+  const parsedResult = result ? JSON.stringify(result, undefined, 2) : '';
 
   const txTypes = [
     ['normal', 'Normal transaction'],
@@ -309,16 +324,30 @@ function CardanoSignTransaction({ bb02 }: Props) {
   }
 
   return (
-    <form onSubmit={submitForm}>
-      <label>
-        <select value={txType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setTxType(e.target.value as TxType)}>
-          {txTypes.map(option => <option key={option[0]} value={option[0]}>{option[1]}</option>)}
-        </select>
-      </label>
-      <button type='submit' disabled={running}>Sign transaction</button>
-      { result ? <p>Result: { JSON.stringify(result) }</p> : null }
-      <ShowError err={err} />
-    </form>
+    <div>
+      <h4>Sign Transaction</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          <select value={txType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setTxType(e.target.value as TxType)}>
+            {txTypes.map(option => <option key={option[0]} value={option[0]}>{option[1]}</option>)}
+          </select>
+        </label>
+        <button type='submit' disabled={running}>Sign transaction</button>
+        {result ? <>
+            <div className="resultContainer">
+              <label>Result</label>
+              {
+                <textarea
+                rows={32}
+                readOnly
+                defaultValue={parsedResult}
+                />
+              }
+            </div>
+          </> : null}
+        <ShowError err={err} />
+      </form>
+    </div>
   );
 }
 

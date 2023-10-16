@@ -16,8 +16,13 @@ function RootFingerprint({ bb02 } : Props) {
 
   return (
     <>
-      <button onClick={actionRootFingerprint}>Root fingerprint</button>
-      { rootFingerprint ? (<> Result: { rootFingerprint }</>) : null }
+      <h4>Root Fingerprint</h4>
+      <button onClick={actionRootFingerprint}>Show</button>
+      {rootFingerprint ? (
+        <div className="resultContainer">
+          <label>Result: <b><code>{rootFingerprint}</code></b></label>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -27,13 +32,26 @@ function DeviceInfo({ bb02 } : Props) {
 
   const actionDeviceInfo = async (e: FormEvent) => {
     e.preventDefault();
+    setDeviceInfo(undefined);
     setDeviceInfo(await bb02.deviceInfo());
   };
 
+  const parsedDeviceInfo = deviceInfo ? JSON.stringify(deviceInfo, undefined, 2) : '';
+
   return (
     <>
-      <button onClick={actionDeviceInfo}>Device info</button>
-      { deviceInfo ? (<> Result: { JSON.stringify(deviceInfo) }</>) : null }
+      <h4>Device Info</h4>
+      <button onClick={actionDeviceInfo}>Show</button>
+      {deviceInfo ? (
+        <div className="resultContainer">
+          <label>Result</label>
+          {<textarea
+            rows={parsedDeviceInfo.split('\n').length}
+            readOnly
+            defaultValue={parsedDeviceInfo}
+          />}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -57,6 +75,7 @@ function ShowMnemonic({ bb02 } : Props) {
 
   return (
     <>
+      <h4>Recovery Words</h4>
       <button onClick={actionShowMnemonic} disabled={running}>Show recovery words</button>
       <ShowError err={err} />
     </>

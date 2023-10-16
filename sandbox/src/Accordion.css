@@ -1,0 +1,36 @@
+.accordion {
+    width: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 16px 0;
+}
+
+.accordion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 24px;
+    cursor: pointer;
+}
+
+.accordion-header h3 {
+    line-height: 0;
+    font-size: 16px;
+}
+
+.toggle-icon {
+    font-size: 1.2rem;
+}
+
+.accordion-content {
+    padding: 10px 20px;
+    border-top: 1px solid #e0e0e0;
+    background-color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+    .accordion-content {
+        background-color: #242424;
+    }
+}

@@ -14,6 +14,12 @@
   -webkit-text-size-adjust: 100%;
 }
 
+h2, 
+h4,
+p {
+  margin: 0;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -26,7 +32,6 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -39,7 +44,7 @@ h1 {
 button {
   border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
+  padding: 1em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
@@ -66,4 +71,56 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+.container {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  margin: auto;
+}
+
+.contentContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin: 0 auto;
+  max-width: 960px;
+  width: 100%;
+}
+
+.menuButton {
+  width: 100%;
+}
+
+.resultContainer {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.resultContainer code {
+  overflow-wrap: break-word;
+}
+
+.resultContainer label {
+  font-size: 14px;
+  text-align: left;
+}
+
+.resultContainer textarea {
+  margin-top: 8px;
+}
+
+.verticalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.verticalForm > label {
+  display: flex;
+  gap: 8px;
 }
