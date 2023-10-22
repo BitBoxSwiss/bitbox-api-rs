@@ -14,6 +14,10 @@ export function ShowError({ err }: { err?: bitbox.Error }) {
   }
 
   return (
-    <ErrorNotification err={JSON.stringify(err)} onClose={() => setError(undefined)} />
+    <ErrorNotification
+      message={error.message}
+      code={error.code}
+      onClose={() => setError(undefined)}
+    />
   );
 }

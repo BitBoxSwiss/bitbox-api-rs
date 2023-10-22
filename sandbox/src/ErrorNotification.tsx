@@ -2,17 +2,20 @@ import { useEffect } from "react";
 import "./ErrorNotification.css";
 
 type TProps = {
-    err: string;
+    message: string;
+    code: string;
     onClose: () => void;
 }
 
-export const ErrorNotification = ({ err, onClose }: TProps) => {
+export const ErrorNotification = ({ message, code, onClose }: TProps) => {
   
   useEffect(() => {
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       onClose();
-    }, 3500)
-  }, [err, onClose]);
+    }, 3500);
+
+    return () => clearTimeout(timerId);
+  }, [message, onClose]);
 
   return (
       <div className="alert">
@@ -20,7 +23,8 @@ export const ErrorNotification = ({ err, onClose }: TProps) => {
             <h2>Error</h2>
             <button onClick={onClose}>X</button>
           </div>
-          <pre>{err}</pre>
+      <p>{message}</p>
+      <kbd>code: {code}</kbd>
       </div>
   )
 }
