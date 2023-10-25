@@ -64,6 +64,10 @@ name = "btc_sign_psbt"
 required-features = ["usb", "tokio/rt", "tokio/macros"]
 
 [[example]]
+name = "btc_sign_msg"
+required-features = ["usb", "tokio/rt", "tokio/macros"]
+
+[[example]]
 name = "btc_miniscript"
 required-features = ["usb", "tokio/rt", "tokio/macros"]
 
