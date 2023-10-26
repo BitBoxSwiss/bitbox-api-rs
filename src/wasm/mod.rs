@@ -334,6 +334,21 @@ impl PairedBitBox {
         Ok(psbt.to_string())
     }
 
+    #[wasm_bindgen(js_name = btcSignMessage)]
+    pub async fn btc_sign_message(
+        &self,
+        coin: types::TsBtcCoin,
+        script_config: types::TsBtcScriptConfigWithKeypath,
+        msg: &[u8],
+    ) -> Result<types::TsBtcSignMessageSignature, JavascriptError> {
+        let signature = self
+            .0
+            .btc_sign_message(coin.try_into()?, script_config.try_into()?, msg)
+            .await?;
+
+        Ok(serde_wasm_bindgen::to_value(&signature).unwrap().into())
+    }
+
     /// Does this device support ETH functionality? Currently this means BitBox02 Multi.
     #[wasm_bindgen(js_name = ethSupported)]
     pub fn eth_supported(&self) -> bool {

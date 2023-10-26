@@ -198,7 +198,7 @@ pub struct Transaction {
     pub locktime: u32,
 }
 // See https://github.com/spesmilo/electrum/blob/84dc181b6e7bb20e88ef6b98fb8925c5f645a765/electrum/ecc.py#L521-L523
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, serde::Serialize)]
 pub struct SignMessageSignature {
     pub sig: Vec<u8>,
     pub recid: u8,
@@ -863,7 +863,7 @@ impl<R: Runtime> PairedBitBox<R> {
     pub async fn btc_sign_message(
         &self,
         coin: pb::BtcCoin,
-        script_config: Option<pb::BtcScriptConfigWithKeypath>,
+        script_config: pb::BtcScriptConfigWithKeypath,
         msg: &[u8],
     ) -> Result<SignMessageSignature, Error> {
         self.validate_version(">=9.5.0")?;
@@ -871,7 +871,7 @@ impl<R: Runtime> PairedBitBox<R> {
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::BtcSignMessageRequest {
             coin: coin as _,
-            script_config,
+            script_config: Some(script_config),
             msg: msg.to_vec(),
             host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),

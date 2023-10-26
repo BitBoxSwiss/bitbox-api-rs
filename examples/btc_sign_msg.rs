@@ -16,13 +16,12 @@ async fn signmsg<R: bitbox_api::runtime::Runtime>() {
 
     let keypath = bitbox_api::Keypath::try_from("m/49'/0'/0'/0/0").unwrap();
 
-    let script_config_sign_msg: Option<pb::BtcScriptConfigWithKeypath> =
-        Some(pb::BtcScriptConfigWithKeypath {
-            script_config: Some(bitbox_api::btc::make_script_config_simple(
-                pb::btc_script_config::SimpleType::P2wpkhP2sh,
-            )),
-            keypath: keypath.to_vec(),
-        });
+    let script_config_sign_msg: pb::BtcScriptConfigWithKeypath = pb::BtcScriptConfigWithKeypath {
+        script_config: Some(bitbox_api::btc::make_script_config_simple(
+            pb::btc_script_config::SimpleType::P2wpkhP2sh,
+        )),
+        keypath: keypath.to_vec(),
+    };
 
     let signature = paired_bitbox
         .btc_sign_message(pb::BtcCoin::Btc, script_config_sign_msg, b"message")
