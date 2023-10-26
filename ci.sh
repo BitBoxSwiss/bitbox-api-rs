@@ -13,6 +13,7 @@ examples=(
   "--example multithreaded --features=usb,tokio/rt,tokio/macros,tokio/rt-multi-thread,multithreaded"
   " --example btc_signtx --features=usb,tokio/rt,tokio/macros"
   "--example btc_sign_psbt --features=usb,tokio/rt,tokio/macros"
+  "--example btc_sign_msg --features=usb,tokio/rt,tokio/macros"
   "--example btc_miniscript --features=usb,tokio/rt,tokio/macros"
   "--example eth --features=usb,tokio/rt,tokio/macros,rlp"
   "--example cardano --features=usb,tokio/rt,tokio/macros"

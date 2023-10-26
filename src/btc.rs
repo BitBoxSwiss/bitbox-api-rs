@@ -197,6 +197,13 @@ pub struct Transaction {
     pub outputs: Vec<TxOutput>,
     pub locktime: u32,
 }
+// See https://github.com/spesmilo/electrum/blob/84dc181b6e7bb20e88ef6b98fb8925c5f645a765/electrum/ecc.py#L521-L523
+#[derive(Debug, PartialEq)]
+pub struct SignMessageSignature {
+    pub sig: Vec<u8>,
+    pub recid: u8,
+    pub electrum_sig65: Vec<u8>,
+}
 
 #[derive(thiserror::Error, Debug)]
 #[cfg_attr(feature = "wasm", derive(Assoc), func(pub const fn js_code(&self) -> &'static str))]
@@ -850,6 +857,63 @@ impl<R: Runtime> PairedBitBox<R> {
             }
         }
         Ok(())
+    }
+
+    /// Sign a message.
+    pub async fn btc_sign_message(
+        &self,
+        coin: pb::BtcCoin,
+        script_config: Option<pb::BtcScriptConfigWithKeypath>,
+        msg: &[u8],
+    ) -> Result<SignMessageSignature, Error> {
+        self.validate_version(">=9.5.0")?;
+
+        let host_nonce = crate::antiklepto::gen_host_nonce()?;
+        let request = pb::BtcSignMessageRequest {
+            coin: coin as _,
+            script_config,
+            msg: msg.to_vec(),
+            host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
+                commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
+            }),
+        };
+
+        let response = self
+            .query_proto_btc(pb::btc_request::Request::SignMessage(request))
+            .await?;
+        let signer_commitment = match response {
+            pb::btc_response::Response::AntikleptoSignerCommitment(
+                pb::AntiKleptoSignerCommitment { commitment },
+            ) => commitment,
+            _ => return Err(Error::UnexpectedResponse),
+        };
+
+        let request = pb::AntiKleptoSignatureRequest {
+            host_nonce: host_nonce.to_vec(),
+        };
+
+        let response = self
+            .query_proto_btc(pb::btc_request::Request::AntikleptoSignature(request))
+            .await?;
+        let signature = match response {
+            pb::btc_response::Response::SignMessage(pb::BtcSignMessageResponse { signature }) => {
+                signature
+            }
+            _ => return Err(Error::UnexpectedResponse),
+        };
+        crate::antiklepto::verify_ecdsa(&host_nonce, &signer_commitment, &signature)?;
+
+        let sig = signature[..64].to_vec();
+        let recid = signature[64];
+        let compressed: u8 = 4; // BitBox02 uses only compressed pubkeys
+        let sig65: u8 = 27 + compressed + recid;
+        let mut electrum_sig65 = vec![sig65];
+        electrum_sig65.extend_from_slice(&sig);
+        Ok(SignMessageSignature {
+            sig,
+            recid,
+            electrum_sig65,
+        })
     }
 
     /// Before a multisig or policy script config can be used to display receive addresses or sign
