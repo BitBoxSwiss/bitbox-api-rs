@@ -83,7 +83,7 @@ function App() {
       <button className="menuButton" onClick={() => connect('webHID')}>Connect using WebHID</button><br />
       <button className="menuButton" onClick={() => connect('bridge')}>Connect using BitBoxBridge</button><br />
       <button className="menuButton" onClick={() => connect('auto')}>Choose automatically</button>
-      {err !== undefined && <ErrorNotification err={JSON.stringify(err)} onClose={() => setErr(undefined)} /> }
+      {err !== undefined && <ErrorNotification message={err.message} code={err.code} onClose={() => setErr(undefined)} /> }
     </div>
   );
 }
