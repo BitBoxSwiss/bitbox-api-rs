@@ -232,6 +232,87 @@ function BtcSignPSBT({ bb02 }: Props) {
   );
 }
 
+function BtcSignMessage({ bb02 }: Props) {
+  const [simpleType, setSimpleType] = useState<bitbox.BtcSimpleType>('p2wpkhP2sh');
+  const [keypath, setKeypath] = useState("m/49'/0'/0'/0/0");
+  const [message, setMessage] = useState('message');
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<bitbox.BtcSignMessageSignature | undefined>();
+  const [err, setErr] = useState<bitbox.Error>();
+
+  const coin = 'btc';
+  const simpleTypeOptions: bitbox.BtcSimpleType[] = ['p2wpkhP2sh', 'p2wpkh'];
+
+  const scriptConfig: bitbox.BtcScriptConfig = { simpleType };
+  const scriptConfigWKeypath: bitbox.BtcScriptConfigWithKeypath = { scriptConfig, keypath };
+
+  const stringToUint8Array = (str: string) => {
+    const arr = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) {
+        arr[i] = str.charCodeAt(i);
+    }
+    return arr;
+  }
+
+  const parsedResult = result ? JSON.stringify(result, undefined, 2) : '';
+
+  const submitForm = async (e: FormEvent) => {
+    e.preventDefault();
+    setRunning(true);
+    setResult(undefined);
+    setErr(undefined);
+    try {
+      const signature = await bb02.btcSignMessage(coin, scriptConfigWKeypath, stringToUint8Array(message));
+      setResult(signature);
+    } catch (err) {
+      setErr(bitbox.ensureError(err));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div>
+      <h4>Sign Message</h4>
+      <form className="verticalForm" onSubmit={submitForm}>
+        <label>
+          <p>Coin: { coin }</p>
+        </label>
+        <label>
+          Simple Type
+          <select value={simpleType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setSimpleType(e.target.value as bitbox.BtcSimpleType)}>
+            {simpleTypeOptions.map(option => <option key={option} value={option} disabled={false}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Keypath
+        </label>
+        <input type="string" value={keypath} onChange={e => setKeypath(e.target.value)} />
+        <label>
+          Message
+        </label>
+        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} cols={80} />
+        <button type='submit' disabled={running}>Sign message</button>
+        {result ? (
+          <div className="resultContainer">
+            <label>Result: 
+            {
+              <textarea
+                rows={32}
+                readOnly
+                defaultValue={parsedResult}
+              />
+            }
+            </label>
+          </div>
+        ) : null }
+        <ShowError err={err} />
+      </form>
+    </div>
+  );
+
+}
+
 function BtcMiniscriptAddress({ bb02 }: Props) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState('');
@@ -306,6 +387,9 @@ export function Bitcoin({ bb02 } : Props) {
       </div>
       <div className="action">
         <BtcSignPSBT bb02={bb02} />
+      </div>
+      <div className="action">
+        <BtcSignMessage bb02={bb02} />
       </div>
       <div className="action">
         <BtcMiniscriptAddress bb02={bb02} />

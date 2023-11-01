@@ -38,6 +38,11 @@ type BtcScriptConfigWithKeypath = {
   scriptConfig: BtcScriptConfig;
   keypath: Keypath;
 };
+type BtcSignMessageSignature = {
+  sig: Uint8Array,
+  recid: bigint,
+  electrumSig65: Uint8Array,
+}
 // nonce, gasPrice, gasLimit and value must be big-endian encoded, no trailing zeroes.
 type EthTransaction = {
   nonce: Uint8Array;
@@ -155,6 +160,8 @@ extern "C" {
     pub type TsBtcScriptConfig;
     #[wasm_bindgen(typescript_type = "BtcScriptConfigWithKeypath")]
     pub type TsBtcScriptConfigWithKeypath;
+    #[wasm_bindgen(typescript_type = "BtcSignMessageSignature")]
+    pub type TsBtcSignMessageSignature;
     #[wasm_bindgen(typescript_type = "EthTransaction")]
     pub type TsEthTransaction;
     #[wasm_bindgen(typescript_type = "EthSignature")]
