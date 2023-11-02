@@ -199,6 +199,7 @@ pub struct Transaction {
 }
 // See https://github.com/spesmilo/electrum/blob/84dc181b6e7bb20e88ef6b98fb8925c5f645a765/electrum/ecc.py#L521-L523
 #[derive(Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SignMessageSignature {
     pub sig: Vec<u8>,
     pub recid: u8,
