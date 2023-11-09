@@ -11,6 +11,8 @@ See [README-rust.md](../README-rust.md).
 
 The NPM package's README is located at [README-npm.md](../README-npm.md).
 
+The version of NPM package is defined in [NPM_VERSION](../NPM_VERSION).
+
 To build the TypeScript library, follow these steps:
 
 Install wasm-pack using:
