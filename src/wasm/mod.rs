@@ -66,14 +66,14 @@ impl From<JavascriptError> for JsValue {
 /// Run any exception raised by this library through this function to get a typed error.
 ///
 /// Example:
-/// ```
+/// ```JavaScript
 /// try { ... }
 /// catch (err) {
 ///   const typedErr: Error = bitbox.ensureError(err);
 ///   // Handle error by checking the error code, displaying the error message, etc.
 /// }
 ///
-/// See also: `isUserAbort()`.
+/// See also: isUserAbort().
 #[wasm_bindgen(js_name = ensureError)]
 pub fn ensure_error(err: JsValue) -> types::TsError {
     let code = js_sys::Reflect::get(&err, &"code".into());

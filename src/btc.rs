@@ -652,8 +652,8 @@ impl<R: Runtime> PairedBitBox<R> {
 
         let mut is_inputs_pass2 = false;
         loop {
-            match pb::btc_sign_next_response::Type::from_i32(next_response.r#type)
-                .ok_or(Error::UnexpectedResponse)?
+            match pb::btc_sign_next_response::Type::try_from(next_response.r#type)
+                .map_err(|_| Error::UnexpectedResponse)?
             {
                 pb::btc_sign_next_response::Type::Input => {
                     let input_index: usize = next_response.index as _;

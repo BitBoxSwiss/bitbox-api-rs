@@ -223,7 +223,7 @@ fn parse_type(
 }
 
 fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
-    match DataType::from_i32(typ.r#type).unwrap() {
+    match DataType::try_from(typ.r#type).unwrap() {
         DataType::Bytes => {
             if let Value::String(v) = value {
                 if v.starts_with("0x") || v.starts_with("0X") {
@@ -330,7 +330,7 @@ fn get_value(
     }
 
     let (mut value, mut typ): (Either, MemberType) =
-        match RootObject::from_i32(what.root_object).unwrap() {
+        match RootObject::try_from(what.root_object).unwrap() {
             RootObject::Unknown => return Err("unkown root object".into()),
             RootObject::Domain => (
                 Either::HashMap(&msg.domain),
@@ -342,7 +342,7 @@ fn get_value(
             ),
         };
     for element in what.path.iter() {
-        match DataType::from_i32(typ.r#type).unwrap() {
+        match DataType::try_from(typ.r#type).unwrap() {
             DataType::Struct => {
                 let struct_member: &Eip712TypeMember = msg
                     .types
