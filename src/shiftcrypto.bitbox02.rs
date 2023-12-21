@@ -1411,6 +1411,7 @@ pub mod eth_pub_request {
         }
     }
 }
+/// TX payload for "legacy" (EIP-155) transactions: <https://eips.ethereum.org/EIPS/eip-155>
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1447,6 +1448,43 @@ pub struct EthSignRequest {
     /// If non-zero, `coin` is ignored and `chain_id` is used to identify the network.
     #[prost(uint64, tag = "10")]
     pub chain_id: u64,
+}
+/// TX payload for an EIP-1559 (type 2) transaction: <https://eips.ethereum.org/EIPS/eip-1559>
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EthSignEip1559Request {
+    #[prost(uint64, tag = "1")]
+    pub chain_id: u64,
+    #[prost(uint32, repeated, tag = "2")]
+    #[cfg_attr(
+        feature = "wasm",
+        serde(deserialize_with = "crate::keypath::serde_deserialize")
+    )]
+    pub keypath: ::prost::alloc::vec::Vec<u32>,
+    /// smallest big endian serialization, max. 16 bytes
+    #[prost(bytes = "vec", tag = "3")]
+    pub nonce: ::prost::alloc::vec::Vec<u8>,
+    /// smallest big endian serialization, max. 16 bytes
+    #[prost(bytes = "vec", tag = "4")]
+    pub max_priority_fee_per_gas: ::prost::alloc::vec::Vec<u8>,
+    /// smallest big endian serialization, max. 16 bytes
+    #[prost(bytes = "vec", tag = "5")]
+    pub max_fee_per_gas: ::prost::alloc::vec::Vec<u8>,
+    /// smallest big endian serialization, max. 16 bytes
+    #[prost(bytes = "vec", tag = "6")]
+    pub gas_limit: ::prost::alloc::vec::Vec<u8>,
+    /// 20 byte recipient
+    #[prost(bytes = "vec", tag = "7")]
+    pub recipient: ::prost::alloc::vec::Vec<u8>,
+    /// smallest big endian serialization, max. 32 bytes
+    #[prost(bytes = "vec", tag = "8")]
+    pub value: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "9")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "10")]
+    pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
@@ -1664,7 +1702,7 @@ pub struct EthTypedMessageValueRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthRequest {
-    #[prost(oneof = "eth_request::Request", tags = "1, 2, 3, 4, 5, 6")]
+    #[prost(oneof = "eth_request::Request", tags = "1, 2, 3, 4, 5, 6, 7")]
     pub request: ::core::option::Option<eth_request::Request>,
 }
 /// Nested message and enum types in `ETHRequest`.
@@ -1686,6 +1724,8 @@ pub mod eth_request {
         SignTypedMsg(super::EthSignTypedMessageRequest),
         #[prost(message, tag = "6")]
         TypedMsgValue(super::EthTypedMessageValueRequest),
+        #[prost(message, tag = "7")]
+        SignEip1559(super::EthSignEip1559Request),
     }
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
