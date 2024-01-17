@@ -1,9 +1,7 @@
 use bitbox_api::pb;
 use std::str::FromStr;
 
-async fn sign_psbt<R: bitbox_api::runtime::Runtime>(
-    psbt: &mut bitcoin::psbt::PartiallySignedTransaction,
-) {
+async fn sign_psbt<R: bitbox_api::runtime::Runtime>(psbt: &mut bitcoin::psbt::Psbt) {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
     let d = bitbox_api::BitBox::<R>::from_hid_device(
         bitbox_api::usb::get_any_bitbox02().unwrap(),
@@ -32,7 +30,7 @@ async fn main() {
     println!("Paste a Bitcoin testnet PSBT in base64 format on one line and hit enter");
     let mut buffer = String::new();
     std::io::stdin().read_line(&mut buffer).unwrap();
-    let mut psbt = bitcoin::psbt::PartiallySignedTransaction::from_str(buffer.trim()).unwrap();
+    let mut psbt = bitcoin::psbt::Psbt::from_str(buffer.trim()).unwrap();
     sign_psbt::<bitbox_api::runtime::TokioRuntime>(&mut psbt).await;
     println!("signed:");
     println!("{}", psbt);

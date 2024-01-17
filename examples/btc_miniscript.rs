@@ -36,8 +36,8 @@ async fn main() {
         )
         .await
         .unwrap();
-    let our_xpub = bitbox_api::btc::ExtendedPubKey::from_str(&our_xpub_str).unwrap();
-    let some_xpub = bitbox_api::btc::ExtendedPubKey::from_str("tpubDFgycCkexSxkdZfeyaasDHityE97kiYM1BeCNoivDHvydGugKtoNobt4vEX6YSHNPy2cqmWQHKjKxciJuocepsGPGxcDZVmiMBnxgA1JKQk").unwrap();
+    let our_xpub = bitbox_api::btc::Xpub::from_str(&our_xpub_str).unwrap();
+    let some_xpub = bitbox_api::btc::Xpub::from_str("tpubDFgycCkexSxkdZfeyaasDHityE97kiYM1BeCNoivDHvydGugKtoNobt4vEX6YSHNPy2cqmWQHKjKxciJuocepsGPGxcDZVmiMBnxgA1JKQk").unwrap();
 
     let keys = &[
         // Our key: root fingerprint and keypath are required.

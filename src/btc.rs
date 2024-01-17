@@ -7,7 +7,10 @@ use crate::pb::{self, request::Request, response::Response};
 use crate::Keypath;
 use crate::PairedBitBox;
 
-pub use bitcoin::bip32::{ExtendedPubKey, Fingerprint};
+pub use bitcoin::{
+    bip32::{Fingerprint, Xpub},
+    blockdata::script::witness_version::WitnessVersion,
+};
 
 #[cfg(feature = "wasm")]
 use enum_assoc::Assoc;
@@ -61,7 +64,7 @@ pub struct PrevTxOutput {
 impl From<&bitcoin::TxOut> for PrevTxOutput {
     fn from(value: &bitcoin::TxOut) -> Self {
         PrevTxOutput {
-            value: value.value,
+            value: value.value.to_sat(),
             pubkey_script: value.script_pubkey.as_bytes().to_vec(),
         }
     }
@@ -78,7 +81,7 @@ pub struct PrevTx {
 impl From<&bitcoin::Transaction> for PrevTx {
     fn from(value: &bitcoin::Transaction) -> Self {
         PrevTx {
-            version: value.version as _,
+            version: value.version.0 as _,
             inputs: value.input.iter().map(PrevTxInput::from).collect(),
             outputs: value.output.iter().map(PrevTxOutput::from).collect(),
             locktime: value.lock_time.to_consensus_u32(),
@@ -118,7 +121,7 @@ pub enum PayloadError {
     #[error("invalid witness program size")]
     InvalidWitnessProgramSize,
     #[error("witness version {0} not supported yet")]
-    UnsupportedWitnessVersion(bitcoin::address::WitnessVersion),
+    UnsupportedWitnessVersion(WitnessVersion),
     #[error("unrecognized pubkey script")]
     Unrecognized,
 }
@@ -136,7 +139,7 @@ impl TryFrom<bitcoin::address::Payload> for Payload {
                 output_type: pb::BtcOutputType::P2sh,
             }),
             bitcoin::address::Payload::WitnessProgram(w) => match w.version() {
-                bitcoin::address::WitnessVersion::V0 => Ok(Payload {
+                WitnessVersion::V0 => Ok(Payload {
                     data: w.program().as_bytes().to_vec(),
                     output_type: match w.program().len() {
                         20 => pb::BtcOutputType::P2wpkh,
@@ -144,7 +147,7 @@ impl TryFrom<bitcoin::address::Payload> for Payload {
                         _ => return Err(PayloadError::InvalidWitnessProgramSize),
                     },
                 }),
-                bitcoin::address::WitnessVersion::V1 => match w.program().len() {
+                WitnessVersion::V1 => match w.program().len() {
                     32 => Ok(Payload {
                         data: w.program().as_bytes().to_vec(),
                         output_type: pb::BtcOutputType::P2tr,
@@ -178,7 +181,7 @@ impl TryFrom<&bitcoin::TxOut> for TxExternalOutput {
         Ok(TxExternalOutput {
             payload: Payload::from_pkscript(value.script_pubkey.as_bytes())
                 .map_err(|_| PsbtError::UnknownOutputType)?,
-            value: value.value,
+            value: value.value.to_sat(),
         })
     }
 }
@@ -336,7 +339,7 @@ fn script_config_from_utxo(
     _witness_script: Option<&bitcoin::ScriptBuf>,
 ) -> Result<pb::BtcScriptConfigWithKeypath, PsbtError> {
     let keypath = keypath.hardened_prefix();
-    if output.script_pubkey.is_v0_p2wpkh() {
+    if output.script_pubkey.is_p2wpkh() {
         return Ok(pb::BtcScriptConfigWithKeypath {
             script_config: Some(make_script_config_simple(
                 pb::btc_script_config::SimpleType::P2wpkh,
@@ -344,7 +347,7 @@ fn script_config_from_utxo(
             keypath: keypath.to_vec(),
         });
     }
-    let redeem_script_is_p2wpkh = redeem_script.map(|s| s.is_v0_p2wpkh()).unwrap_or(false);
+    let redeem_script_is_p2wpkh = redeem_script.map(|s| s.is_p2wpkh()).unwrap_or(false);
     if output.script_pubkey.is_p2sh() && redeem_script_is_p2wpkh {
         return Ok(pb::BtcScriptConfigWithKeypath {
             script_config: Some(make_script_config_simple(
@@ -353,7 +356,7 @@ fn script_config_from_utxo(
             keypath: keypath.to_vec(),
         });
     }
-    if output.script_pubkey.is_v1_p2tr() {
+    if output.script_pubkey.is_p2tr() {
         return Ok(pb::BtcScriptConfigWithKeypath {
             script_config: Some(make_script_config_simple(
                 pb::btc_script_config::SimpleType::P2tr,
@@ -362,9 +365,9 @@ fn script_config_from_utxo(
         });
     }
     // Check for segwit multisig (p2wsh or p2wsh-p2sh).
-    let redeem_script_is_p2wsh = redeem_script.map(|s| s.is_v0_p2wsh()).unwrap_or(false);
+    let redeem_script_is_p2wsh = redeem_script.map(|s| s.is_p2wsh()).unwrap_or(false);
     let is_p2wsh_p2sh = output.script_pubkey.is_p2sh() && redeem_script_is_p2wsh;
-    if output.script_pubkey.is_v0_p2wsh() || is_p2wsh_p2sh {
+    if output.script_pubkey.is_p2wsh() || is_p2wsh_p2sh {
         todo!();
     }
     Err(PsbtError::UnknownOutputType)
@@ -373,7 +376,7 @@ fn script_config_from_utxo(
 impl Transaction {
     fn from_psbt(
         our_root_fingerprint: &[u8],
-        psbt: &bitcoin::psbt::PartiallySignedTransaction,
+        psbt: &bitcoin::psbt::Psbt,
         force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
     ) -> Result<(Self, Vec<OurKey>), PsbtError> {
         let mut script_configs: Vec<pb::BtcScriptConfigWithKeypath> = Vec::new();
@@ -415,7 +418,7 @@ impl Transaction {
             inputs.push(TxInput {
                 prev_out_hash: (tx_input.previous_output.txid.as_ref() as &[u8]).to_vec(),
                 prev_out_index: tx_input.previous_output.vout,
-                prev_out_value: utxo.value,
+                prev_out_value: utxo.value.to_sat(),
                 sequence: tx_input.sequence.to_consensus_u32(),
                 keypath: our_key.keypath(),
                 script_config_index: script_config_index as _,
@@ -442,7 +445,7 @@ impl Transaction {
                     };
                     outputs.push(TxOutput::Internal(TxInternalOutput {
                         keypath: our_key.keypath(),
-                        value: tx_output.value,
+                        value: tx_output.value.to_sat(),
                         script_config_index: script_config_index as _,
                     }));
                 }
@@ -455,7 +458,7 @@ impl Transaction {
         Ok((
             Transaction {
                 script_configs,
-                version: psbt.unsigned_tx.version as _,
+                version: psbt.unsigned_tx.version.0 as _,
                 inputs,
                 outputs,
                 locktime: psbt.unsigned_tx.lock_time.to_consensus_u32(),
@@ -486,10 +489,10 @@ pub fn make_script_config_simple(
 pub struct KeyOriginInfo {
     pub root_fingerprint: Option<bitcoin::bip32::Fingerprint>,
     pub keypath: Option<Keypath>,
-    pub xpub: bitcoin::bip32::ExtendedPubKey,
+    pub xpub: bitcoin::bip32::Xpub,
 }
 
-fn convert_xpub(xpub: &bitcoin::bip32::ExtendedPubKey) -> pb::XPub {
+fn convert_xpub(xpub: &bitcoin::bip32::Xpub) -> pb::XPub {
     pb::XPub {
         depth: vec![xpub.depth],
         parent_fingerprint: xpub.parent_fingerprint[..].to_vec(),
@@ -822,7 +825,7 @@ impl<R: Runtime> PairedBitBox<R> {
     pub async fn btc_sign_psbt(
         &self,
         coin: pb::BtcCoin,
-        psbt: &mut bitcoin::psbt::PartiallySignedTransaction,
+        psbt: &mut bitcoin::psbt::Psbt,
         force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<(), Error> {
@@ -1145,7 +1148,7 @@ mod tests {
             locktime: 2441655,
         };
         let our_root_fingerprint = hex::decode("12a2c189").unwrap();
-        let psbt = bitcoin::psbt::PartiallySignedTransaction::from_str(psbt_str).unwrap();
+        let psbt = bitcoin::psbt::Psbt::from_str(psbt_str).unwrap();
         let (transaction, _our_keys) =
             Transaction::from_psbt(&our_root_fingerprint, &psbt, None).unwrap();
         assert_eq!(transaction, expected_transaction);
