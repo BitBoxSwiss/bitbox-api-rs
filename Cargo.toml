@@ -1,7 +1,7 @@
 [package]
 name = "bitbox-api"
 authors = ["Marko Bencun <benma@bitbox.swiss>"]
-version = "0.2.2"
+version = "0.2.3"
 homepage = "https://bitbox.swiss/"
 repository = "https://github.com/digitalbitbox/bitbox-api-rs/"
 readme = "README-rust.md"
