@@ -52,6 +52,17 @@ type EthTransaction = {
   value: Uint8Array;
   data: Uint8Array;
 };
+// chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gasLimit and value must be big-endian encoded, no trailing zeroes.
+type Eth1559Transaction = {
+  chainId: number;
+  nonce: Uint8Array;
+  maxPriorityFeePerGas: Uint8Array;
+  maxFeePerGas: Uint8Array;
+  gasLimit: Uint8Array;
+  recipient: Uint8Array;
+  value: Uint8Array;
+  data: Uint8Array;
+};
 type EthSignature = {
   r: Uint8Array;
   s: Uint8Array;
@@ -164,6 +175,8 @@ extern "C" {
     pub type TsBtcSignMessageSignature;
     #[wasm_bindgen(typescript_type = "EthTransaction")]
     pub type TsEthTransaction;
+    #[wasm_bindgen(typescript_type = "Eth1559Transaction")]
+    pub type TsEth1559Transaction;
     #[wasm_bindgen(typescript_type = "EthSignature")]
     pub type TsEthSignature;
     #[wasm_bindgen(typescript_type = "CardanoXpub")]
@@ -252,6 +265,14 @@ impl TryFrom<TsEthTransaction> for crate::eth::Transaction {
     fn try_from(value: TsEthTransaction) -> Result<Self, Self::Error> {
         serde_wasm_bindgen::from_value(value.into())
             .map_err(|_| JavascriptError::InvalidType("wrong type for EthTransaction"))
+    }
+}
+
+impl TryFrom<TsEth1559Transaction> for crate::eth::EIP1559Transaction {
+    type Error = JavascriptError;
+    fn try_from(value: TsEth1559Transaction) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value.into())
+            .map_err(|_| JavascriptError::InvalidType("wrong type for Eth1559Transaction"))
     }
 }
 
