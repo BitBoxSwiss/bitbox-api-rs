@@ -399,6 +399,27 @@ impl PairedBitBox {
         .into())
     }
 
+    /// Signs an Ethereum type 2 transaction according to EIP 1559. It returns a 65 byte signature (R, S, and 1 byte recID).
+    #[wasm_bindgen(js_name = ethSign1559Transaction)]
+    pub async fn eth_sign_1559_transaction(
+        &self,
+        keypath: types::TsKeypath,
+        tx: types::TsEth1559Transaction,
+    ) -> Result<types::TsEthSignature, JavascriptError> {
+        let signature = self
+            .0
+            .eth_sign_1559_transaction(&keypath.try_into()?, &tx.try_into()?)
+            .await?;
+
+        Ok(serde_wasm_bindgen::to_value(&types::EthSignature {
+            r: signature[..32].to_vec(),
+            s: signature[32..64].to_vec(),
+            v: vec![signature[64]],
+        })
+        .unwrap()
+        .into())
+    }
+
     /// Signs an Ethereum message. The provided msg will be prefixed with "\x19Ethereum message\n" +
     /// len(msg) in the hardware, e.g. "\x19Ethereum\n5hello" (yes, the len prefix is the ascii
     /// representation with no fixed size or delimiter).  It returns a 65 byte signature (R, S, and

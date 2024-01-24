@@ -101,6 +101,27 @@ pub struct Transaction {
     pub data: Vec<u8>,
 }
 
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct EIP1559Transaction {
+    pub chain_id: u64,
+    /// Nonce must be big-endian encoded, no trailing zeroes.
+    pub nonce: Vec<u8>,
+    /// Max priority fee must be big-endian encoded, no trailing zeroes.
+    pub max_priority_fee_per_gas: Vec<u8>,
+    /// max fee must be big-endian encoded, no trailing zeroes.
+    pub max_fee_per_gas: Vec<u8>,
+    /// Gas limit must be big-endian encoded, no trailing zeroes.
+    pub gas_limit: Vec<u8>,
+    pub recipient: [u8; 20],
+    /// Value must be big-endian encoded, no trailing zeroes.
+    pub value: Vec<u8>,
+    pub data: Vec<u8>,
+}
+
 #[cfg(feature = "rlp")]
 impl TryFrom<&[u8]> for Transaction {
     type Error = ();
@@ -111,6 +132,30 @@ impl TryFrom<&[u8]> for Transaction {
         Ok(Transaction {
             nonce,
             gas_price,
+            gas_limit,
+            recipient: recipient.try_into().map_err(|_| ())?,
+            value,
+            data,
+        })
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl TryFrom<&[u8]> for EIP1559Transaction {
+    type Error = ();
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let [mut chain_id_vec, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, recipient, value, data, _, _, _]: [Vec<u8>; 11] =
+            rlp::decode_list(value).try_into().map_err(|_| ())?;
+        while chain_id_vec.len() < 8 {
+            chain_id_vec.insert(0, 0);
+        }
+        let chain_id = u64::from_be_bytes(chain_id_vec.try_into().map_err(|_| ())?);
+        Ok(EIP1559Transaction {
+            chain_id,
+            nonce,
+            max_priority_fee_per_gas,
+            max_fee_per_gas,
             gas_limit,
             recipient: recipient.try_into().map_err(|_| ())?,
             value,
@@ -439,6 +484,38 @@ impl<R: Runtime> PairedBitBox<R> {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
             chain_id,
+        });
+        let response = self.query_proto_eth(request).await?;
+        self.handle_antiklepto(&response, host_nonce).await
+    }
+
+    /// Signs an Ethereum type 2 transaction according to EIP 1559. It returns a 65 byte signature (R, S, and 1 byte recID).
+    /// The `tx` param can be constructed manually or parsed from a raw transaction using
+    /// `raw_tx_slice.try_into()` (`rlp` feature required).
+    pub async fn eth_sign_1559_transaction(
+        &self,
+        keypath: &Keypath,
+        tx: &EIP1559Transaction,
+    ) -> Result<[u8; 65], Error> {
+        // EIP1559 is suported from v9.16.0
+        self.validate_version(">=9.16.0")?;
+
+        let host_nonce = crate::antiklepto::gen_host_nonce()?;
+        let request = pb::eth_request::Request::SignEip1559(pb::EthSignEip1559Request {
+            chain_id: tx.chain_id,
+            keypath: keypath.to_vec(),
+            nonce: crate::util::remove_leading_zeroes(&tx.nonce),
+            max_priority_fee_per_gas: crate::util::remove_leading_zeroes(
+                &tx.max_priority_fee_per_gas,
+            ),
+            max_fee_per_gas: crate::util::remove_leading_zeroes(&tx.max_fee_per_gas),
+            gas_limit: crate::util::remove_leading_zeroes(&tx.gas_limit),
+            recipient: tx.recipient.to_vec(),
+            value: crate::util::remove_leading_zeroes(&tx.value),
+            data: tx.data.clone(),
+            host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
+                commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
+            }),
         });
         let response = self.query_proto_eth(request).await?;
         self.handle_antiklepto(&response, host_nonce).await

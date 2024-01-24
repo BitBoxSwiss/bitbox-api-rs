@@ -188,6 +188,87 @@ function EthSignTransaction({ bb02 } : Props) {
   );
 }
 
+function EthSignEIP1559Transaction({ bb02 } : Props) {
+  const [chainID, setChainID] = useState(1);
+  const [keypath, setKeypath] = useState('m/44\'/60\'/0\'/0/0');
+  const defaultTx = `{
+  "nonce": "1fdc",
+  "maxPriorityFeePerGas": "3b9aca00",
+  "maxFeePerGas": "04a817c800",
+  "gasLimit": "5208",
+  "recipient": "04f264cf34440313b4a0192a352814fbe927b885",
+  "value": "075cf1259e9c4000",
+  "data": ""
+}`;
+  const [txJson, setTxJson] = useState(defaultTx);
+  const [result, setResult] = useState<bitbox.EthSignature | undefined>();
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState<bitbox.Error>();
+
+  const parsedResult = result ? JSON.stringify(result, undefined, 2) : '';
+
+  const submitForm = async (e: FormEvent) => {
+    e.preventDefault();
+    setRunning(true);
+    setResult(undefined);
+    setErr(undefined);
+    try {
+      const parsed = JSON.parse(txJson);
+      const tx = {
+        chainId: chainID,
+        nonce: new Uint8Array(hexToArrayBuffer(parsed.nonce)),
+        maxPriorityFeePerGas: new Uint8Array(hexToArrayBuffer(parsed.maxPriorityFeePerGas)),
+        maxFeePerGas: new Uint8Array(hexToArrayBuffer(parsed.maxFeePerGas)),
+        gasLimit: new Uint8Array(hexToArrayBuffer(parsed.gasLimit)),
+        recipient: new Uint8Array(hexToArrayBuffer(parsed.recipient)),
+        value: new Uint8Array(hexToArrayBuffer(parsed.value)),
+        data: new Uint8Array(hexToArrayBuffer(parsed.data)),
+      };
+      setResult(await bb02.ethSign1559Transaction(keypath, tx));
+    } catch (err) {
+      setErr(bitbox.ensureError(err));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div>
+      <h4>Sign EIP-1559 Transaction</h4>
+      <form className="verticalForm"onSubmit={submitForm}>
+        <label>
+          Chain ID
+          <input type='number' value={chainID} onChange={e => setChainID(parseInt(e.target.value))} />
+        </label>
+        <label>
+          Keypath
+          <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+        </label>
+        <label>
+          Transaction
+        </label>
+        <textarea value={txJson} onChange={e => setTxJson(e.target.value)} rows={9} />
+        <br />
+        <button type='submit' disabled={running}>Sign EIP-1559 transaction</button>
+        {result ? <>
+          <div className="resultContainer">
+            <label>Result</label>
+            {
+              <textarea
+              rows={32}
+              readOnly
+              defaultValue={parsedResult}
+              />
+            }
+          </div>
+        </> : null}
+        <ShowError err={err} />       
+      </form>
+    </div>
+    
+  );
+}
+
 function EthSignMessage({ bb02 } : Props) {
   const [chainID, setChainID] = useState(1);
   const [keypath, setKeypath] = useState('m/44\'/60\'/0\'/0/0');
@@ -370,6 +451,9 @@ export function Ethereum({ bb02 } : Props) {
       </div>
       <div className="action">
         <EthAddress bb02={bb02} />
+      </div>
+      <div className="action">
+        <EthSignEIP1559Transaction bb02={bb02} />
       </div>
       <div className="action">
         <EthSignTransaction bb02={bb02} />
