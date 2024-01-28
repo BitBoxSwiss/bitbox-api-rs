@@ -116,17 +116,26 @@ impl crate::runtime::Runtime for WasmRuntime {
 
 /// BitBox client. Instantiate it using `bitbox02ConnectAuto()`.
 #[wasm_bindgen]
-pub struct BitBox(crate::BitBox<WasmRuntime>);
+pub struct BitBox {
+    device: crate::BitBox<WasmRuntime>,
+    close_function: js_sys::Function,
+}
 
 /// BitBox in the pairing state. Use `getPairingCode()` to display the pairing code to the user and
 /// `waitConfirm()` to proceed to the paired state.
 #[wasm_bindgen]
-pub struct PairingBitBox(crate::PairingBitBox<WasmRuntime>);
+pub struct PairingBitBox {
+    device: crate::PairingBitBox<WasmRuntime>,
+    close_function: js_sys::Function,
+}
 
 /// Paired BitBox. This is where you can invoke most API functions like getting xpubs, displaying
 /// receive addresses, etc.
 #[wasm_bindgen]
-pub struct PairedBitBox(crate::PairedBitBox<WasmRuntime>);
+pub struct PairedBitBox {
+    device: crate::PairedBitBox<WasmRuntime>,
+    close_function: js_sys::Function,
+}
 
 #[wasm_bindgen]
 impl BitBox {
@@ -134,7 +143,10 @@ impl BitBox {
     /// with the returned instance of type `PairingBitBox`.
     #[wasm_bindgen(js_name = unlockAndPair)]
     pub async fn unlock_and_pair(self) -> Result<PairingBitBox, JavascriptError> {
-        Ok(self.0.unlock_and_pair().await.map(PairingBitBox)?)
+        Ok(PairingBitBox {
+            device: self.device.unlock_and_pair().await?,
+            close_function: self.close_function,
+        })
     }
 }
 
@@ -151,14 +163,17 @@ impl PairingBitBox {
     /// establish the encrypted connection.
     #[wasm_bindgen(js_name = getPairingCode)]
     pub fn get_pairing_code(&self) -> Option<String> {
-        self.0.get_pairing_code()
+        self.device.get_pairing_code()
     }
 
     /// Proceed to the paired state. After this, stop using this instance and continue with the
     /// returned instance of type `PairedBitBox`.
     #[wasm_bindgen(js_name = waitConfirm)]
     pub async fn wait_confirm(self) -> Result<PairedBitBox, JavascriptError> {
-        Ok(self.0.wait_confirm().await.map(PairedBitBox)?)
+        Ok(PairedBitBox {
+            device: self.device.wait_confirm().await?,
+            close_function: self.close_function,
+        })
     }
 }
 
@@ -171,16 +186,23 @@ fn compute_v(chain_id: u64, rec_id: u8) -> Option<u64> {
 /// receive addresses, etc.
 #[wasm_bindgen]
 impl PairedBitBox {
+    /// Closes the BitBox connection. This also invokes the `on_close_cb` callback which was
+    /// provided to the connect method creating the connection.
+    #[wasm_bindgen(js_name = close)]
+    pub fn close(self) {
+        self.close_function.call0(&JsValue::NULL).unwrap();
+    }
+
     #[wasm_bindgen(js_name = deviceInfo)]
     pub async fn device_info(&self) -> Result<types::TsDeviceInfo, JavascriptError> {
-        let result = self.0.device_info().await?;
+        let result = self.device.device_info().await?;
         Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
 
     /// Returns which product we are connected to.
     #[wasm_bindgen(js_name = product)]
     pub fn product(&self) -> types::TsProduct {
-        match self.0.product() {
+        match self.device.product() {
             crate::Product::Unknown => JsValue::from_str("unknown").into(),
             crate::Product::BitBox02Multi => JsValue::from_str("bitbox02-multi").into(),
             crate::Product::BitBox02BtcOnly => JsValue::from_str("bitbox02-btconly").into(),
@@ -190,13 +212,13 @@ impl PairedBitBox {
     /// Returns the hex-encoded 4-byte root fingerprint.
     #[wasm_bindgen(js_name = rootFingerprint)]
     pub async fn root_fingerprint(&self) -> Result<String, JavascriptError> {
-        Ok(self.0.root_fingerprint().await?)
+        Ok(self.device.root_fingerprint().await?)
     }
 
     /// Show recovery words on the Bitbox.
     #[wasm_bindgen(js_name = showMnemonic)]
     pub async fn show_mnemonic(&self) -> Result<(), JavascriptError> {
-        Ok(self.0.show_mnemonic().await?)
+        Ok(self.device.show_mnemonic().await?)
     }
 
     /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
@@ -210,7 +232,7 @@ impl PairedBitBox {
         display: bool,
     ) -> Result<String, JavascriptError> {
         Ok(self
-            .0
+            .device
             .btc_xpub(
                 coin.try_into()?,
                 &keypath.try_into()?,
@@ -234,7 +256,7 @@ impl PairedBitBox {
         keypath_account: Option<types::TsKeypath>,
     ) -> Result<bool, JavascriptError> {
         Ok(self
-            .0
+            .device
             .btc_is_script_config_registered(
                 coin.try_into()?,
                 &script_config.try_into()?,
@@ -266,7 +288,7 @@ impl PairedBitBox {
         name: Option<String>,
     ) -> Result<(), JavascriptError> {
         Ok(self
-            .0
+            .device
             .btc_register_script_config(
                 coin.try_into()?,
                 &script_config.try_into()?,
@@ -293,7 +315,7 @@ impl PairedBitBox {
         display: bool,
     ) -> Result<String, JavascriptError> {
         Ok(self
-            .0
+            .device
             .btc_address(
                 coin.try_into()?,
                 &keypath.try_into()?,
@@ -320,7 +342,7 @@ impl PairedBitBox {
         format_unit: types::TsBtcFormatUnit,
     ) -> Result<String, JavascriptError> {
         let mut psbt = bitcoin::psbt::Psbt::from_str(psbt.trim())?;
-        self.0
+        self.device
             .btc_sign_psbt(
                 coin.try_into()?,
                 &mut psbt,
@@ -342,7 +364,7 @@ impl PairedBitBox {
         msg: &[u8],
     ) -> Result<types::TsBtcSignMessageSignature, JavascriptError> {
         let signature = self
-            .0
+            .device
             .btc_sign_message(coin.try_into()?, script_config.try_into()?, msg)
             .await?;
 
@@ -352,13 +374,13 @@ impl PairedBitBox {
     /// Does this device support ETH functionality? Currently this means BitBox02 Multi.
     #[wasm_bindgen(js_name = ethSupported)]
     pub fn eth_supported(&self) -> bool {
-        self.0.eth_supported()
+        self.device.eth_supported()
     }
 
     /// Query the device for an xpub.
     #[wasm_bindgen(js_name = ethXpub)]
     pub async fn eth_xpub(&self, keypath: types::TsKeypath) -> Result<String, JavascriptError> {
-        Ok(self.0.eth_xpub(&keypath.try_into()?).await?)
+        Ok(self.device.eth_xpub(&keypath.try_into()?).await?)
     }
 
     /// Query the device for an Ethereum address.
@@ -370,7 +392,7 @@ impl PairedBitBox {
         display: bool,
     ) -> Result<String, JavascriptError> {
         Ok(self
-            .0
+            .device
             .eth_address(chain_id, &keypath.try_into()?, display)
             .await?)
     }
@@ -384,7 +406,7 @@ impl PairedBitBox {
         tx: types::TsEthTransaction,
     ) -> Result<types::TsEthSignature, JavascriptError> {
         let signature = self
-            .0
+            .device
             .eth_sign_transaction(chain_id, &keypath.try_into()?, &tx.try_into()?)
             .await?;
 
@@ -407,7 +429,7 @@ impl PairedBitBox {
         tx: types::TsEth1559Transaction,
     ) -> Result<types::TsEthSignature, JavascriptError> {
         let signature = self
-            .0
+            .device
             .eth_sign_1559_transaction(&keypath.try_into()?, &tx.try_into()?)
             .await?;
 
@@ -432,7 +454,7 @@ impl PairedBitBox {
         msg: &[u8],
     ) -> Result<types::TsEthSignature, JavascriptError> {
         let signature = self
-            .0
+            .device
             .eth_sign_message(chain_id, &keypath.try_into()?, msg)
             .await?;
 
@@ -456,7 +478,7 @@ impl PairedBitBox {
     ) -> Result<types::TsEthSignature, JavascriptError> {
         let json_msg: String = js_sys::JSON::stringify(&msg).unwrap().into();
         let signature = self
-            .0
+            .device
             .eth_sign_typed_message(chain_id, &keypath.try_into()?, &json_msg)
             .await?;
 
@@ -472,7 +494,7 @@ impl PairedBitBox {
     /// Does this device support Cardano functionality? Currently this means BitBox02 Multi.
     #[wasm_bindgen(js_name = cardanoSupported)]
     pub fn cardano_supported(&self) -> bool {
-        self.0.cardano_supported()
+        self.device.cardano_supported()
     }
 
     /// Query the device for xpubs. The result contains one xpub per requested keypath. Each xpub is
@@ -483,7 +505,7 @@ impl PairedBitBox {
         keypaths: Vec<types::TsKeypath>,
     ) -> Result<types::TsCardanoXpubs, JavascriptError> {
         let xpubs = self
-            .0
+            .device
             .cardano_xpubs(
                 keypaths
                     .into_iter()
@@ -504,7 +526,7 @@ impl PairedBitBox {
         display: bool,
     ) -> Result<String, JavascriptError> {
         Ok(self
-            .0
+            .device
             .cardano_address(network.try_into()?, &script_config.try_into()?, display)
             .await?)
     }
@@ -516,7 +538,7 @@ impl PairedBitBox {
         transaction: types::TsCardanoTransaction,
     ) -> Result<types::TsCardanoSignTransactionResult, JavascriptError> {
         let tt = transaction.try_into()?;
-        let result = self.0.cardano_sign_transaction(tt).await?;
+        let result = self.device.cardano_sign_transaction(tt).await?;
         Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
 }

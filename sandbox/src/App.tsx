@@ -57,7 +57,11 @@ function App() {
     return (
       <div className="contentContainer">
         <h2 style={{textAlign: 'left'}}>BitBox02 sandbox</h2>
-        <h4 style={{textAlign: 'left'}}>Connected product: {bb02.product()}</h4>
+        <h4 style={{textAlign: 'left'}}>
+          Connected product: {bb02.product()}
+          &nbsp;
+          <button onClick={() => bb02.close()}>Close connection</button>
+        </h4>
         <Accordion opened title="General">
           <General bb02={bb02} />
         </Accordion>

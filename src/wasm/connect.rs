@@ -45,7 +45,9 @@ impl communication::ReadWrite for JsReadWrite {
     }
 }
 
-fn get_read_writer(result: &JsValue) -> Result<Box<JsReadWrite>, JavascriptError> {
+fn get_read_write_close(
+    result: &JsValue,
+) -> Result<(Box<JsReadWrite>, js_sys::Function), JavascriptError> {
     let write_function: js_sys::Function = js_sys::Reflect::get(result, &"write".into())
         .or(Err(JavascriptError::InvalidType("`write` key missing")))?
         .dyn_into()
@@ -58,11 +60,20 @@ fn get_read_writer(result: &JsValue) -> Result<Box<JsReadWrite>, JavascriptError
         .or(Err(JavascriptError::InvalidType(
             "`read` object is not a function",
         )))?;
+    let close_function: js_sys::Function = js_sys::Reflect::get(result, &"close".into())
+        .or(Err(JavascriptError::InvalidType("`close` key missing")))?
+        .dyn_into()
+        .or(Err(JavascriptError::InvalidType(
+            "`close` object is not a function",
+        )))?;
 
-    Ok(Box::new(JsReadWrite {
-        write_function,
-        read_function,
-    }))
+    Ok((
+        Box::new(JsReadWrite {
+            write_function,
+            read_function,
+        }),
+        close_function,
+    ))
 }
 
 /// Connect to a BitBox02 using WebHID. WebHID is mainly supported by Chrome.
@@ -78,15 +89,17 @@ pub async fn bitbox02_connect_webhid(on_close_cb: TsOnCloseCb) -> Result<BitBox,
     if result.is_null() {
         return Err(JavascriptError::UserAbort);
     }
-    let read_write = get_read_writer(&result)?;
+    let (read_write, close_function) = get_read_write_close(&result)?;
     let communication = Box::new(communication::U2fHidCommunication::from(
         read_write,
         communication::FIRMWARE_CMD,
     ));
 
-    Ok(BitBox(
-        crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {})).await?,
-    ))
+    Ok(BitBox {
+        device: crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {}))
+            .await?,
+        close_function,
+    })
 }
 
 /// Connect to a BitBox02 by using the BitBoxBridge service.
@@ -104,15 +117,17 @@ pub async fn bitbox02_connect_bridge(on_close_cb: TsOnCloseCb) -> Result<BitBox,
     if result.is_null() {
         return Err(JavascriptError::UserAbort);
     }
-    let read_write = get_read_writer(&result)?;
+    let (read_write, close_function) = get_read_write_close(&result)?;
     let communication = Box::new(communication::U2fWsCommunication::from(
         read_write,
         communication::FIRMWARE_CMD,
     ));
 
-    Ok(BitBox(
-        crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {})).await?,
-    ))
+    Ok(BitBox {
+        device: crate::BitBox::from(communication, Box::new(noise::LocalStorageNoiseConfig {}))
+            .await?,
+        close_function,
+    })
 }
 
 /// Connect to a BitBox02 using WebHID if available. If WebHID is not available, we attempt to

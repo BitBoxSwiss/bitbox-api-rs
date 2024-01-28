@@ -84,6 +84,12 @@ export async function getWebHIDDevice(vendorId, productId, onCloseCb) {
     close: () => {
       device.close().then(() => {
         device.removeEventListener('inputreport', onInputReport);
+        // The disconnect event above is not fired when closing the
+        // device, so we manually invoke the callback.
+        if (onCloseCb) {
+          onCloseCb();
+          onCloseCb = undefined;
+      }
       });
     },
     valid: () => device.opened,
