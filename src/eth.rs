@@ -280,33 +280,32 @@ fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
                 Err("Expected a string for bytes type".to_string())
             }
         }
-        DataType::Uint => {
-            match value {
-                Value::String(v) => {
-                    if v.starts_with("0x") || v.starts_with("0X") {
-                        Ok(hex::decode(&v[2..])
-                            .map_err(|_| format!("could not parse {} as hex", v))?)
-                    } else {
-                        Ok(BigUint::from_str(v)
-                            .map_err(|e| e.to_string())?
-                            .to_bytes_be())
-                    }
+        DataType::Uint => match value {
+            Value::String(v) => {
+                if v.starts_with("0x") || v.starts_with("0X") {
+                    Ok(BigUint::parse_bytes(v[2..].as_bytes(), 16)
+                        .ok_or(format!("could not parse {} as hex", v))?
+                        .to_bytes_be())
+                } else {
+                    Ok(BigUint::from_str(v)
+                        .map_err(|e| e.to_string())?
+                        .to_bytes_be())
                 }
-                Value::Number(n) => {
-                    if let Some(v) = n.as_f64() {
-                        let v64: u64 = v as _;
-                        if (v64 as f64) != v {
-                            Err("Number is not an uint".to_string())
-                        } else {
-                            Ok(BigUint::from(v64).to_bytes_be())
-                        }
-                    } else {
-                        Err("Number is not an uint".to_string())
-                    }
-                }
-                _ => Err("Wrong type for uint".to_string()),
             }
-        }
+            Value::Number(n) => {
+                if let Some(v) = n.as_f64() {
+                    let v64: u64 = v as _;
+                    if (v64 as f64) != v {
+                        Err("Number is not an uint".to_string())
+                    } else {
+                        Ok(BigUint::from(v64).to_bytes_be())
+                    }
+                } else {
+                    Err("Number is not an uint".to_string())
+                }
+            }
+            _ => Err("Wrong type for uint".to_string()),
+        },
         DataType::Int => match value {
             Value::String(v) => Ok(BigInt::from_str(v)
                 .map_err(|e| e.to_string())?
@@ -1010,6 +1009,23 @@ mod tests {
         )
         .unwrap();
         assert_eq!(vec![0xb1, 0xd8, 0x4b, 0x7c], encoded);
+
+        let encoded =
+            encode_value(&parse_type_no_err("uint64", &HashMap::new()), &"0x1".into()).unwrap();
+        assert_eq!(vec![0x01], encoded);
+
+        let encoded = encode_value(
+            &parse_type_no_err("uint64", &HashMap::new()),
+            &"0x0001".into(),
+        )
+        .unwrap();
+        assert_eq!(vec![0x01], encoded);
+
+        assert!(encode_value(
+            &parse_type_no_err("uint64", &HashMap::new()),
+            &"0xnot correct".into(),
+        )
+        .is_err());
 
         let encoded = encode_value(
             &parse_type_no_err("int64", &HashMap::new()),
