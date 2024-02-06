@@ -1,0 +1,43 @@
+name: Build and Deploy Sandbox to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+  
+    - name: Install wasm-pack, clang, and jq
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang jq
+        cargo install --force wasm-pack
+
+    - name: Build WASM
+      run: |
+        make wasm
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18' 
+    
+    - name: Install Sandbox Dependencies and Build Sandbox
+      run: |
+        make build-sandbox
+
+    - name: Deploy to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: gh-pages  
+        folder: sandbox/dist     
+        token: ${{ secrets.GITHUB_TOKEN }} 
