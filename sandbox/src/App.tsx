@@ -42,7 +42,7 @@ function App() {
     }
   };
 
- 
+
   if (pairingCode !== undefined) {
     return (
       <div className="container">
@@ -88,6 +88,9 @@ function App() {
       <button className="menuButton" onClick={() => connect('bridge')}>Connect using BitBoxBridge</button><br />
       <button className="menuButton" onClick={() => connect('auto')}>Choose automatically</button>
       {err !== undefined && <ErrorNotification message={err.message} code={err.code} onClose={() => setErr(undefined)} /> }
+      <p>
+        This sandbox is using the <a href="https://www.npmjs.com/package/bitbox-api">bitbox-api NPM</a> package.
+      </p>
     </div>
   );
 }
