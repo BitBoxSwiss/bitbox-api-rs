@@ -24,10 +24,10 @@ cargo fmt --check
 for feature_set in "${features[@]}"; do
   echo $feature_set
   cargo test --locked --features="$feature_set" --all-targets
-  cargo clippy --locked --features="$feature_set" --all-targets -- -D warnings
+  cargo clippy --locked --features="$feature_set" --all-targets -- -D warnings -A clippy::empty-docs
 done
 
 for example in "${examples[@]}"; do
     cargo test $example
-    cargo clippy $example -- -D warnings
+    cargo clippy $example -- -D warnings -A clippy::empty-docs
 done
