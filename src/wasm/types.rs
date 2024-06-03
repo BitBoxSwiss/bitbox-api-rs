@@ -15,7 +15,7 @@ type Product = 'unknown' | 'bitbox02-multi' | 'bitbox02-btconly';
 type BtcCoin = 'btc' | 'tbtc' | 'ltc' | 'tltc';
 type BtcFormatUnit = 'default' | 'sat';
 type XPubType = 'tpub' | 'xpub' | 'ypub' | 'zpub' | 'vpub' | 'upub' | 'Vpub' | 'Zpub' | 'Upub' | 'Ypub';
-type Keypath = string;
+type Keypath = string | number[];
 type XPub = string;
 type DeviceInfo = {
   name: string;

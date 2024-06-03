@@ -78,8 +78,35 @@ impl<'de> serde::Deserialize<'de> for Keypath {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        s.as_str().try_into().map_err(serde::de::Error::custom)
+        struct KeypathVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for KeypathVisitor {
+            type Value = Keypath;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string or a number sequence")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                value.try_into().map_err(serde::de::Error::custom)
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut vec = Vec::<u32>::new();
+                while let Some(elem) = seq.next_element()? {
+                    vec.push(elem);
+                }
+                Ok(Keypath(vec))
+            }
+        }
+
+        deserializer.deserialize_any(KeypathVisitor)
     }
 }
 

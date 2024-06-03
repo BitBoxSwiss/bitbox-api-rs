@@ -157,6 +157,7 @@ pub enum Product {
 pub struct Info {
     pub version: semver::Version,
     pub product: Product,
+    #[allow(dead_code)]
     pub unlocked: bool,
 }
 
