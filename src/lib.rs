@@ -359,4 +359,22 @@ impl<R: Runtime> PairedBitBox<R> {
             _ => Err(Error::UnexpectedResponse),
         }
     }
+
+    /// Restore from recovery words on the Bitbox.
+    pub async fn restore_from_mnemonic(&self) -> Result<(), Error> {
+        let now = std::time::SystemTime::now();
+        let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
+        match self
+            .query_proto(Request::RestoreFromMnemonic(
+                pb::RestoreFromMnemonicRequest {
+                    timestamp: duration_since_epoch.as_secs() as u32,
+                    timezone_offset: chrono::Local::now().offset().local_minus_utc(),
+                },
+            ))
+            .await?
+        {
+            Response::Success(_) => Ok(()),
+            _ => Err(Error::UnexpectedResponse),
+        }
+    }
 }
