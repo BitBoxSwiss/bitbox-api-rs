@@ -1,6 +1,6 @@
 # Demo WebApp project
 
-A live deployment of this demo can be found here: https://digitalbitbox.github.io/bitbox-api-rs/.
+A live deployment of this demo can be found here: https://bitboxswiss.github.io/bitbox-api-rs/.
 
 This folder contains a React project showcasing the TypeScript API. It has the bitbox-api library in
 `../pkg` as a dependency. See how to build this dependency locally at the [main
