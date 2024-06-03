@@ -4,7 +4,7 @@ use crate::util::Threading;
 use async_trait::async_trait;
 use thiserror::Error;
 
-#[cfg(any(feature = "wasm", feature = "usb"))]
+#[cfg(any(feature = "wasm", feature = "usb", feature = "simulator"))]
 pub const FIRMWARE_CMD: u8 = 0x80 + 0x40 + 0x01;
 
 #[derive(Error, Debug)]
@@ -146,7 +146,7 @@ const HWW_RSP_BUSY: u8 = 0x02;
 // Bad request.
 const HWW_RSP_NACK: u8 = 0x03;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Product {
     Unknown,
     BitBox02Multi,

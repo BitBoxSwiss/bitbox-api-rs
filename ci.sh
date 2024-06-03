@@ -3,6 +3,7 @@
 set -e
 
 features=(
+  "simulator,tokio"
   "usb"
   "wasm"
   "multithreaded,usb"
@@ -23,8 +24,8 @@ cargo fmt --check
 
 for feature_set in "${features[@]}"; do
   echo $feature_set
-  cargo test --locked --features="$feature_set" --all-targets
-  cargo clippy --locked --features="$feature_set" --all-targets -- -D warnings -A clippy::empty-docs
+  cargo test --tests --locked --features="$feature_set" -- --nocapture
+  cargo clippy --tests --locked --features="$feature_set" -- -D warnings -A clippy::empty-docs
 done
 
 for example in "${examples[@]}"; do

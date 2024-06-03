@@ -9,6 +9,8 @@ pub mod error;
 pub mod eth;
 mod noise;
 pub mod runtime;
+#[cfg(feature = "simulator")]
+pub mod simulator;
 #[cfg(feature = "usb")]
 pub mod usb;
 #[cfg(feature = "wasm")]
@@ -92,6 +94,18 @@ impl<R: Runtime> BitBox<R> {
     ) -> Result<BitBox<R>, Error> {
         let comm = Box::new(communication::U2fHidCommunication::from(
             Box::new(crate::usb::HidDevice::new(device)),
+            communication::FIRMWARE_CMD,
+        ));
+        Self::from(comm, noise_config).await
+    }
+
+    #[cfg(feature = "simulator")]
+    pub async fn from_simulator(
+        endpoint: Option<&str>,
+        noise_config: Box<dyn NoiseConfig>,
+    ) -> Result<BitBox<R>, Error> {
+        let comm = Box::new(communication::U2fHidCommunication::from(
+            crate::simulator::try_connect::<R>(endpoint).await?,
             communication::FIRMWARE_CMD,
         ));
         Self::from(comm, noise_config).await

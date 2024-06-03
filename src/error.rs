@@ -52,6 +52,9 @@ pub enum Error {
     #[cfg(feature = "usb")]
     #[error("hid error: {0}")]
     Hid(#[from] hidapi::HidError),
+    #[cfg(feature = "simulator")]
+    #[error("simulator error: {0}")]
+    Simulator(#[from] crate::simulator::Error),
     #[error("communication error: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "communication".into()))]
     Communication(communication::Error),
