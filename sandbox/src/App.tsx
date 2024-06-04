@@ -58,7 +58,8 @@ function App() {
       <div className="contentContainer">
         <h2 style={{textAlign: 'left'}}>BitBox02 sandbox</h2>
         <h4 style={{textAlign: 'left'}}>
-          Connected product: {bb02.product()}
+          <p>Connected product: {bb02.product()}</p>
+          <p>Connected firmware version: {bb02.version()}</p>
           &nbsp;
           <button onClick={() => bb02.close()}>Close connection</button>
         </h4>
