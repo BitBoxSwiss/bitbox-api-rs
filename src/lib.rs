@@ -331,6 +331,11 @@ impl<R: Runtime> PairedBitBox<R> {
         self.communication.info.product
     }
 
+    /// Returns the firmware version.
+    pub fn version(&self) -> &semver::Version {
+        &self.communication.info.version
+    }
+
     /// Returns the hex-encoded 4-byte root fingerprint.
     pub async fn root_fingerprint(&self) -> Result<String, Error> {
         match self

@@ -209,6 +209,12 @@ impl PairedBitBox {
         }
     }
 
+    /// Returns the firmware version, e.g. "9.18.0".
+    #[wasm_bindgen(js_name = version)]
+    pub fn version(&self) -> String {
+        self.device.version().to_string()
+    }
+
     /// Returns the hex-encoded 4-byte root fingerprint.
     #[wasm_bindgen(js_name = rootFingerprint)]
     pub async fn root_fingerprint(&self) -> Result<String, JavascriptError> {
