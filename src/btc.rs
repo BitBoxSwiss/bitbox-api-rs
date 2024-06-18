@@ -229,6 +229,11 @@ pub enum PsbtError {
 enum OurKey {
     Segwit(bitcoin::secp256k1::PublicKey, Keypath),
     TaprootInternal(Keypath),
+    TaprootScript(
+        bitcoin::secp256k1::XOnlyPublicKey,
+        bitcoin::taproot::TapLeafHash,
+        Keypath,
+    ),
 }
 
 impl OurKey {
@@ -236,6 +241,7 @@ impl OurKey {
         match self {
             OurKey::Segwit(_, kp) => kp.clone(),
             OurKey::TaprootInternal(kp) => kp.clone(),
+            OurKey::TaprootScript(_, _, kp) => kp.clone(),
         }
     }
 }
@@ -309,19 +315,35 @@ fn find_our_key<T: PsbtOutputInfo>(
     our_root_fingerprint: &[u8],
     output_info: T,
 ) -> Result<OurKey, PsbtError> {
-    if let Some(tap_internal_key) = output_info.get_tap_internal_key() {
-        let (leaf_hashes, (fingerprint, derivation_path)) = output_info
-            .get_tap_key_origins()
-            .get(tap_internal_key)
-            .ok_or(PsbtError::KeyNotFound)?;
-        if !leaf_hashes.is_empty() {
-            return Err(PsbtError::UnsupportedTapScript);
-        }
+    for (xonly, (leaf_hashes, (fingerprint, derivation_path))) in
+        output_info.get_tap_key_origins().iter()
+    {
         if &fingerprint[..] == our_root_fingerprint {
             // TODO: check for fingerprint collision
-            return Ok(OurKey::TaprootInternal(derivation_path.into()));
+
+            if let Some(tap_internal_key) = output_info.get_tap_internal_key() {
+                if tap_internal_key == xonly {
+                    if !leaf_hashes.is_empty() {
+                        // TODO change err msg, we don't support the
+                        // same key as internal key and also in a leaf
+                        // script.
+                        return Err(PsbtError::UnsupportedTapScript);
+                    }
+                    continue;
+                    return Ok(OurKey::TaprootInternal(derivation_path.into()));
+                }
+            }
+            if leaf_hashes.len() != 1 {
+                // TODO change err msg, per BIP-388 all pubkeys are
+                // unique, so it can't be in multiple leafs.
+                return Err(PsbtError::UnsupportedTapScript);
+            }
+            return Ok(OurKey::TaprootScript(
+                *xonly,
+                leaf_hashes[0],
+                derivation_path.into(),
+            ));
         }
-        return Err(PsbtError::KeyNotFound);
     }
     for (pubkey, (fingerprint, derivation_path)) in output_info.get_bip32_derivation().iter() {
         if &fingerprint[..] == our_root_fingerprint {
@@ -539,6 +561,14 @@ fn is_taproot(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
                 }),
             ..
         } if *simple_type == pb::btc_script_config::SimpleType::P2tr as i32)
+        || matches!(
+            &script_config.script_config,
+            Some(pb::BtcScriptConfig {
+                config: Some(pb::btc_script_config::Config::Policy(
+                    pb::btc_script_config::Policy { policy, .. }
+                ))
+            }) if policy.starts_with("tr(")
+        )
 }
 
 impl<R: Runtime> PairedBitBox<R> {
@@ -856,7 +886,12 @@ impl<R: Runtime> PairedBitBox<R> {
                     psbt_input.tap_key_sig = Some(
                         bitcoin::taproot::Signature::from_slice(signature)
                             .map_err(|_| Error::InvalidSignature)?,
-                    )
+                    );
+                }
+                OurKey::TaprootScript(xonly, leaf_hash, _) => {
+                    let sig = bitcoin::taproot::Signature::from_slice(signature)
+                        .map_err(|_| Error::InvalidSignature)?;
+                    psbt_input.tap_script_sigs.insert((xonly, leaf_hash), sig);
                 }
             }
         }
