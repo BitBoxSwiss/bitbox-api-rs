@@ -10,7 +10,6 @@ mod subtests;
 use subtests::PairedBitBox;
 
 use bitcoin::hashes::Hash;
-use hex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::os::unix::fs::PermissionsExt;

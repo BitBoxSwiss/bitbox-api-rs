@@ -13,6 +13,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      - name: Enable simulators caching
+        uses: actions/cache@v4
+        with:
+          key: ${{runner.os}}-simulators-cache-${{hashFiles('./tests/simulators.json')}}
+          path: |
+            ./tests/simulators
       - run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev
@@ -28,6 +34,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@beta
         with:
           components: clippy, rustfmt
+      - name: Enable simulators caching
+        uses: actions/cache@v4
+        with:
+          key: ${{runner.os}}-simulators-cache-${{hashFiles('./tests/simulators.json')}}
+          path: |
+            ./tests/simulators
       - run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev
@@ -44,6 +56,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy, rustfmt
+      - name: Enable simulators caching
+        uses: actions/cache@v4
+        with:
+          key: ${{runner.os}}-simulators-cache-${{hashFiles('./tests/simulators.json')}}
+          path: |
+            ./tests/simulators
       - run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev
