@@ -10,6 +10,7 @@ use crate::PairedBitBox;
 pub use bitcoin::{
     bip32::{Fingerprint, Xpub},
     blockdata::script::witness_version::WitnessVersion,
+    Script,
 };
 
 #[cfg(feature = "wasm")]
@@ -116,56 +117,41 @@ pub struct Payload {
 
 #[derive(thiserror::Error, Debug)]
 pub enum PayloadError {
-    #[error("{0}")]
-    AddressError(#[from] bitcoin::address::Error),
-    #[error("invalid witness program size")]
-    InvalidWitnessProgramSize,
-    #[error("witness version {0} not supported yet")]
-    UnsupportedWitnessVersion(WitnessVersion),
     #[error("unrecognized pubkey script")]
     Unrecognized,
 }
 
-impl TryFrom<bitcoin::address::Payload> for Payload {
-    type Error = PayloadError;
-    fn try_from(value: bitcoin::address::Payload) -> Result<Self, Self::Error> {
-        match value {
-            bitcoin::address::Payload::PubkeyHash(h) => Ok(Payload {
-                data: h[..].to_vec(),
-                output_type: pb::BtcOutputType::P2pkh,
-            }),
-            bitcoin::address::Payload::ScriptHash(h) => Ok(Payload {
-                data: h[..].to_vec(),
-                output_type: pb::BtcOutputType::P2sh,
-            }),
-            bitcoin::address::Payload::WitnessProgram(w) => match w.version() {
-                WitnessVersion::V0 => Ok(Payload {
-                    data: w.program().as_bytes().to_vec(),
-                    output_type: match w.program().len() {
-                        20 => pb::BtcOutputType::P2wpkh,
-                        32 => pb::BtcOutputType::P2wsh,
-                        _ => return Err(PayloadError::InvalidWitnessProgramSize),
-                    },
-                }),
-                WitnessVersion::V1 => match w.program().len() {
-                    32 => Ok(Payload {
-                        data: w.program().as_bytes().to_vec(),
-                        output_type: pb::BtcOutputType::P2tr,
-                    }),
-                    _ => Err(PayloadError::InvalidWitnessProgramSize),
-                },
-                version => Err(PayloadError::UnsupportedWitnessVersion(version)),
-            },
-            _ => Err(PayloadError::Unrecognized),
-        }
-    }
-}
-
 impl Payload {
     pub fn from_pkscript(pkscript: &[u8]) -> Result<Payload, PayloadError> {
-        let payload =
-            bitcoin::address::Payload::from_script(bitcoin::Script::from_bytes(pkscript))?;
-        payload.try_into()
+        let script = Script::from_bytes(pkscript);
+        if script.is_p2pkh() {
+            Ok(Payload {
+                data: pkscript[3..23].to_vec(),
+                output_type: pb::BtcOutputType::P2pkh,
+            })
+        } else if script.is_p2sh() {
+            Ok(Payload {
+                data: pkscript[2..22].to_vec(),
+                output_type: pb::BtcOutputType::P2sh,
+            })
+        } else if script.is_p2wpkh() {
+            Ok(Payload {
+                data: pkscript[2..].to_vec(),
+                output_type: pb::BtcOutputType::P2wpkh,
+            })
+        } else if script.is_p2wsh() {
+            Ok(Payload {
+                data: pkscript[2..].to_vec(),
+                output_type: pb::BtcOutputType::P2wsh,
+            })
+        } else if script.is_p2tr() {
+            Ok(Payload {
+                data: pkscript[2..].to_vec(),
+                output_type: pb::BtcOutputType::P2tr,
+            })
+        } else {
+            Err(PayloadError::Unrecognized)
+        }
     }
 }
 
@@ -846,9 +832,11 @@ impl<R: Runtime> PairedBitBox<R> {
                     psbt_input.partial_sigs.insert(
                         bitcoin::PublicKey::new(pubkey),
                         bitcoin::ecdsa::Signature {
-                            sig: bitcoin::secp256k1::ecdsa::Signature::from_compact(signature)
-                                .map_err(|_| Error::InvalidSignature)?,
-                            hash_ty: bitcoin::sighash::EcdsaSighashType::All,
+                            signature: bitcoin::secp256k1::ecdsa::Signature::from_compact(
+                                signature,
+                            )
+                            .map_err(|_| Error::InvalidSignature)?,
+                            sighash_type: bitcoin::sighash::EcdsaSighashType::All,
                         },
                     );
                 }
