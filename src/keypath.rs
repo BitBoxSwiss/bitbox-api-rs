@@ -60,7 +60,7 @@ impl TryFrom<&str> for Keypath {
 
 impl From<&bitcoin::bip32::DerivationPath> for Keypath {
     fn from(value: &bitcoin::bip32::DerivationPath) -> Self {
-        Keypath(value.into_iter().map(|&el| el.into()).collect())
+        Keypath(value.to_u32_vec())
     }
 }
 
