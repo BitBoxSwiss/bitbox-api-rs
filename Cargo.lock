@@ -175,6 +175,7 @@ dependencies = [
  "hex",
  "hidapi",
  "js-sys",
+ "miniscript",
  "noise-protocol",
  "noise-rust-crypto",
  "num-bigint",
@@ -942,6 +943,16 @@ name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
+
+[[package]]
+name = "miniscript"
+version = "12.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b59c67956fd276ceec0cf194fbf80754ef4d88a496d5cf5e4fdf33561466183d"
+dependencies = [
+ "bech32",
+ "bitcoin",
+]
 
 [[package]]
 name = "miniz_oxide"

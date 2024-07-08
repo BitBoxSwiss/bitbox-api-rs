@@ -48,7 +48,11 @@ wasm-bindgen-test = "0.3.42"
 tokio = { version = "1", features = ["time", "macros", "rt", "fs"] }
 reqwest = "0.12"
 url = "2.5"
+# Enable this to be able to get coverage using `cargo tarpaulin --features=simulator,tokio --out=Html` without compilation error.
+# See https://github.com/rust-bitcoin/rust-bitcoinconsensus/pull/94
+# bitcoinconsensus = { git = "https://github.com/rust-bitcoin/rust-bitcoinconsensus.git", rev = "788ce4d210f7fe6fae4414f5be80968216ba0fd8", default-features = false }
 bitcoinconsensus = { version = "0.106.0", default-features = false }
+miniscript = "12.0.0"
 
 [build-dependencies]
 prost-build = { version = "0.11" }
