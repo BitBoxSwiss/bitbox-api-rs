@@ -202,7 +202,11 @@ async fn test_btc(bitbox: &PairedBitBox) {
 
 #[tokio::test]
 async fn test_device() {
-    let simulator_filenames = download_simulators().await.unwrap();
+    let simulator_filenames = if let Some(simulator_filename) = option_env!("SIMULATOR") {
+        vec![simulator_filename.into()]
+    } else {
+        download_simulators().await.unwrap()
+    };
     for simulator_filename in simulator_filenames {
         {
             println!("Simulator tests using {}", simulator_filename);
