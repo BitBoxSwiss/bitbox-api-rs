@@ -13,7 +13,7 @@ example-btc-psbt:
 example-btc-sign-msg:
 	cargo run --example btc_sign_msg --features=usb,tokio/rt,tokio/macros
 example-btc-miniscript:
-	cargo run --example btc_miniscript --features=usb,tokio/rt,tokio/macros
+	cargo run --example btc_miniscript --features=tokio/rt,tokio/macros,simulator
 example-eth:
 	cargo run --example eth --features=usb,tokio/rt,tokio/macros,rlp
 example-cardano:
