@@ -198,6 +198,8 @@ async fn test_btc(bitbox: &PairedBitBox) {
             )
             .unwrap();
     }
+
+    subtests::test_cardano::test(bitbox).await;
 }
 
 #[tokio::test]
