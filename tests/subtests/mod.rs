@@ -1,6 +1,7 @@
 pub type PairedBitBox = bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>;
 
 pub mod test_btc_psbt;
+pub mod test_cardano;
 
 /// BIP32 xprv from BIP39 mnemonic used by the simulator:
 /// boring mistake dish oyster truth pigeon viable emerge sort crash wire portion cannon couple enact box walk height pull today solid off enable tide
