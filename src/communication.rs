@@ -159,6 +159,9 @@ pub struct Info {
     pub product: Product,
     #[allow(dead_code)]
     pub unlocked: bool,
+    // Is None before firmware version 9.20.0.
+    #[allow(dead_code)]
+    pub initialized: Option<bool>,
 }
 
 pub struct HwwCommunication<R: Runtime> {
@@ -189,6 +192,7 @@ async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
     let platform_byte = *response.first().ok_or(Error::Info)?;
     let edition_byte = *response.get(1).ok_or(Error::Info)?;
     let unlocked_byte = *response.get(2).ok_or(Error::Info)?;
+    let initialized_byte = response.get(3);
     Ok(Info {
         version,
         product: match (platform_byte, edition_byte) {
@@ -199,6 +203,12 @@ async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
         unlocked: match unlocked_byte {
             0x00 => false,
             0x01 => true,
+            _ => return Err(Error::Info),
+        },
+        initialized: match initialized_byte {
+            None => None,
+            Some(0x00) => Some(false),
+            Some(0x01) => Some(true),
             _ => return Err(Error::Info),
         },
     })
