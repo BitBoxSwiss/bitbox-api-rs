@@ -24,7 +24,9 @@ hex = { version = "0.4" }
 noise-protocol = "0.2"
 noise-rust-crypto = "0.6"
 num-bigint = "0.4"
-prost = "0.12"
+# If you change this, also change the version of prost-build in scripts/build-protos.rs
+# and run `make build-protos`.
+prost = "0.13"
 semver = "1.0.17"
 serde_json = { version = "1.0" }
 thiserror = "1.0"
