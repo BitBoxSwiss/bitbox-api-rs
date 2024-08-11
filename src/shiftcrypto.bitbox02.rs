@@ -411,6 +411,10 @@ pub mod btc_script_config {
         )]
         SimpleType(i32),
         #[prost(message, tag = "2")]
+        #[cfg_attr(
+            feature = "wasm",
+            serde(deserialize_with = "crate::btc::serde_deserialize_multisig")
+        )]
         Multisig(Multisig),
         #[prost(message, tag = "3")]
         Policy(Policy),
