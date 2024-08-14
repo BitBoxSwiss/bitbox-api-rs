@@ -73,7 +73,6 @@ function BtcXPub({ bb02 } : Props) {
         <ShowError err={err} />
       </form>
     </div>
-   
   );
 }
 
@@ -195,7 +194,7 @@ function BtcSignPSBT({ bb02 }: Props) {
   }
 
   return (
-    <div> 
+    <div>
       <h4>Sign PSBT</h4>
       <form className="verticalForm" onSubmit={submitForm}>
         <label>
@@ -295,7 +294,7 @@ function BtcSignMessage({ bb02 }: Props) {
         <button type='submit' disabled={running}>Sign message</button>
         {result ? (
           <div className="resultContainer">
-            <label>Result: 
+            <label>Result:
             {
               <textarea
                 rows={32}
@@ -311,6 +310,75 @@ function BtcSignMessage({ bb02 }: Props) {
     </div>
   );
 
+}
+
+function BtcMultisigAddress({ bb02 }: Props) {
+  const [coin, setCoin] = useState<bitbox.BtcCoin>('tbtc');
+  const [multisigScriptType, setMultisigScriptType] = useState<bitbox.BtcMultisigScriptType>('p2wsh');
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState('');
+  const [err, setErr] = useState<bitbox.Error>();
+
+  const keypath = "m/48'/1'/0'/2'";
+  const someXPub = "tpubDFgycCkexSxkdZfeyaasDHityE97kiYM1BeCNoivDHvydGugKtoNobt4vEX6YSHNPy2cqmWQHKjKxciJuocepsGPGxcDZVmiMBnxgA1JKQk";
+
+  const submitForm = async (e: FormEvent) => {
+    e.preventDefault();
+    setRunning(true);
+    setResult('');
+    setErr(undefined);
+    try {
+      const ourXPub = await bb02.btcXpub(coin, keypath, 'tpub', false);
+      const scriptConfig: bitbox.BtcScriptConfig = {
+        multisig: {
+          threshold: 1,
+          xpubs: [ourXPub, someXPub],
+          ourXpubIndex: 0,
+          scriptType: multisigScriptType,
+        },
+      };
+      const is_script_config_registered = await bb02.btcIsScriptConfigRegistered(coin, scriptConfig, keypath);
+      if (!is_script_config_registered) {
+        await bb02.btcRegisterScriptConfig(coin, scriptConfig, keypath, 'autoXpubTpub', undefined);
+      }
+      const address = await bb02.btcAddress(coin, keypath + "/0/10", scriptConfig, true);
+      setResult(address);
+    } catch (err) {
+      setErr(bitbox.ensureError(err));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div>
+      <h4>Multisig</h4>
+      <form className="verticalForm" onSubmit={submitForm}>
+        Address for a multisig wallet using the BitBox02 xpub at
+        <pre>{keypath}</pre>
+        <p>and some other arbitrary xpub: <code>{someXPub}</code></p>
+        <label>
+          Coin
+          <select value={coin} onChange={(e: ChangeEvent<HTMLSelectElement>) => setCoin(e.target.value as bitbox.BtcCoin)}>
+            {btcCoinOptions.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          Script type
+          <select value={multisigScriptType} onChange={(e: ChangeEvent<HTMLSelectElement>) => setMultisigScriptType(e.target.value as bitbox.BtcMultisigScriptType)}>
+            {['p2wsh', 'p2wshP2sh'].map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <button type='submit' disabled={running}>Multisig address</button>
+        {result ? (
+            <div className="resultContainer">
+              <label>Result: <b><code>{result}</code></b></label>
+            </div>
+        ) : null }
+        <ShowError err={err} />
+      </form>
+    </div>
+  );
 }
 
 function BtcMiniscriptAddress({ bb02 }: Props) {
@@ -390,6 +458,9 @@ export function Bitcoin({ bb02 } : Props) {
       </div>
       <div className="action">
         <BtcSignMessage bb02={bb02} />
+      </div>
+      <div className="action">
+        <BtcMultisigAddress bb02={bb02} />
       </div>
       <div className="action">
         <BtcMiniscriptAddress bb02={bb02} />

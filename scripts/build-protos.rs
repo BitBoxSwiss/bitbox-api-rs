@@ -44,6 +44,10 @@ fn add_serde_attrs(c: &mut prost_build::Config) {
             "serde(deserialize_with = \"crate::btc::serde_deserialize_simple_type\")",
         ),
         (
+            "shiftcrypto.bitbox02.BTCScriptConfig.config.multisig",
+            "serde(deserialize_with = \"crate::btc::serde_deserialize_multisig\")",
+        ),
+        (
             "shiftcrypto.bitbox02.RootFingerprintResponse.fingerprint",
             "serde(deserialize_with = \"hex::serde::deserialize\")",
         ),

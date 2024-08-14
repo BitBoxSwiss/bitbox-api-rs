@@ -32,8 +32,15 @@ type KeyOriginInfo = {
   xpub: XPub;
 };
 type BtcRegisterXPubType = 'autoElectrum' | 'autoXpubTpub';
+type BtcMultisigScriptType = 'p2wsh' | 'p2wshP2sh';
+type BtcMultisig = {
+  threshold: number;
+  xpubs: XPub[];
+  ourXpubIndex: number;
+  scriptType: BtcMultisigScriptType;
+};
 type BtcPolicy = { policy: string; keys: KeyOriginInfo[] };
-type BtcScriptConfig = { simpleType: BtcSimpleType; } | { policy: BtcPolicy };
+type BtcScriptConfig = { simpleType: BtcSimpleType; } | { multisig: BtcMultisig } | { policy: BtcPolicy };
 type BtcScriptConfigWithKeypath = {
   scriptConfig: BtcScriptConfig;
   keypath: Keypath;

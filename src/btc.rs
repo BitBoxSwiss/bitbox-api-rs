@@ -26,6 +26,39 @@ where
 }
 
 #[cfg(feature = "wasm")]
+pub(crate) fn serde_deserialize_multisig<'de, D>(
+    deserializer: D,
+) -> Result<pb::btc_script_config::Multisig, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    use std::str::FromStr;
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Multisig {
+        threshold: u32,
+        xpubs: Vec<String>,
+        our_xpub_index: u32,
+        script_type: pb::btc_script_config::multisig::ScriptType,
+    }
+    let ms = Multisig::deserialize(deserializer)?;
+    let xpubs = ms
+        .xpubs
+        .iter()
+        .map(|s| Xpub::from_str(s.as_str()))
+        .collect::<Result<Vec<Xpub>, _>>()
+        .map_err(serde::de::Error::custom)?;
+    Ok(pb::btc_script_config::Multisig {
+        threshold: ms.threshold,
+        xpubs: xpubs.iter().map(convert_xpub).collect(),
+        our_xpub_index: ms.our_xpub_index,
+        script_type: ms.script_type.into(),
+    })
+}
+
+#[cfg(feature = "wasm")]
 #[derive(serde::Deserialize)]
 pub(crate) struct SerdeScriptConfig(pb::btc_script_config::Config);
 
@@ -497,6 +530,25 @@ impl From<KeyOriginInfo> for pb::KeyOriginInfo {
             keypath: value.keypath.map_or(vec![], |kp| kp.to_vec()),
             xpub: Some(convert_xpub(&value.xpub)),
         }
+    }
+}
+
+/// Create a multi-sig script config.
+pub fn make_script_config_multisig(
+    threshold: u32,
+    xpubs: &[bitcoin::bip32::Xpub],
+    our_xpub_index: u32,
+    script_type: pb::btc_script_config::multisig::ScriptType,
+) -> pb::BtcScriptConfig {
+    pb::BtcScriptConfig {
+        config: Some(pb::btc_script_config::Config::Multisig(
+            pb::btc_script_config::Multisig {
+                threshold,
+                xpubs: xpubs.iter().map(convert_xpub).collect(),
+                our_xpub_index,
+                script_type: script_type as _,
+            },
+        )),
     }
 }
 
