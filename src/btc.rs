@@ -696,6 +696,7 @@ impl<R: Runtime> PairedBitBox<R> {
                 num_outputs: transaction.outputs.len() as _,
                 locktime: transaction.locktime,
                 format_unit: format_unit as _,
+                contains_silent_payment_outputs: false,
             }))
             .await?;
 
@@ -846,6 +847,7 @@ impl<R: Runtime> PairedBitBox<R> {
                 pb::btc_sign_next_response::Type::HostNonce => {
                     return Err(Error::UnexpectedResponse);
                 }
+                _ => return Err(Error::UnexpectedResponse),
             }
         }
         Ok(sigs)

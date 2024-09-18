@@ -559,6 +559,8 @@ pub struct BtcSignInitRequest {
     pub locktime: u32,
     #[prost(enumeration = "btc_sign_init_request::FormatUnit", tag = "8")]
     pub format_unit: i32,
+    #[prost(bool, tag = "9")]
+    pub contains_silent_payment_outputs: bool,
 }
 /// Nested message and enum types in `BTCSignInitRequest`.
 pub mod btc_sign_init_request {
@@ -626,6 +628,11 @@ pub struct BtcSignNextResponse {
     pub anti_klepto_signer_commitment: ::core::option::Option<
         AntiKleptoSignerCommitment,
     >,
+    /// Generated output. The host *must* verify its correctness using `silent_payment_dleq_proof`.
+    #[prost(bytes = "vec", tag = "7")]
+    pub generated_output_pkscript: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "8")]
+    pub silent_payment_dleq_proof: ::prost::alloc::vec::Vec<u8>,
 }
 /// Nested message and enum types in `BTCSignNextResponse`.
 pub mod btc_sign_next_response {
@@ -652,6 +659,7 @@ pub mod btc_sign_next_response {
         PrevtxInput = 4,
         PrevtxOutput = 5,
         HostNonce = 6,
+        PaymentRequest = 7,
     }
     impl Type {
         /// String value of the enum field names used in the ProtoBuf definition.
@@ -667,6 +675,7 @@ pub mod btc_sign_next_response {
                 Type::PrevtxInput => "PREVTX_INPUT",
                 Type::PrevtxOutput => "PREVTX_OUTPUT",
                 Type::HostNonce => "HOST_NONCE",
+                Type::PaymentRequest => "PAYMENT_REQUEST",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -679,6 +688,7 @@ pub mod btc_sign_next_response {
                 "PREVTX_INPUT" => Some(Self::PrevtxInput),
                 "PREVTX_OUTPUT" => Some(Self::PrevtxOutput),
                 "HOST_NONCE" => Some(Self::HostNonce),
+                "PAYMENT_REQUEST" => Some(Self::PaymentRequest),
                 _ => None,
             }
         }
@@ -737,6 +747,24 @@ pub struct BtcSignOutputRequest {
     /// If ours is true. References a script config from BTCSignInitRequest
     #[prost(uint32, tag = "6")]
     pub script_config_index: u32,
+    #[prost(uint32, optional, tag = "7")]
+    pub payment_request_index: ::core::option::Option<u32>,
+    /// If provided, `type` and `payload` is ignored. The generated output pkScript is returned in
+    /// BTCSignNextResponse. `contains_silent_payment_outputs` in the init request must be true.
+    #[prost(message, optional, tag = "8")]
+    pub silent_payment: ::core::option::Option<btc_sign_output_request::SilentPayment>,
+}
+/// Nested message and enum types in `BTCSignOutputRequest`.
+pub mod btc_sign_output_request {
+    /// <https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki>
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct SilentPayment {
+        #[prost(string, tag = "1")]
+        pub address: ::prost::alloc::string::String,
+    }
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
@@ -874,6 +902,52 @@ pub struct BtcPrevTxOutputRequest {
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BtcPaymentRequestRequest {
+    #[prost(string, tag = "1")]
+    pub recipient_name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub memos: ::prost::alloc::vec::Vec<btc_payment_request_request::Memo>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub nonce: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "4")]
+    pub total_amount: u64,
+    #[prost(bytes = "vec", tag = "5")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+}
+/// Nested message and enum types in `BTCPaymentRequestRequest`.
+pub mod btc_payment_request_request {
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct Memo {
+        #[prost(oneof = "memo::Memo", tags = "1")]
+        pub memo: ::core::option::Option<memo::Memo>,
+    }
+    /// Nested message and enum types in `Memo`.
+    pub mod memo {
+        #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+        #[allow(clippy::derive_partial_eq_without_eq)]
+        #[derive(Clone, PartialEq, ::prost::Message)]
+        pub struct TextMemo {
+            #[prost(string, tag = "1")]
+            pub note: ::prost::alloc::string::String,
+        }
+        #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+        #[allow(clippy::derive_partial_eq_without_eq)]
+        #[derive(Clone, PartialEq, ::prost::Oneof)]
+        pub enum Memo {
+            #[prost(message, tag = "1")]
+            TextMemo(TextMemo),
+        }
+    }
+}
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcSignMessageRequest {
     #[prost(enumeration = "BtcCoin", tag = "1")]
     pub coin: i32,
@@ -898,7 +972,7 @@ pub struct BtcSignMessageResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BtcRequest {
-    #[prost(oneof = "btc_request::Request", tags = "1, 2, 3, 4, 5, 6, 7")]
+    #[prost(oneof = "btc_request::Request", tags = "1, 2, 3, 4, 5, 6, 7, 8")]
     pub request: ::core::option::Option<btc_request::Request>,
 }
 /// Nested message and enum types in `BTCRequest`.
@@ -922,6 +996,8 @@ pub mod btc_request {
         SignMessage(super::BtcSignMessageRequest),
         #[prost(message, tag = "7")]
         AntikleptoSignature(super::AntiKleptoSignatureRequest),
+        #[prost(message, tag = "8")]
+        PaymentRequest(super::BtcPaymentRequestRequest),
     }
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
@@ -960,6 +1036,8 @@ pub enum BtcCoin {
     Tbtc = 1,
     Ltc = 2,
     Tltc = 3,
+    /// Regtest
+    Rbtc = 4,
 }
 impl BtcCoin {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -972,6 +1050,7 @@ impl BtcCoin {
             BtcCoin::Tbtc => "TBTC",
             BtcCoin::Ltc => "LTC",
             BtcCoin::Tltc => "TLTC",
+            BtcCoin::Rbtc => "RBTC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -981,6 +1060,7 @@ impl BtcCoin {
             "TBTC" => Some(Self::Tbtc),
             "LTC" => Some(Self::Ltc),
             "TLTC" => Some(Self::Tltc),
+            "RBTC" => Some(Self::Rbtc),
             _ => None,
         }
     }
@@ -1453,6 +1533,8 @@ pub struct EthSignRequest {
     /// If non-zero, `coin` is ignored and `chain_id` is used to identify the network.
     #[prost(uint64, tag = "10")]
     pub chain_id: u64,
+    #[prost(enumeration = "EthAddressCase", tag = "11")]
+    pub address_case: i32,
 }
 /// TX payload for an EIP-1559 (type 2) transaction: <https://eips.ethereum.org/EIPS/eip-1559>
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
@@ -1490,6 +1572,8 @@ pub struct EthSignEip1559Request {
     pub data: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "10")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
+    #[prost(enumeration = "EthAddressCase", tag = "11")]
+    pub address_case: i32,
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
@@ -1794,6 +1878,37 @@ impl EthCoin {
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EthAddressCase {
+    Mixed = 0,
+    Upper = 1,
+    Lower = 2,
+}
+impl EthAddressCase {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            EthAddressCase::Mixed => "ETH_ADDRESS_CASE_MIXED",
+            EthAddressCase::Upper => "ETH_ADDRESS_CASE_UPPER",
+            EthAddressCase::Lower => "ETH_ADDRESS_CASE_LOWER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ETH_ADDRESS_CASE_MIXED" => Some(Self::Mixed),
+            "ETH_ADDRESS_CASE_UPPER" => Some(Self::Upper),
+            "ETH_ADDRESS_CASE_LOWER" => Some(Self::Lower),
+            _ => None,
+        }
+    }
+}
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ElectrumEncryptionKeyRequest {
@@ -1811,6 +1926,56 @@ pub struct ElectrumEncryptionKeyRequest {
 pub struct ElectrumEncryptionKeyResponse {
     #[prost(string, tag = "1")]
     pub key: ::prost::alloc::string::String,
+}
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct Bip85Request {
+    #[prost(oneof = "bip85_request::App", tags = "1, 2")]
+    pub app: ::core::option::Option<bip85_request::App>,
+}
+/// Nested message and enum types in `BIP85Request`.
+pub mod bip85_request {
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, Copy, PartialEq, ::prost::Message)]
+    pub struct AppLn {
+        #[prost(uint32, tag = "1")]
+        pub account_number: u32,
+    }
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    pub enum App {
+        #[prost(message, tag = "1")]
+        Bip39(()),
+        #[prost(message, tag = "2")]
+        Ln(AppLn),
+    }
+}
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Bip85Response {
+    #[prost(oneof = "bip85_response::App", tags = "1, 2")]
+    pub app: ::core::option::Option<bip85_response::App>,
+}
+/// Nested message and enum types in `BIP85Response`.
+pub mod bip85_response {
+    #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum App {
+        #[prost(message, tag = "1")]
+        Bip39(()),
+        #[prost(bytes, tag = "2")]
+        Ln(::prost::alloc::vec::Vec<u8>),
+    }
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
@@ -1933,7 +2098,7 @@ pub struct Success {}
 pub struct Request {
     #[prost(
         oneof = "request::Request",
-        tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27"
+        tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28"
     )]
     pub request: ::core::option::Option<request::Request>,
 }
@@ -1996,6 +2161,8 @@ pub mod request {
         ElectrumEncryptionKey(super::ElectrumEncryptionKeyRequest),
         #[prost(message, tag = "27")]
         Cardano(super::CardanoRequest),
+        #[prost(message, tag = "28")]
+        Bip85(super::Bip85Request),
     }
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
@@ -2005,7 +2172,7 @@ pub mod request {
 pub struct Response {
     #[prost(
         oneof = "response::Response",
-        tags = "1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15"
+        tags = "1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16"
     )]
     pub response: ::core::option::Option<response::Response>,
 }
@@ -2045,5 +2212,7 @@ pub mod response {
         ElectrumEncryptionKey(super::ElectrumEncryptionKeyResponse),
         #[prost(message, tag = "15")]
         Cardano(super::CardanoResponse),
+        #[prost(message, tag = "16")]
+        Bip85(super::Bip85Response),
     }
 }
