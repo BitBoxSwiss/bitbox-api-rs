@@ -80,15 +80,17 @@ jobs:
           make wasm
           make build-sandbox
 
-  Check-Protobufs:
-    name: Check that the generated protobuf file is up to date
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-          cargo install rust-script
-          make build-protos
-          git diff --quiet
+  # Temporarily disabled; re-enable when we find a way to use the same protobuf compiler version
+  # in the developer docs and here, otherwise this check will often fail.
+  # Check-Protobufs:
+  #   name: Check that the generated protobuf file is up to date
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y protobuf-compiler
+  #         cargo install rust-script
+  #         make build-protos
+  #         git diff --quiet

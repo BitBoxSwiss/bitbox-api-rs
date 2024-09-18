@@ -24,6 +24,7 @@ mod u2fframing;
 mod util;
 
 /// BitBox protobuf messages.
+#[allow(clippy::all)]
 pub mod pb {
     include!("./shiftcrypto.bitbox02.rs");
 }

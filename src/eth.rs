@@ -483,6 +483,7 @@ impl<R: Runtime> PairedBitBox<R> {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
             chain_id,
+            address_case: pb::EthAddressCase::Mixed as _,
         });
         let response = self.query_proto_eth(request).await?;
         self.handle_antiklepto(&response, host_nonce).await
@@ -515,6 +516,7 @@ impl<R: Runtime> PairedBitBox<R> {
             host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
+            address_case: pb::EthAddressCase::Mixed as _,
         });
         let response = self.query_proto_eth(request).await?;
         self.handle_antiklepto(&response, host_nonce).await

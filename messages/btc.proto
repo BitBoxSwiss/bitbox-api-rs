@@ -24,6 +24,8 @@ enum BTCCoin {
   TBTC = 1;
   LTC = 2;
   TLTC = 3;
+  // Regtest
+  RBTC = 4;
 };
 
 
@@ -112,6 +114,7 @@ message BTCSignInitRequest {
     SAT = 1;
   }
   FormatUnit format_unit = 8;
+  bool contains_silent_payment_outputs = 9;
 }
 
 message BTCSignNextResponse {
@@ -124,6 +127,7 @@ message BTCSignNextResponse {
     PREVTX_INPUT = 4;
     PREVTX_OUTPUT = 5;
     HOST_NONCE = 6;
+    PAYMENT_REQUEST = 7;
   }
   Type type = 1;
   // index of the current input or output
@@ -134,6 +138,9 @@ message BTCSignNextResponse {
   // Previous tx's input/output index in case of PREV_INPUT or PREV_OUTPUT, for the input at `index`.
   uint32 prev_index = 5;
   AntiKleptoSignerCommitment anti_klepto_signer_commitment = 6;
+  // Generated output. The host *must* verify its correctness using `silent_payment_dleq_proof`.
+  bytes generated_output_pkscript = 7;
+  bytes silent_payment_dleq_proof = 8;
 }
 
 message BTCSignInputRequest {
@@ -157,6 +164,10 @@ enum BTCOutputType {
 }
 
 message BTCSignOutputRequest {
+  // https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki
+  message SilentPayment {
+    string address = 1;
+  }
   bool ours = 1;
   BTCOutputType type = 2; // if ours is false
   // 20 bytes for p2pkh, p2sh, pw2wpkh. 32 bytes for p2wsh.
@@ -165,6 +176,10 @@ message BTCSignOutputRequest {
   repeated uint32 keypath = 5; // if ours is true
   // If ours is true. References a script config from BTCSignInitRequest
   uint32 script_config_index = 6;
+  optional uint32 payment_request_index = 7;
+  // If provided, `type` and `payload` is ignored. The generated output pkScript is returned in
+  // BTCSignNextResponse. `contains_silent_payment_outputs` in the init request must be true.
+  SilentPayment silent_payment = 8;
 }
 
 message BTCScriptConfigRegistration {
@@ -217,6 +232,23 @@ message BTCPrevTxOutputRequest {
   bytes pubkey_script = 2;
 }
 
+message BTCPaymentRequestRequest {
+  message Memo {
+    message TextMemo {
+      string note = 1;
+    }
+    oneof memo {
+      TextMemo text_memo = 1;
+    }
+  }
+
+  string recipient_name = 1;
+  repeated Memo memos = 2;
+  bytes nonce = 3;
+  uint64 total_amount = 4;
+  bytes signature = 5;
+}
+
 message BTCSignMessageRequest {
   BTCCoin coin = 1;
   BTCScriptConfigWithKeypath script_config = 2;
@@ -238,6 +270,7 @@ message BTCRequest {
     BTCPrevTxOutputRequest prevtx_output = 5;
     BTCSignMessageRequest sign_message = 6;
     AntiKleptoSignatureRequest antiklepto_signature = 7;
+    BTCPaymentRequestRequest payment_request = 8;
   }
 }
 
