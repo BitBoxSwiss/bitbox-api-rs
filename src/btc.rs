@@ -135,6 +135,14 @@ pub struct TxInput {
     pub prev_tx: Option<PrevTx>,
 }
 
+impl TxInput {
+    fn get_prev_tx(&self) -> Result<&PrevTx, Error> {
+        self.prev_tx.as_ref().ok_or(Error::BtcSign(
+            "input's previous transaction required but missing".into(),
+        ))
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct TxInternalOutput {
     pub keypath: Keypath,
@@ -767,11 +775,8 @@ impl<R: Runtime> PairedBitBox<R> {
                     }
                 }
                 pb::btc_sign_next_response::Type::PrevtxInit => {
-                    // TODO handle error
-                    let prevtx: &PrevTx = transaction.inputs[next_response.index as usize]
-                        .prev_tx
-                        .as_ref()
-                        .unwrap();
+                    let prevtx: &PrevTx =
+                        transaction.inputs[next_response.index as usize].get_prev_tx()?;
                     next_response = self
                         .get_next_response_nested(pb::btc_request::Request::PrevtxInit(
                             pb::BtcPrevTxInitRequest {
@@ -784,11 +789,8 @@ impl<R: Runtime> PairedBitBox<R> {
                         .await?;
                 }
                 pb::btc_sign_next_response::Type::PrevtxInput => {
-                    // TODO handle error
-                    let prevtx: &PrevTx = transaction.inputs[next_response.index as usize]
-                        .prev_tx
-                        .as_ref()
-                        .unwrap();
+                    let prevtx: &PrevTx =
+                        transaction.inputs[next_response.index as usize].get_prev_tx()?;
                     let prevtx_input: &PrevTxInput =
                         &prevtx.inputs[next_response.prev_index as usize];
                     next_response = self
@@ -803,11 +805,8 @@ impl<R: Runtime> PairedBitBox<R> {
                         .await?;
                 }
                 pb::btc_sign_next_response::Type::PrevtxOutput => {
-                    // TODO handle error
-                    let prevtx: &PrevTx = transaction.inputs[next_response.index as usize]
-                        .prev_tx
-                        .as_ref()
-                        .unwrap();
+                    let prevtx: &PrevTx =
+                        transaction.inputs[next_response.index as usize].get_prev_tx()?;
                     let prevtx_output: &PrevTxOutput =
                         &prevtx.outputs[next_response.prev_index as usize];
                     next_response = self

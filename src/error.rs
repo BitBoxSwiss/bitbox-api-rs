@@ -91,6 +91,9 @@ pub enum Error {
     #[error("EIP-712 typed message processing error: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "eth-typed-message".into()))]
     EthTypedMessage(String),
+    #[error("Bitcoin transaction signing error: {0}")]
+    #[cfg_attr(feature = "wasm", assoc(js_code = "btc-sign".into()))]
+    BtcSign(String),
 }
 
 impl From<communication::Error> for Error {
