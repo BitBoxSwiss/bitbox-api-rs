@@ -103,6 +103,7 @@ type CardanoOutput = {
   scriptConfig?: CardanoScriptConfig;
   assetGroups?: CardanoAssetGroup[];
 }
+type CardanoDrepType = 'keyHash'  | 'scriptHash' | 'alwaysAbstain'  | 'alwaysNoConfidence'
 type CardanoCertificate =
   | {
       stakeRegistration: {
@@ -118,6 +119,13 @@ type CardanoCertificate =
       stakeDelegation: {
         keypath: Keypath
         poolKeyhash: Uint8Array
+      }
+    }
+  | {
+      voteDelegation: {
+        keypath: Keypath
+        type: CardanoDrepType
+        drepCredHash?: Uint8Array
       }
     };
 type CardanoWithdrawal = {

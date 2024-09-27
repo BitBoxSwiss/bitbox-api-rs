@@ -1248,6 +1248,10 @@ pub mod cardano_sign_transaction_request {
             )]
             pub keypath: ::prost::alloc::vec::Vec<u32>,
             #[prost(enumeration = "vote_delegation::CardanoDRepType", tag = "2")]
+            #[cfg_attr(
+                feature = "wasm",
+                serde(deserialize_with = "crate::cardano::serde_deserialize_drep_type")
+            )]
             pub r#type: i32,
             #[prost(bytes = "vec", optional, tag = "3")]
             pub drep_credhash: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
@@ -1269,9 +1273,13 @@ pub mod cardano_sign_transaction_request {
             )]
             #[repr(i32)]
             pub enum CardanoDRepType {
+                #[cfg_attr(feature = "wasm", serde(rename = "keyHash"))]
                 KeyHash = 0,
+                #[cfg_attr(feature = "wasm", serde(rename = "scriptHash"))]
                 ScriptHash = 1,
+                #[cfg_attr(feature = "wasm", serde(rename = "alwaysAbstain"))]
                 AlwaysAbstain = 2,
+                #[cfg_attr(feature = "wasm", serde(rename = "alwaysNoConfidence"))]
                 AlwaysNoConfidence = 3,
             }
             impl CardanoDRepType {
