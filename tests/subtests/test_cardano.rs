@@ -223,6 +223,63 @@ pub async fn test(bitbox: &PairedBitBox) {
             );
         }
     }
+    // Delegating vote to a drep with a keyhash
+    {
+        let transaction = pb::CardanoSignTransactionRequest {
+            network: pb::CardanoNetwork::CardanoMainnet as i32,
+            inputs: vec![pb::cardano_sign_transaction_request::Input {
+                keypath: keypath_input.to_vec(),
+                prev_out_hash: hex::decode(
+                    "59864ee73ca5d91098a32b3ce9811bac1996dcbaefa6b6247dcaafb5779c2538",
+                )
+                    .unwrap(),
+                prev_out_index: 0,
+            }],
+            outputs: vec![pb::cardano_sign_transaction_request::Output {
+                encoded_address: change_address.clone(),
+                value: 2741512,
+                script_config: Some(change_config.clone()),
+                ..Default::default()
+            }],
+            fee: 191681,
+            ttl: 41539125,
+            certificates: vec![
+                pb::cardano_sign_transaction_request::Certificate {
+                    cert: Some(
+                        pb::cardano_sign_transaction_request::certificate::Cert::VoteDelegation(
+                            pb::cardano_sign_transaction_request::certificate::VoteDelegation {
+                                keypath: vec![2147485500, 2147485463, 2147483648, 2, 0],
+                                r#type: pb::cardano_sign_transaction_request::certificate::vote_delegation::CardanoDRepType::KeyHash.into(),
+                                drep_credhash: Some(hex::decode(
+                                    "abababababababababababababababababababababababababababab",
+                                )
+                                .unwrap()),
+                            },
+                        ),
+                    ),
+                },
+            ],
+            withdrawals: vec![],
+            validity_interval_start: 41110811,
+            allow_zero_ttl: false,
+        };
+
+        if semver::VersionReq::parse(">=9.21.0")
+            .unwrap()
+            .matches(bitbox.version())
+        {
+            let witness = bitbox.cardano_sign_transaction(transaction).await.unwrap();
+            assert_eq!(witness.shelley_witnesses.len(), 2);
+            assert_eq!(
+                hex::encode(&witness.shelley_witnesses[0].public_key),
+                "6b5d4134cfc66281827d51cb0196f1a951ce168c19ba1314233f43d39d91e2bc",
+            );
+            assert_eq!(
+                hex::encode(&witness.shelley_witnesses[1].public_key),
+                "ed0d6426efcae3b02b963db0997845ba43ed53c131aa2f0faa01976ddcdb3751",
+            );
+        }
+    }
     // Withdrawing staking rewards...
     {
         let transaction = pb::CardanoSignTransactionRequest {

@@ -133,12 +133,11 @@ function CardanoAddress({ bb02 }: Props) {
         <ShowError err={err} />
       </form>
     </div>
-    
   );
 }
 
 function CardanoSignTransaction({ bb02 }: Props) {
-  type TxType = 'normal' | 'zero-ttl' | 'tokens' | 'delegate' | 'withdraw-staking-rewards';
+  type TxType = 'normal' | 'zero-ttl' | 'tokens' | 'delegate' | 'vote-delegation' | 'vote-delegation-keyhash' | 'withdraw-staking-rewards';
   const [txType, setTxType] = useState<TxType>('normal');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<bitbox.CardanoSignTransactionResult | undefined>();
@@ -151,6 +150,8 @@ function CardanoSignTransaction({ bb02 }: Props) {
     ['zero-ttl', 'Transaction with TTL=0'],
     ['tokens', 'Transaction sending tokens'],
     ['delegate', 'Delegate staking to a pool'],
+    ['vote-delegation', 'Delegate vote to a dRep'],
+    ['vote-delegation-keyhash', 'Delegate vote to a dRep with a keyhash'],
     ['withdraw-staking-rewards', 'Withdraw staking rewards'],
   ];
 
@@ -176,6 +177,8 @@ function CardanoSignTransaction({ bb02 }: Props) {
       };
 
       const changeAddress = await bb02.cardanoAddress(network, changeConfig, false);
+      const drepType: bitbox.CardanoDrepType = 'alwaysAbstain';
+      const drepKeyHashType: bitbox.CardanoDrepType = 'keyHash';
       const transaction = () => {
         switch (txType) {
           case 'normal':
@@ -290,6 +293,57 @@ function CardanoSignTransaction({ bb02 }: Props) {
               validityIntervalStart: BigInt(41110811),
               allowZeroTTL: false,
             };
+          case 'vote-delegation':
+            return {
+              network,
+              inputs,
+              outputs: [
+                {
+                  encodedAddress: changeAddress,
+                  value: BigInt(2741512),
+                  scriptConfig: changeConfig,
+                },
+              ],
+              fee: BigInt(191681),
+              ttl: BigInt(41539125),
+              certificates: [
+                {
+                  voteDelegation: {
+                    keypath: "m/1852'/1815'/0'/2/0",
+                    type: drepType,
+                  },
+                },
+              ],
+              withdrawals: [],
+              validityIntervalStart: BigInt(41110811),
+              allowZeroTTL: false,
+            };
+            case 'vote-delegation-keyhash':
+              return {
+                network,
+                inputs,
+                outputs: [
+                  {
+                    encodedAddress: changeAddress,
+                    value: BigInt(2741512),
+                    scriptConfig: changeConfig,
+                  },
+                ],
+                fee: BigInt(191681),
+                ttl: BigInt(41539125),
+                certificates: [
+                  {
+                    voteDelegation: {
+                      keypath: "m/1852'/1815'/0'/2/0",
+                      type: drepKeyHashType,
+                      drepCredhash: new Uint8Array(hexToArrayBuffer("abababababababababababababababababababababababababababab")),
+                    },
+                  },
+                ],
+                withdrawals: [],
+                validityIntervalStart: BigInt(41110811),
+                allowZeroTTL: false,
+              };
           case 'withdraw-staking-rewards':
             return {
               network,

@@ -1248,6 +1248,10 @@ pub mod cardano_sign_transaction_request {
             )]
             pub keypath: ::prost::alloc::vec::Vec<u32>,
             #[prost(enumeration = "vote_delegation::CardanoDRepType", tag = "2")]
+            #[cfg_attr(
+                feature = "wasm",
+                serde(deserialize_with = "crate::cardano::serde_deserialize_drep_type")
+            )]
             pub r#type: i32,
             #[prost(bytes = "vec", optional, tag = "3")]
             pub drep_credhash: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
