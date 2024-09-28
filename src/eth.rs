@@ -122,6 +122,25 @@ pub struct EIP1559Transaction {
     pub data: Vec<u8>,
 }
 
+/// Identifies the case of the recipient address given as hexadecimal string.
+/// This function exists as a convenience to help clients to determine the case of the
+/// recipient address.
+pub fn eth_identify_case(recipient_address: &str) -> pb::EthAddressCase {
+    if recipient_address
+        .chars()
+        .all(|c| !c.is_ascii_alphabetic() || c.is_ascii_uppercase())
+    {
+        pb::EthAddressCase::Upper
+    } else if recipient_address
+        .chars()
+        .all(|c| !c.is_ascii_alphabetic() || c.is_ascii_lowercase())
+    {
+        pb::EthAddressCase::Lower
+    } else {
+        pb::EthAddressCase::Mixed
+    }
+}
+
 #[cfg(feature = "rlp")]
 impl TryFrom<&[u8]> for Transaction {
     type Error = ();
@@ -465,6 +484,7 @@ impl<R: Runtime> PairedBitBox<R> {
         chain_id: u64,
         keypath: &Keypath,
         tx: &Transaction,
+        address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
         // passing chainID instead of coin only since v9.10.0
         self.validate_version(">=9.10.0")?;
@@ -483,7 +503,7 @@ impl<R: Runtime> PairedBitBox<R> {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
             chain_id,
-            address_case: pb::EthAddressCase::Mixed as _,
+            address_case: address_case.unwrap_or(pb::EthAddressCase::Mixed).into(),
         });
         let response = self.query_proto_eth(request).await?;
         self.handle_antiklepto(&response, host_nonce).await
@@ -496,6 +516,7 @@ impl<R: Runtime> PairedBitBox<R> {
         &self,
         keypath: &Keypath,
         tx: &EIP1559Transaction,
+        address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
         // EIP1559 is suported from v9.16.0
         self.validate_version(">=9.16.0")?;
@@ -516,7 +537,7 @@ impl<R: Runtime> PairedBitBox<R> {
             host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
-            address_case: pb::EthAddressCase::Mixed as _,
+            address_case: address_case.unwrap_or(pb::EthAddressCase::Mixed).into(),
         });
         let response = self.query_proto_eth(request).await?;
         self.handle_antiklepto(&response, host_nonce).await
@@ -1251,5 +1272,21 @@ mod tests {
             &msg,
         )
         .is_err());
+    }
+
+    #[test]
+    fn test_eth_identify_case() {
+        assert_eq!(
+            eth_identify_case("0XF39FD6E51AAD88F6F4CE6AB8827279CFFFB92266"),
+            pb::EthAddressCase::Upper
+        );
+        assert_eq!(
+            eth_identify_case("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
+            pb::EthAddressCase::Lower
+        );
+        assert_eq!(
+            eth_identify_case("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
+            pb::EthAddressCase::Mixed
+        );
     }
 }

@@ -100,6 +100,11 @@ pub fn is_user_abort(err: types::TsError) -> bool {
     }
 }
 
+#[wasm_bindgen(js_name = ethIdentifyCase)]
+pub fn eth_identify_case(recipient_address: &str) -> types::TsEthAddressCase {
+    crate::eth::eth_identify_case(recipient_address).into()
+}
+
 #[wasm_bindgen(raw_module = "./webhid")]
 extern "C" {
     async fn jsSleep(millis: f64);
@@ -410,10 +415,16 @@ impl PairedBitBox {
         chain_id: u64,
         keypath: types::TsKeypath,
         tx: types::TsEthTransaction,
+        address_case: Option<types::TsEthAddressCase>,
     ) -> Result<types::TsEthSignature, JavascriptError> {
         let signature = self
             .device
-            .eth_sign_transaction(chain_id, &keypath.try_into()?, &tx.try_into()?)
+            .eth_sign_transaction(
+                chain_id,
+                &keypath.try_into()?,
+                &tx.try_into()?,
+                address_case.map(TryInto::try_into).transpose()?,
+            )
             .await?;
 
         let v: u64 = compute_v(chain_id, signature[64])
@@ -433,10 +444,15 @@ impl PairedBitBox {
         &self,
         keypath: types::TsKeypath,
         tx: types::TsEth1559Transaction,
+        address_case: Option<types::TsEthAddressCase>,
     ) -> Result<types::TsEthSignature, JavascriptError> {
         let signature = self
             .device
-            .eth_sign_1559_transaction(&keypath.try_into()?, &tx.try_into()?)
+            .eth_sign_1559_transaction(
+                &keypath.try_into()?,
+                &tx.try_into()?,
+                address_case.map(TryInto::try_into).transpose()?,
+            )
             .await?;
 
         Ok(serde_wasm_bindgen::to_value(&types::EthSignature {
