@@ -122,6 +122,19 @@ pub struct EIP1559Transaction {
     pub data: Vec<u8>,
 }
 
+/// Identifies the case of the recipient address given as hexadecimal string.
+/// This function exists as a convenience to potentially help clients to determine the case of the
+/// recipient address.
+pub fn eth_identify_case(recipient_address: &str) -> pb::EthAddressCase {
+    if recipient_address.to_uppercase() == recipient_address {
+        pb::EthAddressCase::Upper
+    } else if recipient_address.to_lowercase() == recipient_address {
+        pb::EthAddressCase::Lower
+    } else {
+        pb::EthAddressCase::Mixed
+    }
+}
+
 #[cfg(feature = "rlp")]
 impl TryFrom<&[u8]> for Transaction {
     type Error = ();
@@ -465,6 +478,7 @@ impl<R: Runtime> PairedBitBox<R> {
         chain_id: u64,
         keypath: &Keypath,
         tx: &Transaction,
+        address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
         // passing chainID instead of coin only since v9.10.0
         self.validate_version(">=9.10.0")?;
@@ -483,7 +497,7 @@ impl<R: Runtime> PairedBitBox<R> {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
             chain_id,
-            address_case: pb::EthAddressCase::Mixed as _,
+            address_case: address_case.unwrap_or(pb::EthAddressCase::Mixed).into(),
         });
         let response = self.query_proto_eth(request).await?;
         self.handle_antiklepto(&response, host_nonce).await
@@ -496,6 +510,7 @@ impl<R: Runtime> PairedBitBox<R> {
         &self,
         keypath: &Keypath,
         tx: &EIP1559Transaction,
+        address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
         // EIP1559 is suported from v9.16.0
         self.validate_version(">=9.16.0")?;
@@ -516,7 +531,7 @@ impl<R: Runtime> PairedBitBox<R> {
             host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
-            address_case: pb::EthAddressCase::Mixed as _,
+            address_case: address_case.unwrap_or(pb::EthAddressCase::Mixed).into(),
         });
         let response = self.query_proto_eth(request).await?;
         self.handle_antiklepto(&response, host_nonce).await

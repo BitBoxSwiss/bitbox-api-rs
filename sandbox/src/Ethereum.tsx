@@ -143,7 +143,8 @@ function EthSignTransaction({ bb02 } : Props) {
         value: new Uint8Array(hexToArrayBuffer(parsed.value)),
         data: new Uint8Array(hexToArrayBuffer(parsed.data)),
       };
-      setResult(await bb02.ethSignTransaction(BigInt(chainID), keypath, tx));
+      const addressCase = await bitbox.ethIdentifyCase(parsed.recipient);
+      setResult(await bb02.ethSignTransaction(BigInt(chainID), keypath, tx, addressCase));
     } catch (err) {
       setErr(bitbox.ensureError(err));
     } finally {
@@ -224,7 +225,8 @@ function EthSignEIP1559Transaction({ bb02 } : Props) {
         value: new Uint8Array(hexToArrayBuffer(parsed.value)),
         data: new Uint8Array(hexToArrayBuffer(parsed.data)),
       };
-      setResult(await bb02.ethSign1559Transaction(keypath, tx));
+      const addressCase = bitbox.ethIdentifyCase(parsed.recipient);
+      setResult(await bb02.ethSign1559Transaction(keypath, tx, addressCase));
     } catch (err) {
       setErr(bitbox.ensureError(err));
     } finally {
