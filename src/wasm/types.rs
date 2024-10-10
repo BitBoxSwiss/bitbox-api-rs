@@ -119,6 +119,13 @@ type CardanoCertificate =
         keypath: Keypath
         poolKeyhash: Uint8Array
       }
+    }
+  | {
+      voteDelegation: {
+        keypath: Keypath
+        type: number
+        drepCredhash: Uint8Array | undefined | null
+      }
     };
 type CardanoWithdrawal = {
   keypath: Keypath;
