@@ -45,28 +45,6 @@ jobs:
           sudo apt-get install -y libudev-dev
           ./ci.sh
 
-
-  Nightly:
-    name: Test - nightly toolchain
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: clippy, rustfmt
-      - name: Enable simulators caching
-        uses: actions/cache@v4
-        with:
-          key: ${{runner.os}}-simulators-cache-${{hashFiles('./tests/simulators.json')}}
-          path: |
-            ./tests/simulators
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y libudev-dev
-          ./ci.sh
-
   WASM:
     name: WASM and Sandbox
     runs-on: ubuntu-latest
