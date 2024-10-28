@@ -57,6 +57,8 @@ pub async fn test(bitbox: &PairedBitBox) {
     test_mixed_spend(bitbox).await;
     test_multisig_p2wsh(bitbox).await;
     test_policy_wsh(bitbox).await;
+    test_policy_tr_keyspend(bitbox).await;
+    test_policy_tr_scriptspend(bitbox).await;
 }
 
 // Test signing; all inputs are BIP86 Taproot keyspends.
@@ -600,6 +602,319 @@ async fn test_policy_wsh(bitbox: &PairedBitBox) {
     psbt.update_output_with_descriptor(0, &change_descriptor)
         .unwrap();
 
+    // Sign.
+    bitbox
+        .btc_sign_psbt(
+            pb::BtcCoin::Tbtc,
+            &mut psbt,
+            Some(pb::BtcScriptConfigWithKeypath {
+                script_config: Some(policy_config),
+                keypath: keypath_account.to_u32_vec(),
+            }),
+            pb::btc_sign_init_request::FormatUnit::Default,
+        )
+        .await
+        .unwrap();
+
+    // Finalize, add witnesses.
+    psbt.finalize_mut(&secp).unwrap();
+
+    // Verify the signed tx, including that all sigs/witnesses are correct.
+    verify_transaction(psbt);
+}
+
+async fn test_policy_tr_keyspend(bitbox: &PairedBitBox) {
+    if !semver::VersionReq::parse(">=9.21.0")
+        .unwrap()
+        .matches(bitbox.version())
+    {
+        // Taproot policies were added in v9.21.0.
+        return;
+    }
+    let secp = secp256k1::Secp256k1::new();
+
+    let coin = pb::BtcCoin::Tbtc;
+    // Policy string following BIP-388 syntax, input to the BitBox.
+    let policy = "tr(@0/<0;1>/*)";
+
+    let our_root_fingerprint = super::simulator_xprv().fingerprint(&secp);
+
+    let keypath_account: DerivationPath = "m/48'/1'/0'/3'".parse().unwrap();
+
+    let our_xpub: Xpub = super::simulator_xpub_at(&secp, &keypath_account);
+
+    // We use the miniscript library to build a multipath descriptor including key origin so we can
+    // easily derive the receive/change descriptor, pubkey scripts, populate the PSBT input key
+    // infos and convert the sigs to final witnesses.
+
+    let multi_descriptor: miniscript::Descriptor<miniscript::DescriptorPublicKey> = policy
+        .replace(
+            "@0",
+            &format!("[{}/48'/1'/0'/3']{}", &our_root_fingerprint, &our_xpub),
+        )
+        .parse::<miniscript::Descriptor<miniscript::DescriptorPublicKey>>()
+        .unwrap();
+    assert!(multi_descriptor.sanity_check().is_ok());
+
+    let [descriptor_receive, descriptor_change] = multi_descriptor
+        .into_single_descriptors()
+        .unwrap()
+        .try_into()
+        .unwrap();
+    // Derive /0/0 (first receive) and /1/0 (first change) descriptors.
+    let input_descriptor = descriptor_receive.at_derivation_index(0).unwrap();
+    let change_descriptor = descriptor_change.at_derivation_index(0).unwrap();
+
+    let keys = &[
+        // Our key: root fingerprint and keypath are required.
+        bitbox_api::btc::KeyOriginInfo {
+            root_fingerprint: Some(our_root_fingerprint),
+            keypath: Some((&keypath_account).into()),
+            xpub: our_xpub,
+        },
+    ];
+    let policy_config = bitbox_api::btc::make_script_config_policy(policy, keys);
+
+    // Register policy if not already registered. This must be done before any receive address is
+    // created or any transaction is signed.
+    let is_registered = bitbox
+        .btc_is_script_config_registered(coin, &policy_config, None)
+        .await
+        .unwrap();
+
+    if !is_registered {
+        bitbox
+            .btc_register_script_config(
+                coin,
+                &policy_config,
+                None,
+                pb::btc_register_script_config_request::XPubType::AutoXpubTpub,
+                Some("test tr keyspend policy"),
+            )
+            .await
+            .unwrap();
+    }
+
+    // A previous tx which creates some UTXOs we can reference later.
+    let prev_tx = Transaction {
+        version: transaction::Version::TWO,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![TxIn {
+            previous_output: "3131313131313131313131313131313131313131313131313131313131313131:0"
+                .parse()
+                .unwrap(),
+            script_sig: ScriptBuf::new(),
+            sequence: Sequence(0xFFFFFFFF),
+            witness: Witness::default(),
+        }],
+        output: vec![TxOut {
+            value: Amount::from_sat(100_000_000),
+            script_pubkey: input_descriptor.script_pubkey(),
+        }],
+    };
+
+    let tx = Transaction {
+        version: transaction::Version::TWO,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![TxIn {
+            previous_output: OutPoint {
+                txid: prev_tx.compute_txid(),
+                vout: 0,
+            },
+            script_sig: ScriptBuf::new(),
+            sequence: Sequence(0xFFFFFFFF),
+            witness: Witness::default(),
+        }],
+        output: vec![
+            TxOut {
+                value: Amount::from_sat(70_000_000),
+                script_pubkey: change_descriptor.script_pubkey(),
+            },
+            TxOut {
+                value: Amount::from_sat(20_000_000),
+                script_pubkey: ScriptBuf::new_p2tr(
+                    &secp,
+                    // random private key:
+                    // 9dbb534622a6100a39b73dece43c6d4db14b9a612eb46a6c64c2bb849e283ce8
+                    "e4adbb12c3426ec71ebb10688d8ae69d531ca822a2b790acee216a7f1b95b576"
+                        .parse()
+                        .unwrap(),
+                    None,
+                ),
+            },
+        ],
+    };
+
+    let mut psbt = Psbt::from_unsigned_tx(tx).unwrap();
+
+    // Add input and change infos.
+    psbt.inputs[0].witness_utxo = Some(prev_tx.output[0].clone());
+    // These add the input/output bip32_derivation entries / key infos.
+    psbt.update_input_with_descriptor(0, &input_descriptor)
+        .unwrap();
+    psbt.update_output_with_descriptor(0, &change_descriptor)
+        .unwrap();
+
+    // Sign.
+    bitbox
+        .btc_sign_psbt(
+            pb::BtcCoin::Tbtc,
+            &mut psbt,
+            Some(pb::BtcScriptConfigWithKeypath {
+                script_config: Some(policy_config),
+                keypath: keypath_account.to_u32_vec(),
+            }),
+            pb::btc_sign_init_request::FormatUnit::Default,
+        )
+        .await
+        .unwrap();
+
+    // Finalize, add witnesses.
+    psbt.finalize_mut(&secp).unwrap();
+
+    // Verify the signed tx, including that all sigs/witnesses are correct.
+    verify_transaction(psbt);
+}
+
+async fn test_policy_tr_scriptspend(bitbox: &PairedBitBox) {
+    if !semver::VersionReq::parse(">=9.21.0")
+        .unwrap()
+        .matches(bitbox.version())
+    {
+        // Taproot policies were added in v9.21.0.
+        return;
+    }
+    let secp = secp256k1::Secp256k1::new();
+
+    let coin = pb::BtcCoin::Tbtc;
+    // Policy string following BIP-388 syntax, input to the BitBox.
+    let policy = "tr(@0/<0;1>/*,pk(@1/<0;1>/*))";
+
+    let our_root_fingerprint = super::simulator_xprv().fingerprint(&secp);
+
+    let keypath_account: DerivationPath = "m/48'/1'/0'/3'".parse().unwrap();
+
+    let our_xpub: Xpub = super::simulator_xpub_at(&secp, &keypath_account);
+    let some_xpub: Xpub = "tpubDFgycCkexSxkdZfeyaasDHityE97kiYM1BeCNoivDHvydGugKtoNobt4vEX6YSHNPy2cqmWQHKjKxciJuocepsGPGxcDZVmiMBnxgA1JKQk".parse().unwrap();
+
+    // We use the miniscript library to build a multipath descriptor including key origin so we can
+    // easily derive the receive/change descriptor, pubkey scripts, populate the PSBT input key
+    // infos and convert the sigs to final witnesses.
+
+    let multi_descriptor: miniscript::Descriptor<miniscript::DescriptorPublicKey> = policy
+        .replace(
+            "@1",
+            &format!("[{}/48'/1'/0'/3']{}", &our_root_fingerprint, &our_xpub),
+        )
+        .replace("@0", &some_xpub.to_string())
+        .parse::<miniscript::Descriptor<miniscript::DescriptorPublicKey>>()
+        .unwrap();
+    assert!(multi_descriptor.sanity_check().is_ok());
+
+    let [descriptor_receive, descriptor_change] = multi_descriptor
+        .into_single_descriptors()
+        .unwrap()
+        .try_into()
+        .unwrap();
+    // Derive /0/0 (first receive) and /1/0 (first change) descriptors.
+    let input_descriptor = descriptor_receive.at_derivation_index(0).unwrap();
+    let change_descriptor = descriptor_change.at_derivation_index(0).unwrap();
+
+    let keys = &[
+        // Foreign key: root fingerprint and keypath are optional.
+        bitbox_api::btc::KeyOriginInfo {
+            root_fingerprint: None,
+            keypath: None,
+            xpub: some_xpub,
+        },
+        // Our key: root fingerprint and keypath are required.
+        bitbox_api::btc::KeyOriginInfo {
+            root_fingerprint: Some(our_root_fingerprint),
+            keypath: Some((&keypath_account).into()),
+            xpub: our_xpub,
+        },
+    ];
+    let policy_config = bitbox_api::btc::make_script_config_policy(policy, keys);
+
+    // Register policy if not already registered. This must be done before any receive address is
+    // created or any transaction is signed.
+    let is_registered = bitbox
+        .btc_is_script_config_registered(coin, &policy_config, None)
+        .await
+        .unwrap();
+
+    if !is_registered {
+        bitbox
+            .btc_register_script_config(
+                coin,
+                &policy_config,
+                None,
+                pb::btc_register_script_config_request::XPubType::AutoXpubTpub,
+                Some("test tr scriptspend policy"),
+            )
+            .await
+            .unwrap();
+    }
+
+    // A previous tx which creates some UTXOs we can reference later.
+    let prev_tx = Transaction {
+        version: transaction::Version::TWO,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![TxIn {
+            previous_output: "3131313131313131313131313131313131313131313131313131313131313131:0"
+                .parse()
+                .unwrap(),
+            script_sig: ScriptBuf::new(),
+            sequence: Sequence(0xFFFFFFFF),
+            witness: Witness::default(),
+        }],
+        output: vec![TxOut {
+            value: Amount::from_sat(100_000_000),
+            script_pubkey: input_descriptor.script_pubkey(),
+        }],
+    };
+
+    let tx = Transaction {
+        version: transaction::Version::TWO,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![TxIn {
+            previous_output: OutPoint {
+                txid: prev_tx.compute_txid(),
+                vout: 0,
+            },
+            script_sig: ScriptBuf::new(),
+            sequence: Sequence(0xFFFFFFFF),
+            witness: Witness::default(),
+        }],
+        output: vec![
+            TxOut {
+                value: Amount::from_sat(70_000_000),
+                script_pubkey: change_descriptor.script_pubkey(),
+            },
+            TxOut {
+                value: Amount::from_sat(20_000_000),
+                script_pubkey: ScriptBuf::new_p2tr(
+                    &secp,
+                    // random private key:
+                    // 9dbb534622a6100a39b73dece43c6d4db14b9a612eb46a6c64c2bb849e283ce8
+                    "e4adbb12c3426ec71ebb10688d8ae69d531ca822a2b790acee216a7f1b95b576"
+                        .parse()
+                        .unwrap(),
+                    None,
+                ),
+            },
+        ],
+    };
+
+    let mut psbt = Psbt::from_unsigned_tx(tx).unwrap();
+
+    // Add input and change infos.
+    psbt.inputs[0].witness_utxo = Some(prev_tx.output[0].clone());
+    // These add the input/output bip32_derivation entries / key infos.
+    psbt.update_input_with_descriptor(0, &input_descriptor)
+        .unwrap();
+    psbt.update_output_with_descriptor(0, &change_descriptor)
+        .unwrap();
     // Sign.
     bitbox
         .btc_sign_psbt(
