@@ -363,7 +363,7 @@ fn get_value(
         HashMap(&'a HashMap<String, Value>),
         JsonValue(Value),
     }
-    impl<'a> Either<'a> {
+    impl Either<'_> {
         fn get(&self, key: &str) -> Option<&Value> {
             match self {
                 Either::HashMap(map) => map.get(key),
