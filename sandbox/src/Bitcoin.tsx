@@ -5,7 +5,7 @@ import { ShowError } from './Error';
 
 type Props = { bb02: bitbox.PairedBitBox };
 
-const btcCoinOptions = ['btc', 'tbtc', 'ltc', 'tltc'];
+const btcCoinOptions = ['btc', 'tbtc', 'ltc', 'tltc', 'rbtc'];
 
 function BtcXPub({ bb02 } : Props) {
   const [coin, setCoin] = useState<bitbox.BtcCoin>('btc');
@@ -95,6 +95,7 @@ function BtcAddressSimple({ bb02 }: Props) {
       case 'tbtc':
       case 'tltc': return 1;
       case 'ltc': return 2;
+      case 'rbtc': return 1;
     }
   }
 

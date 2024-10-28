@@ -12,7 +12,7 @@ extern "C" {
 const TS_TYPES: &'static str = r#"
 type OnCloseCb = undefined | (() => void);
 type Product = 'unknown' | 'bitbox02-multi' | 'bitbox02-btconly';
-type BtcCoin = 'btc' | 'tbtc' | 'ltc' | 'tltc';
+type BtcCoin = 'btc' | 'tbtc' | 'ltc' | 'tltc' | 'rbtc';
 type BtcFormatUnit = 'default' | 'sat';
 type XPubType = 'tpub' | 'xpub' | 'ypub' | 'zpub' | 'vpub' | 'upub' | 'Vpub' | 'Zpub' | 'Upub' | 'Ypub';
 type Keypath = string | number[];
