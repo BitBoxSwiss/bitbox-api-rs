@@ -81,6 +81,7 @@ async fn eth_demo<R: bitbox_api::runtime::Runtime>() {
             1,
             &"m/44'/60'/0'/0/0".try_into().unwrap(),
             &raw_tx.as_slice().try_into().unwrap(),
+            None,
         )
         .await
         .unwrap();
@@ -92,6 +93,7 @@ async fn eth_demo<R: bitbox_api::runtime::Runtime>() {
         .eth_sign_1559_transaction(
             &"m/44'/60'/0'/0/0".try_into().unwrap(),
             &raw_tx.as_slice().try_into().unwrap(),
+            None,
         )
         .await
         .unwrap();

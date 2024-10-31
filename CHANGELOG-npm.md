@@ -6,6 +6,7 @@
 - btc: handle error when an input's previous transaction is required but missing
 - btc: add support for regtest
 - btc: add support for Taproot wallet policies
+- eth: add method to help clients identify and specify address case (upper/lower/mixed)
 
 ## 0.6.0
 
