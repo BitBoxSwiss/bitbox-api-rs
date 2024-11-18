@@ -16,6 +16,16 @@ where
 }
 
 #[cfg(feature = "wasm")]
+pub(crate) fn serde_deserialize_drep_type<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    let drep_type = pb::cardano_sign_transaction_request::certificate::vote_delegation::CardanoDRepType::deserialize(deserializer)?;
+    Ok(drep_type as i32)
+}
+
+#[cfg(feature = "wasm")]
 #[derive(serde::Deserialize)]
 pub(crate) struct SerdeScriptConfig(pb::cardano_script_config::Config);
 

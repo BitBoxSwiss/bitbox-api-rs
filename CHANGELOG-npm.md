@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 0.8.0
+- cardano: allow vote delegation
+
 ## 0.7.0
 - btc: handle error when an input's previous transaction is required but missing
 - btc: add support for regtest

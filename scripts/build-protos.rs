@@ -67,11 +67,11 @@ fn add_serde_attrs(c: &mut prost_build::Config) {
             "shiftcrypto.bitbox02.BTCPubRequest.XPubType.CAPITAL_YPUB",
             "serde(rename = \"Ypub\")",
         ),
+        // Cardano
         (
             "shiftcrypto.bitbox02.CardanoNetwork.CardanoMainnet",
             "serde(rename = \"mainnet\")",
         ),
-        // Cardano
         (
             "shiftcrypto.bitbox02.CardanoNetwork.CardanoTestnet",
             "serde(rename = \"testnet\")",
@@ -91,6 +91,10 @@ fn add_serde_attrs(c: &mut prost_build::Config) {
         (
             "keypath_stake",
             "serde(deserialize_with = \"crate::keypath::serde_deserialize\")",
+        ),
+        (
+            "shiftcrypto.bitbox02.CardanoSignTransactionRequest.Certificate.VoteDelegation.type",
+            "serde(deserialize_with = \"crate::cardano::serde_deserialize_drep_type\")",
         ),
     ];
 
