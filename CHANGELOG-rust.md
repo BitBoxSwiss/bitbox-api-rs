@@ -1,6 +1,7 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
+- cardano: add support for 258-tagged sets
 
 ## 0.6.0
 - btc: handle error when an input's previous transaction is required but missing

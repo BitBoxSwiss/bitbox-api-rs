@@ -94,6 +94,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         withdrawals: vec![],
         validity_interval_start: 41110811,
         allow_zero_ttl: false,
+        tag_cbor_sets: false,
     };
 
     let witness = paired_bitbox
@@ -148,6 +149,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         withdrawals: vec![],
         validity_interval_start: 41110811,
         allow_zero_ttl: false,
+        tag_cbor_sets: false,
     };
 
     let witness = paired_bitbox
@@ -185,6 +187,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         }],
         validity_interval_start: 0,
         allow_zero_ttl: false,
+        tag_cbor_sets: false,
     };
 
     let witness = paired_bitbox

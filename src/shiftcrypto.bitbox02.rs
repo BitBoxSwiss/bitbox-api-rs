@@ -188,8 +188,8 @@ pub mod insert_remove_sd_card_request {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                SdCardAction::RemoveCard => "REMOVE_CARD",
-                SdCardAction::InsertCard => "INSERT_CARD",
+                Self::RemoveCard => "REMOVE_CARD",
+                Self::InsertCard => "INSERT_CARD",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -304,8 +304,8 @@ pub mod btc_script_config {
             /// (if the ProtoBuf definition does not change) and safe for programmatic use.
             pub fn as_str_name(&self) -> &'static str {
                 match self {
-                    ScriptType::P2wsh => "P2WSH",
-                    ScriptType::P2wshP2sh => "P2WSH_P2SH",
+                    Self::P2wsh => "P2WSH",
+                    Self::P2wshP2sh => "P2WSH_P2SH",
                 }
             }
             /// Creates an enum from field names used in the ProtoBuf definition.
@@ -356,9 +356,9 @@ pub mod btc_script_config {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                SimpleType::P2wpkhP2sh => "P2WPKH_P2SH",
-                SimpleType::P2wpkh => "P2WPKH",
-                SimpleType::P2tr => "P2TR",
+                Self::P2wpkhP2sh => "P2WPKH_P2SH",
+                Self::P2wpkh => "P2WPKH",
+                Self::P2tr => "P2TR",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -453,16 +453,16 @@ pub mod btc_pub_request {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                XPubType::Tpub => "TPUB",
-                XPubType::Xpub => "XPUB",
-                XPubType::Ypub => "YPUB",
-                XPubType::Zpub => "ZPUB",
-                XPubType::Vpub => "VPUB",
-                XPubType::Upub => "UPUB",
-                XPubType::CapitalVpub => "CAPITAL_VPUB",
-                XPubType::CapitalZpub => "CAPITAL_ZPUB",
-                XPubType::CapitalUpub => "CAPITAL_UPUB",
-                XPubType::CapitalYpub => "CAPITAL_YPUB",
+                Self::Tpub => "TPUB",
+                Self::Xpub => "XPUB",
+                Self::Ypub => "YPUB",
+                Self::Zpub => "ZPUB",
+                Self::Vpub => "VPUB",
+                Self::Upub => "UPUB",
+                Self::CapitalVpub => "CAPITAL_VPUB",
+                Self::CapitalZpub => "CAPITAL_ZPUB",
+                Self::CapitalUpub => "CAPITAL_UPUB",
+                Self::CapitalYpub => "CAPITAL_YPUB",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -528,6 +528,10 @@ pub struct BtcSignInitRequest {
     pub format_unit: i32,
     #[prost(bool, tag = "9")]
     pub contains_silent_payment_outputs: bool,
+    /// used script configs for outputs that send to an address of the same keystore, but not
+    /// necessarily the same account (as defined by `script_configs` above).
+    #[prost(message, repeated, tag = "10")]
+    pub output_script_configs: ::prost::alloc::vec::Vec<BtcScriptConfigWithKeypath>,
 }
 /// Nested message and enum types in `BTCSignInitRequest`.
 pub mod btc_sign_init_request {
@@ -558,8 +562,8 @@ pub mod btc_sign_init_request {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                FormatUnit::Default => "DEFAULT",
-                FormatUnit::Sat => "SAT",
+                Self::Default => "DEFAULT",
+                Self::Sat => "SAT",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -634,14 +638,14 @@ pub mod btc_sign_next_response {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                Type::Input => "INPUT",
-                Type::Output => "OUTPUT",
-                Type::Done => "DONE",
-                Type::PrevtxInit => "PREVTX_INIT",
-                Type::PrevtxInput => "PREVTX_INPUT",
-                Type::PrevtxOutput => "PREVTX_OUTPUT",
-                Type::HostNonce => "HOST_NONCE",
-                Type::PaymentRequest => "PAYMENT_REQUEST",
+                Self::Input => "INPUT",
+                Self::Output => "OUTPUT",
+                Self::Done => "DONE",
+                Self::PrevtxInit => "PREVTX_INIT",
+                Self::PrevtxInput => "PREVTX_INPUT",
+                Self::PrevtxOutput => "PREVTX_OUTPUT",
+                Self::HostNonce => "HOST_NONCE",
+                Self::PaymentRequest => "PAYMENT_REQUEST",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -708,7 +712,9 @@ pub struct BtcSignOutputRequest {
         serde(deserialize_with = "crate::keypath::serde_deserialize")
     )]
     pub keypath: ::prost::alloc::vec::Vec<u32>,
-    /// If ours is true. References a script config from BTCSignInitRequest
+    /// If ours is true and `output_script_config_index` is absent. References a script config from
+    /// BTCSignInitRequest. This allows change output identification and allows us to identify
+    /// non-change outputs to the same account, so we can display this info to the user.
     #[prost(uint32, tag = "6")]
     pub script_config_index: u32,
     #[prost(uint32, optional, tag = "7")]
@@ -717,6 +723,12 @@ pub struct BtcSignOutputRequest {
     /// BTCSignNextResponse. `contains_silent_payment_outputs` in the init request must be true.
     #[prost(message, optional, tag = "8")]
     pub silent_payment: ::core::option::Option<btc_sign_output_request::SilentPayment>,
+    /// If ours is true. If set, `script_config_index` is ignored. References an output script config
+    /// from BTCSignInitRequest. This enables verification that an output belongs to the same keystore,
+    /// even if it is from a different account than we spend from, allowing us to display this info to
+    /// the user.
+    #[prost(uint32, optional, tag = "9")]
+    pub output_script_config_index: ::core::option::Option<u32>,
 }
 /// Nested message and enum types in `BTCSignOutputRequest`.
 pub mod btc_sign_output_request {
@@ -804,8 +816,8 @@ pub mod btc_register_script_config_request {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                XPubType::AutoElectrum => "AUTO_ELECTRUM",
-                XPubType::AutoXpubTpub => "AUTO_XPUB_TPUB",
+                Self::AutoElectrum => "AUTO_ELECTRUM",
+                Self::AutoXpubTpub => "AUTO_XPUB_TPUB",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -991,11 +1003,11 @@ impl BtcCoin {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            BtcCoin::Btc => "BTC",
-            BtcCoin::Tbtc => "TBTC",
-            BtcCoin::Ltc => "LTC",
-            BtcCoin::Tltc => "TLTC",
-            BtcCoin::Rbtc => "RBTC",
+            Self::Btc => "BTC",
+            Self::Tbtc => "TBTC",
+            Self::Ltc => "LTC",
+            Self::Tltc => "TLTC",
+            Self::Rbtc => "RBTC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1029,12 +1041,12 @@ impl BtcOutputType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            BtcOutputType::Unknown => "UNKNOWN",
-            BtcOutputType::P2pkh => "P2PKH",
-            BtcOutputType::P2sh => "P2SH",
-            BtcOutputType::P2wpkh => "P2WPKH",
-            BtcOutputType::P2wsh => "P2WSH",
-            BtcOutputType::P2tr => "P2TR",
+            Self::Unknown => "UNKNOWN",
+            Self::P2pkh => "P2PKH",
+            Self::P2sh => "P2SH",
+            Self::P2wpkh => "P2WPKH",
+            Self::P2wsh => "P2WSH",
+            Self::P2tr => "P2TR",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1156,6 +1168,10 @@ pub struct CardanoSignTransactionRequest {
     #[prost(bool, tag = "9")]
     #[cfg_attr(feature = "wasm", serde(rename = "allowZeroTTL"))]
     pub allow_zero_ttl: bool,
+    /// Tag arrays in the transaction serialization with the 258 tag.
+    /// See <https://github.com/IntersectMBO/cardano-ledger/blob/6e2d37cc0f47bd02e89b4ce9f78b59c35c958e96/eras/conway/impl/cddl-files/extra.cddl#L5>
+    #[prost(bool, tag = "10")]
+    pub tag_cbor_sets: bool,
 }
 /// Nested message and enum types in `CardanoSignTransactionRequest`.
 pub mod cardano_sign_transaction_request {
@@ -1285,10 +1301,10 @@ pub mod cardano_sign_transaction_request {
                 /// (if the ProtoBuf definition does not change) and safe for programmatic use.
                 pub fn as_str_name(&self) -> &'static str {
                     match self {
-                        CardanoDRepType::KeyHash => "KEY_HASH",
-                        CardanoDRepType::ScriptHash => "SCRIPT_HASH",
-                        CardanoDRepType::AlwaysAbstain => "ALWAYS_ABSTAIN",
-                        CardanoDRepType::AlwaysNoConfidence => "ALWAYS_NO_CONFIDENCE",
+                        Self::KeyHash => "KEY_HASH",
+                        Self::ScriptHash => "SCRIPT_HASH",
+                        Self::AlwaysAbstain => "ALWAYS_ABSTAIN",
+                        Self::AlwaysNoConfidence => "ALWAYS_NO_CONFIDENCE",
                     }
                 }
                 /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1411,8 +1427,8 @@ impl CardanoNetwork {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            CardanoNetwork::CardanoMainnet => "CardanoMainnet",
-            CardanoNetwork::CardanoTestnet => "CardanoTestnet",
+            Self::CardanoMainnet => "CardanoMainnet",
+            Self::CardanoTestnet => "CardanoTestnet",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1474,8 +1490,8 @@ pub mod eth_pub_request {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                OutputType::Address => "ADDRESS",
-                OutputType::Xpub => "XPUB",
+                Self::Address => "ADDRESS",
+                Self::Xpub => "XPUB",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1680,15 +1696,15 @@ pub mod eth_sign_typed_message_request {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                DataType::Unknown => "UNKNOWN",
-                DataType::Bytes => "BYTES",
-                DataType::Uint => "UINT",
-                DataType::Int => "INT",
-                DataType::Bool => "BOOL",
-                DataType::Address => "ADDRESS",
-                DataType::String => "STRING",
-                DataType::Array => "ARRAY",
-                DataType::Struct => "STRUCT",
+                Self::Unknown => "UNKNOWN",
+                Self::Bytes => "BYTES",
+                Self::Uint => "UINT",
+                Self::Int => "INT",
+                Self::Bool => "BOOL",
+                Self::Address => "ADDRESS",
+                Self::String => "STRING",
+                Self::Array => "ARRAY",
+                Self::Struct => "STRUCT",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1745,9 +1761,9 @@ pub mod eth_typed_message_value_response {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                RootObject::Unknown => "UNKNOWN",
-                RootObject::Domain => "DOMAIN",
-                RootObject::Message => "MESSAGE",
+                Self::Unknown => "UNKNOWN",
+                Self::Domain => "DOMAIN",
+                Self::Message => "MESSAGE",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1839,9 +1855,9 @@ impl EthCoin {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            EthCoin::Eth => "ETH",
-            EthCoin::RopstenEth => "RopstenETH",
-            EthCoin::RinkebyEth => "RinkebyETH",
+            Self::Eth => "ETH",
+            Self::RopstenEth => "RopstenETH",
+            Self::RinkebyEth => "RinkebyETH",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1870,9 +1886,9 @@ impl EthAddressCase {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            EthAddressCase::Mixed => "ETH_ADDRESS_CASE_MIXED",
-            EthAddressCase::Upper => "ETH_ADDRESS_CASE_UPPER",
-            EthAddressCase::Lower => "ETH_ADDRESS_CASE_LOWER",
+            Self::Mixed => "ETH_ADDRESS_CASE_MIXED",
+            Self::Upper => "ETH_ADDRESS_CASE_UPPER",
+            Self::Lower => "ETH_ADDRESS_CASE_LOWER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2002,8 +2018,8 @@ pub mod reboot_request {
         /// (if the ProtoBuf definition does not change) and safe for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
-                Purpose::Upgrade => "UPGRADE",
-                Purpose::Settings => "SETTINGS",
+                Self::Upgrade => "UPGRADE",
+                Self::Settings => "SETTINGS",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.

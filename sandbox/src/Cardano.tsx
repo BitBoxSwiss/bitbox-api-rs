@@ -202,6 +202,7 @@ function CardanoSignTransaction({ bb02 }: Props) {
               withdrawals: [],
               validityIntervalStart: BigInt(41110811),
               allowZeroTTL: false,
+              tagCborSets: false,
             };
           case 'zero-ttl':
             return {
@@ -224,6 +225,7 @@ function CardanoSignTransaction({ bb02 }: Props) {
               withdrawals: [],
               validityIntervalStart: BigInt(41110811),
               allowZeroTTL: true,
+              tagCborSets: false,
             };
           case 'tokens':
             return {
@@ -262,6 +264,7 @@ function CardanoSignTransaction({ bb02 }: Props) {
               withdrawals: [],
               validityIntervalStart: BigInt(41110811),
               allowZeroTTL: false,
+              tagCborSets: false,
             };
           case 'delegate':
             return {
@@ -292,6 +295,7 @@ function CardanoSignTransaction({ bb02 }: Props) {
               withdrawals: [],
               validityIntervalStart: BigInt(41110811),
               allowZeroTTL: false,
+              tagCborSets: false,
             };
           case 'vote-delegation':
             return {
@@ -317,6 +321,7 @@ function CardanoSignTransaction({ bb02 }: Props) {
               withdrawals: [],
               validityIntervalStart: BigInt(41110811),
               allowZeroTTL: false,
+              tagCborSets: false,
             };
             case 'vote-delegation-keyhash':
               return {
@@ -343,6 +348,7 @@ function CardanoSignTransaction({ bb02 }: Props) {
                 withdrawals: [],
                 validityIntervalStart: BigInt(41110811),
                 allowZeroTTL: false,
+                tagCborSets: false,
               };
           case 'withdraw-staking-rewards':
             return {
@@ -366,6 +372,7 @@ function CardanoSignTransaction({ bb02 }: Props) {
               ],
               validityIntervalStart: BigInt(0),
               allowZeroTTL: false,
+              tagCborSets: false,
             };
         }
       };
