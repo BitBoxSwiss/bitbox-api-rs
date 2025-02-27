@@ -24,7 +24,7 @@ cargo fmt --check
 
 for feature_set in "${features[@]}"; do
   echo $feature_set
-  cargo test --tests --locked --features="$feature_set" -- --nocapture
+  cargo test --tests --locked --features="$feature_set" -- --nocapture --test-threads 1
   cargo clippy --tests --locked --features="$feature_set" -- -D warnings -A clippy::empty-docs
 done
 
