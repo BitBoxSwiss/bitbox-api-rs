@@ -6,6 +6,7 @@
 use bitcoin::hashes::Hash;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::io::BufRead;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
@@ -37,11 +38,33 @@ struct Server(Child);
 
 impl Server {
     fn launch(filename: &str) -> Self {
-        Self(
-            Command::new(filename)
-                .spawn()
-                .expect("failed to start server"),
-        )
+        //let mut command = Command::new(filename);
+
+        let mut command = Command::new("stdbuf");
+        command
+            .arg("-oL") // Line buffering for stdout
+            .arg(filename)
+            .stdout(std::process::Stdio::piped());
+
+        command.stdout(std::process::Stdio::piped()); // Capture stdout
+
+        let mut child = command.spawn().expect("failed to start server");
+
+        // Take stdout handle from child
+        let stdout = child.stdout.take().unwrap();
+
+        // Spawn a thread to process the output, so we can print it indented for clarity.
+        std::thread::spawn(move || {
+            let reader = std::io::BufReader::new(stdout);
+            for line in reader.lines() {
+                match line {
+                    Ok(line) => println!("\t\t{}", line),
+                    Err(e) => eprintln!("Error reading line: {}", e),
+                }
+            }
+        });
+
+        Self(child)
     }
 }
 
@@ -127,7 +150,8 @@ pub async fn test_simulators_after_pairing(
         download_simulators().await.unwrap()
     };
     for simulator_filename in simulator_filenames {
-        println!("Simulator tests using {}", simulator_filename);
+        println!();
+        println!("\tSimulator tests using {}", simulator_filename);
         let _server = Server::launch(&simulator_filename);
         let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
         let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from_simulator(

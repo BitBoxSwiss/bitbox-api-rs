@@ -20,6 +20,10 @@ To run them, use:
 
     cargo test --features=simulator,tokio -- --test-threads 1
 
+Use `--nocapture` to also see some useful simulator output.
+
+    cargo test --features=simulator,tokio -- --test-threads 1 --nocapture
+
 If you want to test against a custom simulator build (e.g. when developing new firmware features),
 you can run:
 
