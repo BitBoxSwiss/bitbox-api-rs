@@ -18,7 +18,7 @@ tested with.
 
 To run them, use:
 
-    cargo test --features=simulator,tokio
+    cargo test --features=simulator,tokio -- --test-threads 1
 
 If you want to test against a custom simulator build (e.g. when developing new firmware features),
 you can run:
