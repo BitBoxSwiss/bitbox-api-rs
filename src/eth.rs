@@ -302,7 +302,7 @@ fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
         DataType::Uint => match value {
             Value::String(v) => {
                 if v.starts_with("0x") || v.starts_with("0X") {
-                    Ok(BigUint::parse_bytes(v[2..].as_bytes(), 16)
+                    Ok(BigUint::parse_bytes(&v.as_bytes()[2..], 16)
                         .ok_or(format!("could not parse {} as hex", v))?
                         .to_bytes_be())
                 } else {

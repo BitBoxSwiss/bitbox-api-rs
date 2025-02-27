@@ -1,6 +1,7 @@
 # Changelog
 
-## Unreleased
+## 0.9.0
+- cardano: add support for 258-tagged sets
 
 ## 0.8.0
 - cardano: allow vote delegation

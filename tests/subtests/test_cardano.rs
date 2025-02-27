@@ -100,6 +100,7 @@ pub async fn test(bitbox: &PairedBitBox) {
         withdrawals: vec![],
         validity_interval_start: 41110811,
         allow_zero_ttl: false,
+        tag_cbor_sets: false,
     };
 
         let witness = bitbox.cardano_sign_transaction(transaction).await.unwrap();
@@ -156,6 +157,7 @@ pub async fn test(bitbox: &PairedBitBox) {
             withdrawals: vec![],
             validity_interval_start: 41110811,
             allow_zero_ttl: false,
+            tag_cbor_sets: false,
         };
 
         let witness = bitbox.cardano_sign_transaction(transaction).await.unwrap();
@@ -205,6 +207,7 @@ pub async fn test(bitbox: &PairedBitBox) {
             withdrawals: vec![],
             validity_interval_start: 41110811,
             allow_zero_ttl: false,
+            tag_cbor_sets: false,
         };
 
         if semver::VersionReq::parse(">=9.21.0")
@@ -262,6 +265,7 @@ pub async fn test(bitbox: &PairedBitBox) {
             withdrawals: vec![],
             validity_interval_start: 41110811,
             allow_zero_ttl: false,
+            tag_cbor_sets: false,
         };
 
         if semver::VersionReq::parse(">=9.21.0")
@@ -310,6 +314,7 @@ pub async fn test(bitbox: &PairedBitBox) {
             }],
             validity_interval_start: 0,
             allow_zero_ttl: false,
+            tag_cbor_sets: false,
         };
 
         let witness = bitbox.cardano_sign_transaction(transaction).await.unwrap();
@@ -322,5 +327,71 @@ pub async fn test(bitbox: &PairedBitBox) {
             hex::encode(&witness.shelley_witnesses[1].public_key),
             "ed0d6426efcae3b02b963db0997845ba43ed53c131aa2f0faa01976ddcdb3751",
         );
+    }
+    // Using 258-tagged cbor sets
+    {
+        let transaction = pb::CardanoSignTransactionRequest {
+        network: pb::CardanoNetwork::CardanoMainnet as i32,
+        inputs: vec![
+            pb::cardano_sign_transaction_request::Input {
+                keypath: keypath_input.to_vec(),
+                prev_out_hash: hex::decode("59864ee73ca5d91098a32b3ce9811bac1996dcbaefa6b6247dcaafb5779c2538").unwrap(),
+                prev_out_index: 0,
+            },
+        ],
+        outputs: vec![
+            pb::cardano_sign_transaction_request::Output {
+                encoded_address: "addr1q9qfllpxg2vu4lq6rnpel4pvpp5xnv3kvvgtxk6k6wp4ff89xrhu8jnu3p33vnctc9eklee5dtykzyag5penc6dcmakqsqqgpt".to_string(),
+                value: 1000000,
+                asset_groups: vec![
+                    // Asset policy ids and asset names from:
+                    // https://github.com/cardano-foundation/CIPs/blob/a2ef32d8a2b485fed7f6ffde2781dd58869ff511/CIP-0014/README.md#test-vectors
+                    pb::cardano_sign_transaction_request::AssetGroup {
+                        policy_id: hex::decode("1e349c9bdea19fd6c147626a5260bc44b71635f398b67c59881df209").unwrap(),
+                        tokens: vec![
+                            pb::cardano_sign_transaction_request::asset_group::Token {
+                                asset_name: hex::decode("504154415445").unwrap(),
+                                value: 1,
+                            },
+                            pb::cardano_sign_transaction_request::asset_group::Token {
+                                asset_name: hex::decode("7eae28af2208be856f7a119668ae52a49b73725e326dc16579dcc373").unwrap(),
+                                value: 3,
+                            },
+                        ],
+                    },
+                ],
+                ..Default::default()
+            },
+            pb::cardano_sign_transaction_request::Output {
+                encoded_address: change_address.clone(),
+                value: 4829501,
+                script_config: Some(change_config.clone()),
+                ..Default::default()
+        },
+        ],
+        fee: 170499,
+        ttl: 41115811,
+        certificates: vec![],
+        withdrawals: vec![],
+        validity_interval_start: 41110811,
+        allow_zero_ttl: false,
+        tag_cbor_sets: true,
+    };
+        if semver::VersionReq::parse(">=9.22.0")
+            .unwrap()
+            .matches(bitbox.version())
+        {
+            let witness = bitbox.cardano_sign_transaction(transaction).await.unwrap();
+            assert_eq!(witness.shelley_witnesses.len(), 1);
+            assert_eq!(
+                hex::encode(&witness.shelley_witnesses[0].public_key),
+                "6b5d4134cfc66281827d51cb0196f1a951ce168c19ba1314233f43d39d91e2bc",
+            );
+        } else {
+            assert!(matches!(
+                bitbox.cardano_sign_transaction(transaction).await,
+                Err(bitbox_api::error::Error::Version(">=9.22.0"))
+            ));
+        }
     }
 }

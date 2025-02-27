@@ -723,6 +723,7 @@ impl<R: Runtime> PairedBitBox<R> {
             .get_next_response(Request::BtcSignInit(pb::BtcSignInitRequest {
                 coin: coin as _,
                 script_configs: transaction.script_configs.clone(),
+                output_script_configs: vec![],
                 version: transaction.version,
                 num_inputs: transaction.inputs.len() as _,
                 num_outputs: transaction.outputs.len() as _,

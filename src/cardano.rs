@@ -135,6 +135,9 @@ impl<R: Runtime> PairedBitBox<R> {
         &self,
         transaction: pb::CardanoSignTransactionRequest,
     ) -> Result<pb::CardanoSignTransactionResponse, Error> {
+        if transaction.tag_cbor_sets {
+            self.validate_version(">=9.22.0")?;
+        }
         match self
             .query_proto_cardano(pb::cardano_request::Request::SignTransaction(transaction))
             .await?

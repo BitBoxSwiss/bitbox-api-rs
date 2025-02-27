@@ -143,6 +143,7 @@ type CardanoTransaction = {
   withdrawals: CardanoWithdrawal[];
   validityIntervalStart: bigint;
   allowZeroTTL: boolean;
+  tagCborSets: boolean;
 };
 type CardanoShelleyWitness = {
   signature: Uint8Array;
