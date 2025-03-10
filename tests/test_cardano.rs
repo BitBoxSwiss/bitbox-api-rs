@@ -397,6 +397,7 @@ async fn test_cardano_transactions() {
                 .unwrap()
                 .matches(bitbox.version())
             {
+                assert!(bitbox.features().cardano_tag_cbor_sets);
                 let witness = bitbox.cardano_sign_transaction(transaction).await.unwrap();
                 assert_eq!(witness.shelley_witnesses.len(), 1);
                 assert_eq!(
@@ -404,6 +405,7 @@ async fn test_cardano_transactions() {
                     "6b5d4134cfc66281827d51cb0196f1a951ce168c19ba1314233f43d39d91e2bc",
                 );
             } else {
+                assert!(!bitbox.features().cardano_tag_cbor_sets);
                 assert!(matches!(
                     bitbox.cardano_sign_transaction(transaction).await,
                     Err(bitbox_api::error::Error::Version(">=9.22.0"))
