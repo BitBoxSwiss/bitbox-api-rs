@@ -49,7 +49,7 @@ type BtcSignMessageSignature = {
   sig: Uint8Array,
   recid: bigint,
   electrumSig65: Uint8Array,
-}
+};
 // nonce, gasPrice, gasLimit and value must be big-endian encoded, no trailing zeroes.
 type EthTransaction = {
   nonce: Uint8Array;
@@ -93,18 +93,18 @@ type CardanoInput = {
 type CardanoAssetGroupToken = {
   assetName: Uint8Array;
   value: bigint;
-}
+};
 type CardanoAssetGroup = {
   policyId: Uint8Array;
   tokens: CardanoAssetGroupToken[];
-}
+};
 type CardanoOutput = {
   encodedAddress: string;
   value: bigint;
   scriptConfig?: CardanoScriptConfig;
   assetGroups?: CardanoAssetGroup[];
-}
-type CardanoDrepType = 'keyHash'  | 'scriptHash' | 'alwaysAbstain'  | 'alwaysNoConfidence'
+};
+type CardanoDrepType = 'keyHash'  | 'scriptHash' | 'alwaysAbstain'  | 'alwaysNoConfidence';
 type CardanoCertificate =
   | {
       stakeRegistration: {
@@ -132,7 +132,7 @@ type CardanoCertificate =
 type CardanoWithdrawal = {
   keypath: Keypath;
   value: bigint;
-}
+};
 type CardanoTransaction = {
   network: CardanoNetwork;
   inputs: CardanoInput[];
@@ -148,7 +148,7 @@ type CardanoTransaction = {
 type CardanoShelleyWitness = {
   signature: Uint8Array;
   publicKey: Uint8Array;
-}
+};
 type CardanoSignTransactionResult = {
   shelleyWitnesses: CardanoShelleyWitness[];
 };
@@ -157,7 +157,7 @@ type Error = {
   message: string;
   // original JS error if code === 'unknown-js'
   err?: any;
-}
+};
 "#;
 
 #[wasm_bindgen]
