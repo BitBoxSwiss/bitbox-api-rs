@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.1
+- WebHID: Automatically connect to a previoulsy connected device
+
 ## 0.9.0
 - cardano: add support for 258-tagged sets
 
