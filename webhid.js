@@ -36,7 +36,14 @@ class MessageQueue {
 export async function getWebHIDDevice(vendorId, productId, onCloseCb) {
   let device;
   try {
-    const devices = await navigator.hid.requestDevice({filters: [{vendorId, productId}]});
+    // Try to get directly the device. This will work without prompting user
+    // permission if it has already been validated before on the current website.
+    let devices = await navigator.hid.getDevices({filters: [{vendorId, productId}]});
+    if (devices.length == 0){
+      // If direct access failed, which happen for new websites, ask user
+      // confirmation.
+      devices = await navigator.hid.requestDevice({filters: [{vendorId, productId}]});
+    }
     const d = devices[0];
     // Filter out other products that might be in the list presented by the Browser.
     if (d.productName.includes('BitBox02')) {
