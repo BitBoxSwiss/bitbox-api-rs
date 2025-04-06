@@ -1,5 +1,8 @@
 # Changelog
 
+## [Unreleased]
+- Add `bip85_app_bip39()`
+
 ## 0.7.0
 - cardano: add support for 258-tagged sets
 
