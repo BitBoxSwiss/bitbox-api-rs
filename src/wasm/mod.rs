@@ -563,6 +563,13 @@ impl PairedBitBox {
         let result = self.device.cardano_sign_transaction(tt).await?;
         Ok(serde_wasm_bindgen::to_value(&result).unwrap().into())
     }
+
+    /// Invokes the BIP85-BIP39 workflow on the device, letting the user select the number of words
+    /// (12, 28, 24) and an index and display a derived BIP-39 mnemonic.
+    #[wasm_bindgen(js_name = bip85AppBip39)]
+    pub async fn bip85_app_bip39(&self) -> Result<(), JavascriptError> {
+        Ok(self.device.bip85_app_bip39().await?)
+    }
 }
 
 #[cfg(test)]

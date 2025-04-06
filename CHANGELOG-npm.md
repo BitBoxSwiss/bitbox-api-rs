@@ -1,5 +1,8 @@
 # Changelog
 
+## [Unreleased]
+- Add `bip85AppBip39()`
+
 ## 0.9.1
 - WebHID: Automatically connect to a previoulsy connected device
 

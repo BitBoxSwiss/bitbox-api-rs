@@ -392,4 +392,21 @@ impl<R: Runtime> PairedBitBox<R> {
             _ => Err(Error::UnexpectedResponse),
         }
     }
+
+    /// Invokes the BIP85-BIP39 workflow on the device, letting the user select the number of words
+    /// (12, 28, 24) and an index and display a derived BIP-39 mnemonic.
+    pub async fn bip85_app_bip39(&self) -> Result<(), Error> {
+        self.validate_version(">=9.17.0")?;
+        match self
+            .query_proto(Request::Bip85(pb::Bip85Request {
+                app: Some(pb::bip85_request::App::Bip39(())),
+            }))
+            .await?
+        {
+            Response::Bip85(pb::Bip85Response {
+                app: Some(pb::bip85_response::App::Bip39(())),
+            }) => Ok(()),
+            _ => Err(Error::UnexpectedResponse),
+        }
+    }
 }

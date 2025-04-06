@@ -82,6 +82,32 @@ function ShowMnemonic({ bb02 } : Props) {
   );
 }
 
+function Bip85AppBip39({ bb02 } : Props) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState<bitbox.Error>();
+
+  const actionBip85 = async (e: FormEvent) => {
+    e.preventDefault();
+    setRunning(true);
+    setErr(undefined);
+    try {
+      await bb02.bip85AppBip39();
+    } catch (err) {
+      setErr(bitbox.ensureError(err));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <>
+      <h4>BIP-85</h4>
+      <button onClick={actionBip85} disabled={running}>Invoke BIP-85 (BIP-39 app)</button>
+      <ShowError err={err} />
+    </>
+  );
+}
+
 export function General({ bb02 } : Props) {
   return (
     <>
@@ -93,6 +119,9 @@ export function General({ bb02 } : Props) {
       </div>
       <div className="action">
         <ShowMnemonic bb02={bb02} />
+      </div>
+      <div className="action">
+        <Bip85AppBip39 bb02={bb02} />
       </div>
     </>
   );
