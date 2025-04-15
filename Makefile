@@ -18,6 +18,8 @@ example-eth:
 	cargo run --example eth --features=usb,tokio/rt,tokio/macros,rlp
 example-cardano:
 	cargo run --example cardano --features=usb,tokio/rt,tokio/macros
+example-simulator:
+	cargo run --example simulator --features=simulator,tokio/rt,tokio/macros,tokio/rt-multi-thread,multithreaded
 wasm:
 	wasm-pack build --release --features=wasm
 	cp webhid.js pkg/

@@ -91,6 +91,10 @@ required-features = ["usb", "tokio/rt", "tokio/macros", "rlp"]
 name = "cardano"
 required-features = ["usb", "tokio/rt", "tokio/macros"]
 
+[[example]]
+name = "simulator"
+required-features = ["simulator", "tokio/rt", "tokio/macros", "tokio/rt-multi-thread", "multithreaded"]
+
 [profile.release]
 # Reduce wasm binary size.
 opt-level = 'z'

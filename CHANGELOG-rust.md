@@ -1,7 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## 0.8.0
 - Add `bip85_app_bip39()`
+- Make the `simulator` feature work with the `multithreaded` feature
 
 ## 0.7.0
 - cardano: add support for 258-tagged sets
