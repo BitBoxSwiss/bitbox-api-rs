@@ -42,7 +42,8 @@ pub async fn try_connect<R: Runtime>(endpoint: Option<&str>) -> Result<Box<TcpCl
 
 impl crate::util::Threading for TcpClient {}
 
-#[async_trait(?Send)]
+#[cfg_attr(feature = "multithreaded", async_trait)]
+#[cfg_attr(not(feature="multithreaded"), async_trait(?Send))]
 impl ReadWrite for TcpClient {
     fn write(&self, msg: &[u8]) -> Result<usize, CommunicationError> {
         let mut stream = self.stream.lock().unwrap();
