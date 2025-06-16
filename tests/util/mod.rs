@@ -76,16 +76,17 @@ impl Drop for Server {
     }
 }
 
+async fn hashes_match(mut file: File, expected_hash: &str) -> Result<bool, ()> {
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).await.map_err(|_| ())?;
+
+    let actual_hash = hex::encode(bitcoin::hashes::sha256::Hash::hash(&buffer));
+    Ok(actual_hash == expected_hash)
+}
+
 async fn file_not_exist_or_hash_mismatch(filename: &Path, expected_hash: &str) -> Result<bool, ()> {
     match File::open(filename).await {
-        Ok(mut file) => {
-            let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer).await.map_err(|_| ())?;
-
-            let actual_hash = hex::encode(bitcoin::hashes::sha256::Hash::hash(&buffer));
-
-            Ok(actual_hash != expected_hash)
-        }
+        Ok(file) => Ok(!hashes_match(file, expected_hash).await?),
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(true),
         Err(_) => Err(()),
     }
@@ -133,6 +134,22 @@ async fn download_simulators() -> Result<Vec<String>, ()> {
             fs::set_permissions(&filename, std::fs::Permissions::from_mode(0o755))
                 .await
                 .map_err(|_| ())?;
+            match File::open(&filename).await {
+                Ok(file) => {
+                    if !hashes_match(file, &simulator.sha256)
+                        .await
+                        .map_err(|_| ())?
+                    {
+                        eprintln!(
+                            "Hash mismatch for simulator file '{}', expected {}",
+                            filename.display(),
+                            simulator.sha256
+                        );
+                        return Err(());
+                    }
+                }
+                Err(_) => return Err(()), // This should never happen as we just created it.
+            }
         }
         filenames.push(filename.to_str().unwrap().to_string());
     }
