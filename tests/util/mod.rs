@@ -58,8 +58,8 @@ impl Server {
             let reader = std::io::BufReader::new(stdout);
             for line in reader.lines() {
                 match line {
-                    Ok(line) => println!("\t\t{}", line),
-                    Err(e) => eprintln!("Error reading line: {}", e),
+                    Ok(line) => println!("\t\t{line}"),
+                    Err(e) => eprintln!("Error reading line: {e}"),
                 }
             }
         });
@@ -127,7 +127,7 @@ async fn download_simulators() -> Result<Vec<String>, ()> {
             .await
             .map_err(|_| ())?
         {
-            println!("Downloading simulator: {}", sim_url);
+            println!("Downloading simulator: {sim_url}");
             download_file(&simulator.url, &filename)
                 .await
                 .map_err(|_| ())?;
@@ -168,7 +168,7 @@ pub async fn test_simulators_after_pairing(
     };
     for simulator_filename in simulator_filenames {
         println!();
-        println!("\tSimulator tests using {}", simulator_filename);
+        println!("\tSimulator tests using {simulator_filename}");
         let _server = Server::launch(&simulator_filename);
         let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
         let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from_simulator(

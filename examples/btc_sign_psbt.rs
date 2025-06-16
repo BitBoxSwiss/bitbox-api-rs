@@ -11,7 +11,7 @@ async fn sign_psbt<R: bitbox_api::runtime::Runtime>(psbt: &mut bitcoin::psbt::Ps
     .unwrap();
     let pairing_device = d.unlock_and_pair().await.unwrap();
     if let Some(pairing_code) = pairing_device.get_pairing_code().as_ref() {
-        println!("Pairing code\n{}", pairing_code);
+        println!("Pairing code\n{pairing_code}");
     }
     let paired = pairing_device.wait_confirm().await.unwrap();
     paired
@@ -33,5 +33,5 @@ async fn main() {
     let mut psbt = bitcoin::psbt::Psbt::from_str(buffer.trim()).unwrap();
     sign_psbt::<bitbox_api::runtime::TokioRuntime>(&mut psbt).await;
     println!("signed:");
-    println!("{}", psbt);
+    println!("{psbt}");
 }
