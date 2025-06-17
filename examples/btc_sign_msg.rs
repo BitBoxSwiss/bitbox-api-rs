@@ -10,7 +10,7 @@ async fn signmsg<R: bitbox_api::runtime::Runtime>() {
     .unwrap();
     let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
     if let Some(pairing_code) = pairing_bitbox.get_pairing_code().as_ref() {
-        println!("Pairing code\n{}", pairing_code);
+        println!("Pairing code\n{pairing_code}");
     }
     let paired_bitbox = pairing_bitbox.wait_confirm().await.unwrap();
 
@@ -27,7 +27,7 @@ async fn signmsg<R: bitbox_api::runtime::Runtime>() {
         .btc_sign_message(pb::BtcCoin::Btc, script_config_sign_msg, b"message")
         .await
         .unwrap();
-    println!("Signature: {:?}", signature);
+    println!("Signature: {signature:?}");
 }
 
 #[tokio::main(flavor = "current_thread")]

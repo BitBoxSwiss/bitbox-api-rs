@@ -10,7 +10,7 @@ async fn demo<R: bitbox_api::runtime::Runtime + Sync + Send>() {
     .unwrap();
     let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
     if let Some(pairing_code) = pairing_bitbox.get_pairing_code().as_ref() {
-        println!("Pairing code\n{}", pairing_code);
+        println!("Pairing code\n{pairing_code}");
     }
     multithreading_type_check(&pairing_bitbox);
     let paired_bitbox = pairing_bitbox.wait_confirm().await.unwrap();

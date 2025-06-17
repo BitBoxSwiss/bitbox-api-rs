@@ -10,7 +10,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
     .unwrap();
     let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
     if let Some(pairing_code) = pairing_bitbox.get_pairing_code().as_ref() {
-        println!("Pairing code\n{}", pairing_code);
+        println!("Pairing code\n{pairing_code}");
     }
     let paired_bitbox = pairing_bitbox.wait_confirm().await.unwrap();
 
@@ -22,7 +22,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         ])
         .await
         .unwrap();
-    println!("Xpubs: {:?}", xpubs);
+    println!("Xpubs: {xpubs:?}");
 
     println!("Getting an address...");
     let address = paired_bitbox
@@ -36,7 +36,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         )
         .await
         .unwrap();
-    println!("Address: {}", address);
+    println!("Address: {address}");
 
     println!("Signing a transaction with tokens...");
     let change_config = bitbox_api::cardano::make_script_config_pkh_skh(
@@ -101,7 +101,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         .cardano_sign_transaction(transaction)
         .await
         .unwrap();
-    println!("Witness: {:?}", witness);
+    println!("Witness: {witness:?}");
 
     println!("Delegating to a staking pool...");
     let transaction = pb::CardanoSignTransactionRequest {
@@ -156,7 +156,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         .cardano_sign_transaction(transaction)
         .await
         .unwrap();
-    println!("Witness: {:?}", witness);
+    println!("Witness: {witness:?}");
 
     println!("Withdrawing staking rewards...");
     let transaction = pb::CardanoSignTransactionRequest {
@@ -194,7 +194,7 @@ async fn demo<R: bitbox_api::runtime::Runtime>() {
         .cardano_sign_transaction(transaction)
         .await
         .unwrap();
-    println!("Witness: {:?}", witness);
+    println!("Witness: {witness:?}");
 }
 
 #[tokio::main(flavor = "current_thread")]

@@ -12,7 +12,7 @@ async fn get_bitbox02() -> bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRu
     .unwrap();
     let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
     if let Some(pairing_code) = pairing_bitbox.get_pairing_code().as_ref() {
-        println!("Pairing code\n{}", pairing_code);
+        println!("Pairing code\n{pairing_code}");
     }
     pairing_bitbox.wait_confirm().await.unwrap()
 }

@@ -330,7 +330,7 @@ impl TryFrom<TsCardanoTransaction> for crate::pb::CardanoSignTransactionRequest 
 
     fn try_from(value: TsCardanoTransaction) -> Result<Self, Self::Error> {
         serde_wasm_bindgen::from_value(value.into())
-            .map_err(|e| JavascriptError::Foo(format!("wrong type for CardanoTransaction {:?}", e)))
+            .map_err(|e| JavascriptError::Foo(format!("wrong type for CardanoTransaction {e:?}")))
     }
 }
 
