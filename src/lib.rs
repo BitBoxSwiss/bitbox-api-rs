@@ -72,6 +72,13 @@ pub struct BitBox<R: Runtime> {
 
 pub type PairingCode = String;
 
+#[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
+/// A list of features supported by the currently connected BitBox.
+pub struct Features {
+    /// Can use `tag_cbor_sets` in `cardano_sign_transaction()`.
+    pub cardano_tag_cbor_sets: bool,
+}
+
 impl<R: Runtime> BitBox<R> {
     async fn from(
         device: Box<dyn communication::ReadWrite>,
@@ -349,6 +356,16 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Returns the firmware version.
     pub fn version(&self) -> &semver::Version {
         &self.communication.info.version
+    }
+
+    /// Returns list of features supported by the currently connected BitBox.
+    pub fn features(&self) -> Features {
+        let version = self.version();
+        let version_at_least =
+            |major, minor, patch| *version >= semver::Version::new(major, minor, patch);
+        Features {
+            cardano_tag_cbor_sets: version_at_least(9, 22, 0),
+        }
     }
 
     /// Returns the hex-encoded 4-byte root fingerprint.
