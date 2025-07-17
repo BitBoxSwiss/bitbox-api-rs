@@ -58,8 +58,8 @@ impl Server {
             let reader = std::io::BufReader::new(stdout);
             for line in reader.lines() {
                 match line {
-                    Ok(line) => println!("\t\t{}", line),
-                    Err(e) => eprintln!("Error reading line: {}", e),
+                    Ok(line) => println!("\t\t{line}"),
+                    Err(e) => eprintln!("Error reading line: {e}"),
                 }
             }
         });
@@ -76,16 +76,17 @@ impl Drop for Server {
     }
 }
 
+async fn hashes_match(mut file: File, expected_hash: &str) -> Result<bool, ()> {
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).await.map_err(|_| ())?;
+
+    let actual_hash = hex::encode(bitcoin::hashes::sha256::Hash::hash(&buffer));
+    Ok(actual_hash == expected_hash)
+}
+
 async fn file_not_exist_or_hash_mismatch(filename: &Path, expected_hash: &str) -> Result<bool, ()> {
     match File::open(filename).await {
-        Ok(mut file) => {
-            let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer).await.map_err(|_| ())?;
-
-            let actual_hash = hex::encode(bitcoin::hashes::sha256::Hash::hash(&buffer));
-
-            Ok(actual_hash != expected_hash)
-        }
+        Ok(file) => Ok(!hashes_match(file, expected_hash).await?),
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(true),
         Err(_) => Err(()),
     }
@@ -126,13 +127,29 @@ async fn download_simulators() -> Result<Vec<String>, ()> {
             .await
             .map_err(|_| ())?
         {
-            println!("Downloading simulator: {}", sim_url);
+            println!("Downloading simulator: {sim_url}");
             download_file(&simulator.url, &filename)
                 .await
                 .map_err(|_| ())?;
             fs::set_permissions(&filename, std::fs::Permissions::from_mode(0o755))
                 .await
                 .map_err(|_| ())?;
+            match File::open(&filename).await {
+                Ok(file) => {
+                    if !hashes_match(file, &simulator.sha256)
+                        .await
+                        .map_err(|_| ())?
+                    {
+                        eprintln!(
+                            "Hash mismatch for simulator file '{}', expected {}",
+                            filename.display(),
+                            simulator.sha256
+                        );
+                        return Err(());
+                    }
+                }
+                Err(_) => return Err(()), // This should never happen as we just created it.
+            }
         }
         filenames.push(filename.to_str().unwrap().to_string());
     }
@@ -151,7 +168,7 @@ pub async fn test_simulators_after_pairing(
     };
     for simulator_filename in simulator_filenames {
         println!();
-        println!("\tSimulator tests using {}", simulator_filename);
+        println!("\tSimulator tests using {simulator_filename}");
         let _server = Server::launch(&simulator_filename);
         let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
         let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from_simulator(

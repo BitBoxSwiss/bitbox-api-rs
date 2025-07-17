@@ -7,10 +7,15 @@ use std::sync::Mutex;
 
 use super::communication::{Error as CommunicationError, ReadWrite};
 
-/// The hid product string of the multi edition firmware.
-const FIRMWARE_PRODUCT_STRING_MULTI: &str = "BitBox02";
-/// The hid product string of the btc-only edition firmware.
-const FIRMWARE_PRODUCT_STRING_BTCONLY: &str = "BitBox02BTC";
+/// The hid product string of the BitBox02 multi edition firmware.
+const FIRMWARE_PRODUCT_STRING_BITBOX02_MULTI: &str = "BitBox02";
+/// The hid product string of the BitBox02 btc-only edition firmware.
+const FIRMWARE_PRODUCT_STRING_BITBOX02_BTCONLY: &str = "BitBox02BTC";
+
+/// The hid product string of the BitBox02 Nova multi edition firmware.
+const FIRMWARE_PRODUCT_STRING_BITBOX02_NOVA_MULTI: &str = "BitBox02 Nova Multi";
+/// The hid product string of the BitBox02 Nova btc-only edition firmware.
+const FIRMWARE_PRODUCT_STRING_BITBOX02_NOVA_BTCONLY: &str = "BitBox02 Nova BTC-only";
 
 #[cfg(feature = "multithreaded")]
 pub(crate) struct HidDevice(Mutex<hidapi::HidDevice>);
@@ -75,10 +80,12 @@ pub enum UsbError {
 pub fn is_bitbox02(device_info: &hidapi::DeviceInfo) -> bool {
     (matches!(
         device_info.product_string(),
-        Some(FIRMWARE_PRODUCT_STRING_MULTI)
-    ) || matches!(
-        device_info.product_string(),
-        Some(FIRMWARE_PRODUCT_STRING_BTCONLY)
+        Some(
+            FIRMWARE_PRODUCT_STRING_BITBOX02_MULTI
+                | FIRMWARE_PRODUCT_STRING_BITBOX02_BTCONLY
+                | FIRMWARE_PRODUCT_STRING_BITBOX02_NOVA_MULTI
+                | FIRMWARE_PRODUCT_STRING_BITBOX02_NOVA_BTCONLY
+        )
     )) && device_info.vendor_id() == VENDOR_ID
         && device_info.product_id() == PRODUCT_ID
         && (device_info.usage_page() == 0xffff || device_info.interface_number() == 0)

@@ -89,7 +89,7 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Does this device support Cardano functionality? Currently this means BitBox02 Multi.
     pub fn cardano_supported(&self) -> bool {
-        matches!(self.product(), crate::Product::BitBox02Multi)
+        self.is_multi_edition()
     }
 
     /// Query the device for xpubs. The result contains one xpub per requested keypath. Each xpub is

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.0
+- Add support for BitBox02 Nova
+
 ## 0.8.0
 - Add `bip85_app_bip39()`
 - Make the `simulator` feature work with the `multithreaded` feature

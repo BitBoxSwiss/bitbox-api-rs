@@ -38,7 +38,7 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Does this device support ETH functionality? Currently this means BitBox02 Multi.
     pub fn eth_supported(&self) -> bool {
-        matches!(self.product(), crate::Product::BitBox02Multi)
+        self.is_multi_edition()
     }
 
     /// Query the device for an xpub.
@@ -205,10 +205,10 @@ fn parse_type(
     if typ.ends_with(']') {
         let index = typ
             .rfind('[')
-            .ok_or(format!("Invalid type format: {}", typ))?;
+            .ok_or(format!("Invalid type format: {typ}"))?;
         let (rest, size) = (&typ[..index], &typ[index + 1..typ.len() - 1]);
         let size_int = if !size.is_empty() {
-            u32::from_str(size).map_err(|e| format!("Error parsing size: {}", e))?
+            u32::from_str(size).map_err(|e| format!("Error parsing size: {e}"))?
         } else {
             0
         };
@@ -221,7 +221,7 @@ fn parse_type(
         })
     } else if let Some(size) = typ.strip_prefix("bytes") {
         let size_int = if !size.is_empty() {
-            u32::from_str(size).map_err(|e| format!("Error parsing size: {}", e))?
+            u32::from_str(size).map_err(|e| format!("Error parsing size: {e}"))?
         } else {
             0
         };
@@ -235,7 +235,7 @@ fn parse_type(
         if size.is_empty() {
             return Err("uint must be sized".to_string());
         }
-        let size_int = u32::from_str(size).map_err(|e| format!("Error parsing size: {}", e))? / 8;
+        let size_int = u32::from_str(size).map_err(|e| format!("Error parsing size: {e}"))? / 8;
         Ok(MemberType {
             r#type: DataType::Uint.into(),
             size: size_int,
@@ -246,7 +246,7 @@ fn parse_type(
         if size.is_empty() {
             return Err("int must be sized".to_string());
         }
-        let size_int = u32::from_str(size).map_err(|e| format!("Error parsing size: {}", e))? / 8;
+        let size_int = u32::from_str(size).map_err(|e| format!("Error parsing size: {e}"))? / 8;
         Ok(MemberType {
             r#type: DataType::Int.into(),
             size: size_int,
@@ -282,7 +282,7 @@ fn parse_type(
             array_type: None,
         })
     } else {
-        Err(format!("Can't recognize type: {}", typ))
+        Err(format!("Can't recognize type: {typ}"))
     }
 }
 
@@ -303,7 +303,7 @@ fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
             Value::String(v) => {
                 if v.starts_with("0x") || v.starts_with("0X") {
                     Ok(BigUint::parse_bytes(&v.as_bytes()[2..], 16)
-                        .ok_or(format!("could not parse {} as hex", v))?
+                        .ok_or(format!("could not parse {v} as hex"))?
                         .to_bytes_be())
                 } else {
                     Ok(BigUint::from_str(v)

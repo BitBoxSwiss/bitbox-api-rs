@@ -1,7 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## 0.10.0
 - Add `bip85AppBip39()`
+- Add support for BitBox02 Nova
 
 ## 0.9.1
 - WebHID: Automatically connect to a previoulsy connected device

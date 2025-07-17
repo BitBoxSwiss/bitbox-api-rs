@@ -11,7 +11,7 @@ extern "C" {
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPES: &'static str = r#"
 type OnCloseCb = undefined | (() => void);
-type Product = 'unknown' | 'bitbox02-multi' | 'bitbox02-btconly';
+type Product = 'unknown' | 'bitbox02-multi' | 'bitbox02-btconly' | 'bitbox02-nova-multi' | 'bitbox02-nova-btconly';
 type BtcCoin = 'btc' | 'tbtc' | 'ltc' | 'tltc' | 'rbtc';
 type BtcFormatUnit = 'default' | 'sat';
 type XPubType = 'tpub' | 'xpub' | 'ypub' | 'zpub' | 'vpub' | 'upub' | 'Vpub' | 'Zpub' | 'Upub' | 'Ypub';
@@ -330,7 +330,7 @@ impl TryFrom<TsCardanoTransaction> for crate::pb::CardanoSignTransactionRequest 
 
     fn try_from(value: TsCardanoTransaction) -> Result<Self, Self::Error> {
         serde_wasm_bindgen::from_value(value.into())
-            .map_err(|e| JavascriptError::Foo(format!("wrong type for CardanoTransaction {:?}", e)))
+            .map_err(|e| JavascriptError::Foo(format!("wrong type for CardanoTransaction {e:?}")))
     }
 }
 

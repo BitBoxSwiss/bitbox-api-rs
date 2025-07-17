@@ -211,6 +211,10 @@ impl PairedBitBox {
             crate::Product::Unknown => JsValue::from_str("unknown").into(),
             crate::Product::BitBox02Multi => JsValue::from_str("bitbox02-multi").into(),
             crate::Product::BitBox02BtcOnly => JsValue::from_str("bitbox02-btconly").into(),
+            crate::Product::BitBox02NovaMulti => JsValue::from_str("bitbox02-nova-multi").into(),
+            crate::Product::BitBox02NovaBtcOnly => {
+                JsValue::from_str("bitbox02-nova-btconly").into()
+            }
         }
     }
 
