@@ -151,6 +151,8 @@ pub enum Product {
     Unknown,
     BitBox02Multi,
     BitBox02BtcOnly,
+    BitBox02NovaMulti,
+    BitBox02NovaBtcOnly,
 }
 
 #[derive(Debug)]
@@ -187,6 +189,7 @@ async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
 
     let version = semver::Version::parse(version_str).or(Err(Error::Info))?;
     const PLATFORM_BITBOX02: u8 = 0x00;
+    const PLATFORM_BITBOX02_NOVA: u8 = 0x02;
     const BITBOX02_EDITION_MULTI: u8 = 0x00;
     const BITBOX02_EDITION_BTCONLY: u8 = 0x01;
     let platform_byte = *response.first().ok_or(Error::Info)?;
@@ -198,6 +201,8 @@ async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
         product: match (platform_byte, edition_byte) {
             (PLATFORM_BITBOX02, BITBOX02_EDITION_MULTI) => Product::BitBox02Multi,
             (PLATFORM_BITBOX02, BITBOX02_EDITION_BTCONLY) => Product::BitBox02BtcOnly,
+            (PLATFORM_BITBOX02_NOVA, BITBOX02_EDITION_MULTI) => Product::BitBox02NovaMulti,
+            (PLATFORM_BITBOX02_NOVA, BITBOX02_EDITION_BTCONLY) => Product::BitBox02NovaBtcOnly,
             _ => Product::Unknown,
         },
         unlocked: match unlocked_byte {

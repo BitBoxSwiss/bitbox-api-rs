@@ -11,7 +11,7 @@ extern "C" {
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPES: &'static str = r#"
 type OnCloseCb = undefined | (() => void);
-type Product = 'unknown' | 'bitbox02-multi' | 'bitbox02-btconly';
+type Product = 'unknown' | 'bitbox02-multi' | 'bitbox02-btconly' | 'bitbox02-nova-multi' | 'bitbox02-nova-btconly';
 type BtcCoin = 'btc' | 'tbtc' | 'ltc' | 'tltc' | 'rbtc';
 type BtcFormatUnit = 'default' | 'sat';
 type XPubType = 'tpub' | 'xpub' | 'ypub' | 'zpub' | 'vpub' | 'upub' | 'Vpub' | 'Zpub' | 'Upub' | 'Ypub';

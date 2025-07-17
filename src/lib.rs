@@ -346,6 +346,13 @@ impl<R: Runtime> PairedBitBox<R> {
         self.communication.info.product
     }
 
+    fn is_multi_edition(&self) -> bool {
+        matches!(
+            self.product(),
+            crate::Product::BitBox02Multi | crate::Product::BitBox02NovaMulti
+        )
+    }
+
     /// Returns the firmware version.
     pub fn version(&self) -> &semver::Version {
         &self.communication.info.version

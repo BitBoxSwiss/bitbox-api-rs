@@ -1,13 +1,13 @@
 [package]
 name = "bitbox-api"
 authors = ["Marko Bencun <benma@bitbox.swiss>"]
-version = "0.8.0"
+version = "0.9.0"
 homepage = "https://bitbox.swiss/"
 repository = "https://github.com/BitBoxSwiss/bitbox-api-rs/"
 readme = "README-rust.md"
 edition = "2021"
 license = "Apache-2.0"
-description = "A library to interact with the BitBox02 hardware wallet"
+description = "A library to interact with BitBox hardware wallets"
 keywords = ["bitbox", "api", "bitcoin", "wasm"]
 categories = ["api-bindings", "cryptography"]
 
