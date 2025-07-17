@@ -83,11 +83,13 @@ pub fn generate_cid() -> u32 {
 
 // U2FWS (U2F WebSocket framing protocol) writes u2fhid header and payload as single package (up to
 // 7+7609 bytes)
+#[cfg(feature = "wasm")]
 pub struct U2fWs {
     cid: u32,
     cmd: u8,
 }
 
+#[cfg(feature = "wasm")]
 impl U2fWs {
     pub fn new(cmd: u8) -> Self {
         U2fWs {
@@ -102,12 +104,14 @@ impl U2fWs {
     }
 }
 
+#[cfg(feature = "wasm")]
 impl Default for U2fWs {
     fn default() -> Self {
         Self::new(0)
     }
 }
 
+#[cfg(feature = "wasm")]
 impl U2FFraming for U2fWs {
     fn encode(&self, message: &[u8], mut buf: &mut [u8]) -> io::Result<usize> {
         let len = encode_header_init(self.cid, self.cmd, message.len() as u16, buf)?;
@@ -314,6 +318,7 @@ mod tests {
         assert_eq!(&data[..], &payload[..]);
     }
 
+    #[cfg(feature = "wasm")]
     #[test]
     fn test_u2fws_encode_single() {
         let codec = U2fWs::with_cid(0xEEEEEEEE, 0x55);
@@ -326,6 +331,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "wasm")]
     #[test]
     fn test_u2fws_encode_multi() {
         let payload: Vec<u8> = (0..65u8).collect();
@@ -339,6 +345,7 @@ mod tests {
         assert_eq!(&data[..len], &expect[..]);
     }
 
+    #[cfg(feature = "wasm")]
     #[test]
     fn test_u2fws_decode_single() {
         let codec = U2fWs::with_cid(0xEEEEEEEE, 0x55);
@@ -349,6 +356,7 @@ mod tests {
         assert_eq!(&data[..], b"\x01\x02\x03\x04");
     }
 
+    #[cfg(feature = "wasm")]
     #[test]
     fn test_u2fws_decode_multi() {
         let payload: Vec<u8> = (0..65u8).collect();
