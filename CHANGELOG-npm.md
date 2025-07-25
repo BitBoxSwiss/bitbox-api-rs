@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.1
+- package.json: use "main" instead of "module" to fix compatiblity with vitest
+
 ## 0.10.0
 - Add `bip85AppBip39()`
 - Add support for BitBox02 Nova
