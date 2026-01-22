@@ -1,5 +1,8 @@
 # Changelog
 
+## [Unreleased]
+- eth: add support for streaming transactions with large data
+
 ## 0.11.0
 - btc: add support for OP_RETURN outputs
 - add `change_password()` to change the device password (firmware >=9.25.0)
