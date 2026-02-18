@@ -11,7 +11,7 @@ struct JsReadWrite {
 
 impl crate::util::Threading for JsReadWrite {}
 
-#[wasm_bindgen(raw_module = "./webhid")]
+#[wasm_bindgen(raw_module = "./webhid.js")]
 extern "C" {
     #[wasm_bindgen(catch)]
     async fn getWebHIDDevice(

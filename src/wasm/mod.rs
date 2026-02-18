@@ -107,7 +107,7 @@ pub fn eth_identify_case(recipient_address: &str) -> types::TsEthAddressCase {
     crate::eth::eth_identify_case(recipient_address).into()
 }
 
-#[wasm_bindgen(raw_module = "./webhid")]
+#[wasm_bindgen(raw_module = "./webhid.js")]
 extern "C" {
     async fn jsSleep(millis: f64);
 }
