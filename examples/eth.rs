@@ -110,7 +110,7 @@ async fn eth_demo<R: bitbox_api::runtime::Runtime>() {
 
     println!("Signign typed message...");
     let signature = paired_bitbox
-        .eth_sign_typed_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), EIP712_MSG)
+        .eth_sign_typed_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), EIP712_MSG, true)
         .await
         .unwrap();
     println!("Signature: {}", hex::encode(signature));

@@ -392,6 +392,7 @@ function EthSignTypedMessage({ bb02 } : Props) {
   const [chainID, setChainID] = useState(1);
   const [keypath, setKeypath] = useState('m/44\'/60\'/0\'/0/0');
   const [msg, setMsg] = useState(exampleMsg);
+  const [useAntiklepto, setUseAntiklepto] = useState(true);
   const [result, setResult] = useState<bitbox.EthSignature | undefined>();
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState<bitbox.Error>();
@@ -404,7 +405,7 @@ function EthSignTypedMessage({ bb02 } : Props) {
     setResult(undefined);
     setErr(undefined);
     try {
-      setResult(await bb02.ethSignTypedMessage(BigInt(chainID), keypath, JSON.parse(msg)));
+      setResult(await bb02.ethSignTypedMessage(BigInt(chainID), keypath, JSON.parse(msg), useAntiklepto));
     } catch (err) {
       setErr(bitbox.ensureError(err));
     } finally {
@@ -423,6 +424,10 @@ function EthSignTypedMessage({ bb02 } : Props) {
         <label>
           Keypath
           <input type='text' value={keypath} onChange={e => setKeypath(e.target.value)} />
+        </label>
+        <label>
+          Use anti-klepto
+          <input type='checkbox' checked={useAntiklepto} onChange={e => setUseAntiklepto(e.target.checked)} />
         </label>
         <label>
           EIP-712 typed message

@@ -14,6 +14,54 @@ use bitcoin::secp256k1;
 use tiny_keccak::{Hasher, Keccak};
 use util::test_initialized_simulators;
 
+const EIP712_MSG: &str = r#"
+{
+  "types": {
+    "EIP712Domain": [
+      { "name": "name", "type": "string" },
+      { "name": "version", "type": "string" },
+      { "name": "chainId", "type": "uint256" },
+      { "name": "verifyingContract", "type": "address" }
+    ],
+    "Attachment": [
+      { "name": "contents", "type": "string" }
+    ],
+    "Person": [
+      { "name": "name", "type": "string" },
+      { "name": "wallet", "type": "address" },
+      { "name": "age", "type": "uint8" }
+    ],
+    "Mail": [
+      { "name": "from", "type": "Person" },
+      { "name": "to", "type": "Person" },
+      { "name": "contents", "type": "string" },
+      { "name": "attachments", "type": "Attachment[]" }
+    ]
+  },
+  "primaryType": "Mail",
+  "domain": {
+    "name": "Ether Mail",
+    "version": "1",
+    "chainId": 1,
+    "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+  },
+  "message": {
+    "from": {
+      "name": "Cow",
+      "wallet": "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+      "age": 20
+    },
+    "to": {
+      "name": "Bob",
+      "wallet": "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+      "age": "0x1e"
+    },
+    "contents": "Hello, Bob!",
+    "attachments": [{ "contents": "attachment1" }, { "contents": "attachment2" }]
+  }
+}
+"#;
+
 fn keccak256(data: &[u8]) -> [u8; 32] {
     let mut hasher = Keccak::v256();
     hasher.update(data);
@@ -198,6 +246,69 @@ async fn test_eth_sign_1559_transaction_streaming() {
             .unwrap();
         assert_eq!(signature.len(), 65);
         verify_eth_signature(&eip1559_sighash(&tx), &signature);
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_eth_sign_typed_message_antiklepto_enabled() {
+    test_initialized_simulators(async |paired_bitbox| {
+        let signature_antiklepto_1 = paired_bitbox
+            .eth_sign_typed_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), EIP712_MSG, true)
+            .await
+            .unwrap();
+        let signature_antiklepto_2 = paired_bitbox
+            .eth_sign_typed_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), EIP712_MSG, true)
+            .await
+            .unwrap();
+        assert_eq!(signature_antiklepto_1.len(), 65);
+        assert_eq!(signature_antiklepto_2.len(), 65);
+        assert_ne!(signature_antiklepto_1, signature_antiklepto_2);
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_eth_sign_typed_message_antiklepto_disabled() {
+    test_initialized_simulators(async |paired_bitbox| {
+        if semver::VersionReq::parse(">=9.26.0")
+            .unwrap()
+            .matches(paired_bitbox.version())
+        {
+            let signature_no_antiklepto_1 = paired_bitbox
+                .eth_sign_typed_message(
+                    1,
+                    &"m/44'/60'/0'/0/0".try_into().unwrap(),
+                    EIP712_MSG,
+                    false,
+                )
+                .await
+                .unwrap();
+            let signature_no_antiklepto_2 = paired_bitbox
+                .eth_sign_typed_message(
+                    1,
+                    &"m/44'/60'/0'/0/0".try_into().unwrap(),
+                    EIP712_MSG,
+                    false,
+                )
+                .await
+                .unwrap();
+            assert_eq!(signature_no_antiklepto_1.len(), 65);
+            assert_eq!(signature_no_antiklepto_2.len(), 65);
+            assert_eq!(signature_no_antiklepto_1, signature_no_antiklepto_2);
+            return;
+        }
+
+        let err = paired_bitbox
+            .eth_sign_typed_message(
+                1,
+                &"m/44'/60'/0'/0/0".try_into().unwrap(),
+                EIP712_MSG,
+                false,
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(err, bitbox_api::error::Error::Version(">=9.26.0")));
     })
     .await
 }

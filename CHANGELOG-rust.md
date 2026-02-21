@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 - eth: add support for streaming transactions with large data
+- eth: add `use_antiklepto` toggle to `eth_sign_typed_message()` (set `false` for deterministic
+  typed-message signatures, firmware >=9.26.0)
 
 ## 0.11.0
 - btc: add support for OP_RETURN outputs
