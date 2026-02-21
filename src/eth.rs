@@ -20,6 +20,10 @@ use num_bigint::{BigInt, BigUint};
 //use num_traits::ToPrimitive;
 use serde_json::Value;
 
+/// Threshold above which transaction data is streamed in chunks.
+/// Transactions with data larger than this use streaming mode.
+const STREAMING_THRESHOLD: usize = 6144;
+
 impl<R: Runtime> PairedBitBox<R> {
     async fn query_proto_eth(
         &self,
@@ -478,6 +482,31 @@ impl<R: Runtime> PairedBitBox<R> {
         }
     }
 
+    /// Handles streaming of transaction data when in streaming mode.
+    /// The device requests data chunks, and this method responds with the requested chunks.
+    async fn handle_eth_data_streaming(
+        &self,
+        data: &[u8],
+        mut response: pb::eth_response::Response,
+    ) -> Result<pb::eth_response::Response, Error> {
+        while let pb::eth_response::Response::DataRequestChunk(chunk_req) = &response {
+            let offset = chunk_req.offset as usize;
+            let length = chunk_req.length as usize;
+
+            if offset + length > data.len() {
+                return Err(Error::UnexpectedResponse);
+            }
+
+            let chunk = data[offset..offset + length].to_vec();
+            response = self
+                .query_proto_eth(pb::eth_request::Request::DataResponseChunk(
+                    pb::EthSignDataResponseChunkRequest { chunk },
+                ))
+                .await?;
+        }
+        Ok(response)
+    }
+
     /// Signs an Ethereum transaction. It returns a 65 byte signature (R, S, and 1 byte recID).  The
     /// `tx` param can be constructed manually or parsed from a raw transaction using
     /// `raw_tx_slice.try_into()` (`rlp` feature required).
@@ -491,6 +520,11 @@ impl<R: Runtime> PairedBitBox<R> {
         // passing chainID instead of coin only since v9.10.0
         self.validate_version(">=9.10.0")?;
 
+        let use_streaming = tx.data.len() > STREAMING_THRESHOLD;
+        if use_streaming {
+            self.validate_version(">=9.26.0")?;
+        }
+
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::eth_request::Request::Sign(pb::EthSignRequest {
             coin: 0,
@@ -500,14 +534,27 @@ impl<R: Runtime> PairedBitBox<R> {
             gas_limit: crate::util::remove_leading_zeroes(&tx.gas_limit),
             recipient: tx.recipient.to_vec(),
             value: crate::util::remove_leading_zeroes(&tx.value),
-            data: tx.data.clone(),
+            data: if use_streaming {
+                vec![]
+            } else {
+                tx.data.clone()
+            },
             host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
             chain_id,
             address_case: address_case.unwrap_or(pb::EthAddressCase::Mixed).into(),
+            data_length: if use_streaming {
+                tx.data.len() as u32
+            } else {
+                0
+            },
         });
-        let response = self.query_proto_eth(request).await?;
+
+        let mut response = self.query_proto_eth(request).await?;
+        if use_streaming {
+            response = self.handle_eth_data_streaming(&tx.data, response).await?;
+        }
         self.handle_antiklepto(&response, host_nonce).await
     }
 
@@ -523,6 +570,11 @@ impl<R: Runtime> PairedBitBox<R> {
         // EIP1559 is suported from v9.16.0
         self.validate_version(">=9.16.0")?;
 
+        let use_streaming = tx.data.len() > STREAMING_THRESHOLD;
+        if use_streaming {
+            self.validate_version(">=9.26.0")?;
+        }
+
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::eth_request::Request::SignEip1559(pb::EthSignEip1559Request {
             chain_id: tx.chain_id,
@@ -535,13 +587,26 @@ impl<R: Runtime> PairedBitBox<R> {
             gas_limit: crate::util::remove_leading_zeroes(&tx.gas_limit),
             recipient: tx.recipient.to_vec(),
             value: crate::util::remove_leading_zeroes(&tx.value),
-            data: tx.data.clone(),
+            data: if use_streaming {
+                vec![]
+            } else {
+                tx.data.clone()
+            },
             host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
                 commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
             }),
             address_case: address_case.unwrap_or(pb::EthAddressCase::Mixed).into(),
+            data_length: if use_streaming {
+                tx.data.len() as u32
+            } else {
+                0
+            },
         });
-        let response = self.query_proto_eth(request).await?;
+
+        let mut response = self.query_proto_eth(request).await?;
+        if use_streaming {
+            response = self.handle_eth_data_streaming(&tx.data, response).await?;
+        }
         self.handle_antiklepto(&response, host_nonce).await
     }
 
