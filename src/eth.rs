@@ -642,13 +642,18 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Signs an Ethereum EIP-712 typed message. It returns a 65 byte signature (R, S, and 1 byte
     /// recID). 27 is added to the recID to denote an uncompressed pubkey.
+    /// If `use_antiklepto` is false, signing is deterministic and requires firmware >=9.26.0.
     pub async fn eth_sign_typed_message(
         &self,
         chain_id: u64,
         keypath: &Keypath,
         json_msg: &str,
+        use_antiklepto: bool,
     ) -> Result<[u8; 65], Error> {
         self.validate_version(">=9.12.0")?;
+        if !use_antiklepto {
+            self.validate_version(">=9.26.0")?;
+        }
 
         let msg: Eip712Message = serde_json::from_str(json_msg)
             .map_err(|_| Error::EthTypedMessage("Could not parse EIP-712 JSON message".into()))?;
@@ -673,7 +678,11 @@ impl<R: Runtime> PairedBitBox<R> {
             .collect::<Result<Vec<StructType>, String>>()
             .map_err(Error::EthTypedMessage)?;
 
-        let host_nonce = crate::antiklepto::gen_host_nonce()?;
+        let host_nonce = if use_antiklepto {
+            Some(crate::antiklepto::gen_host_nonce()?)
+        } else {
+            None
+        };
 
         let mut response = self
             .query_proto_eth(pb::eth_request::Request::SignTypedMsg(
@@ -682,8 +691,10 @@ impl<R: Runtime> PairedBitBox<R> {
                     keypath: keypath.to_vec(),
                     types: parsed_types,
                     primary_type: msg.primary_type.clone(),
-                    host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
-                        commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
+                    host_nonce_commitment: host_nonce.as_ref().map(|host_nonce| {
+                        pb::AntiKleptoHostNonceCommitment {
+                            commitment: crate::antiklepto::host_commit(host_nonce).to_vec(),
+                        }
                     }),
                 },
             ))
@@ -696,7 +707,18 @@ impl<R: Runtime> PairedBitBox<R> {
                 ))
                 .await?;
         }
-        let mut signature = self.handle_antiklepto(&response, host_nonce).await?;
+        let mut signature = if use_antiklepto {
+            self.handle_antiklepto(&response, host_nonce.unwrap())
+                .await?
+        } else {
+            match response {
+                pb::eth_response::Response::Sign(pb::EthSignResponse { signature }) => signature
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Error::UnexpectedResponse)?,
+                _ => return Err(Error::UnexpectedResponse),
+            }
+        };
         // 27 is the magic constant to add to the recoverable ID to denote an uncompressed pubkey.
         signature[64] += 27;
         Ok(signature)

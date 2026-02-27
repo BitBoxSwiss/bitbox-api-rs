@@ -526,17 +526,24 @@ impl PairedBitBox {
 
     /// Signs an Ethereum EIP-712 typed message. It returns a 65 byte signature (R, S, and 1 byte
     /// recID). 27 is added to the recID to denote an uncompressed pubkey.
+    /// `use_antiklepto` defaults to `true` if omitted.
     #[wasm_bindgen(js_name = ethSignTypedMessage)]
     pub async fn eth_sign_typed_message(
         &self,
         chain_id: u64,
         keypath: types::TsKeypath,
         msg: JsValue,
+        use_antiklepto: Option<bool>,
     ) -> Result<types::TsEthSignature, JavascriptError> {
         let json_msg: String = js_sys::JSON::stringify(&msg).unwrap().into();
         let signature = self
             .device
-            .eth_sign_typed_message(chain_id, &keypath.try_into()?, &json_msg)
+            .eth_sign_typed_message(
+                chain_id,
+                &keypath.try_into()?,
+                &json_msg,
+                use_antiklepto.unwrap_or(true),
+            )
             .await?;
 
         Ok(serde_wasm_bindgen::to_value(&types::EthSignature {
