@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: Apache-2.0
-
 //! ```cargo
 //! [dependencies]
 //! # If you change this, also change the version of prost in Cargo.toml.
 //! prost-build = { version = "0.13" }
 //! ```
+
+// SPDX-License-Identifier: Apache-2.0
 
 use std::io::Result;
 
