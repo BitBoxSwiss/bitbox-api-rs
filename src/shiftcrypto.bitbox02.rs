@@ -1973,6 +1973,10 @@ pub mod eth_typed_message_value_response {
 pub struct EthTypedMessageValueRequest {
     #[prost(bytes = "vec", tag = "1")]
     pub value: ::prost::alloc::vec::Vec<u8>,
+    /// If non-zero, value should be empty and data will be streamed via
+    /// DataRequestChunk/DataResponseChunk.
+    #[prost(uint32, tag = "2")]
+    pub data_length: u32,
 }
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "wasm", serde(rename_all = "camelCase"))]
