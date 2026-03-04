@@ -701,11 +701,18 @@ impl<R: Runtime> PairedBitBox<R> {
             .await?;
         while let pb::eth_response::Response::TypedMsgValue(typed_msg_value) = &response {
             let value = get_value(typed_msg_value, &msg).map_err(Error::EthTypedMessage)?;
+            let use_streaming = value.len() > STREAMING_THRESHOLD;
             response = self
                 .query_proto_eth(pb::eth_request::Request::TypedMsgValue(
-                    pb::EthTypedMessageValueRequest { value },
+                    pb::EthTypedMessageValueRequest {
+                        value: if use_streaming { vec![] } else { value.clone() },
+                        data_length: if use_streaming { value.len() as u32 } else { 0 },
+                    },
                 ))
                 .await?;
+            if use_streaming {
+                response = self.handle_eth_data_streaming(&value, response).await?;
+            }
         }
         let mut signature = if use_antiklepto {
             self.handle_antiklepto(&response, host_nonce.unwrap())
