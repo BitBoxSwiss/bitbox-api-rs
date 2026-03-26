@@ -383,7 +383,7 @@ fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
 fn get_value(
     what: &pb::EthTypedMessageValueResponse,
     msg: &Eip712Message,
-) -> Result<Vec<u8>, String> {
+) -> Result<(Vec<u8>, DataType), String> {
     enum Either<'a> {
         HashMap(&'a HashMap<String, Value>),
         JsonValue(Value),
@@ -446,8 +446,10 @@ fn get_value(
             _ => return Err("path element does not point to struct or array".into()),
         }
     }
+    let data_type =
+        DataType::try_from(typ.r#type).map_err(|_| format!("invalid data type: {}", typ.r#type))?;
     if let Either::JsonValue(value) = &value {
-        encode_value(&typ, value)
+        encode_value(&typ, value).map(|v| (v, data_type))
     } else {
         Err("path points to struct or array; value expected".to_string())
     }
@@ -700,12 +702,25 @@ impl<R: Runtime> PairedBitBox<R> {
             ))
             .await?;
         while let pb::eth_response::Response::TypedMsgValue(typed_msg_value) = &response {
-            let value = get_value(typed_msg_value, &msg).map_err(Error::EthTypedMessage)?;
+            let (value, data_type) =
+                get_value(typed_msg_value, &msg).map_err(Error::EthTypedMessage)?;
+            if data_type == DataType::String && value.len() > STREAMING_THRESHOLD {
+                return Err(Error::EthTypedMessage(
+                    "string value exceeds maximum size".into(),
+                ));
+            }
+            let use_streaming = value.len() > STREAMING_THRESHOLD;
             response = self
                 .query_proto_eth(pb::eth_request::Request::TypedMsgValue(
-                    pb::EthTypedMessageValueRequest { value },
+                    pb::EthTypedMessageValueRequest {
+                        value: if use_streaming { vec![] } else { value.clone() },
+                        data_length: if use_streaming { value.len() as u32 } else { 0 },
+                    },
                 ))
                 .await?;
+            if use_streaming {
+                response = self.handle_eth_data_streaming(&value, response).await?;
+            }
         }
         let mut signature = if use_antiklepto {
             self.handle_antiklepto(&response, host_nonce.unwrap())
@@ -1224,7 +1239,7 @@ mod tests {
         .is_err());
 
         // domain.name
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Domain as _,
                 path: vec![0],
@@ -1235,7 +1250,7 @@ mod tests {
         assert_eq!(value, b"Ether Mail".to_vec());
 
         // domain.version
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Domain as _,
                 path: vec![1],
@@ -1246,7 +1261,7 @@ mod tests {
         assert_eq!(value, b"1".to_vec());
 
         // domain.chainId
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Domain as _,
                 path: vec![2],
@@ -1257,7 +1272,7 @@ mod tests {
         assert_eq!(value, b"\x01".to_vec());
 
         // domain.verifyingContract
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Domain as _,
                 path: vec![3],
@@ -1282,7 +1297,7 @@ mod tests {
         // MESSAGE
 
         // message.from.name
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Message as _,
                 path: vec![0, 0],
@@ -1293,7 +1308,7 @@ mod tests {
         assert_eq!(value, b"Cow".to_vec());
 
         // message.from.wallet
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Message as _,
                 path: vec![0, 1],
@@ -1307,7 +1322,7 @@ mod tests {
         );
 
         // message.to.wallet
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Message as _,
                 path: vec![1, 1],
@@ -1321,7 +1336,7 @@ mod tests {
         );
 
         // message.attachments.0.contents
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Message as _,
                 path: vec![3, 0, 0],
@@ -1332,7 +1347,7 @@ mod tests {
         assert_eq!(value, b"attachment1".to_vec());
 
         // message.attachments.1.contents
-        let value = get_value(
+        let (value, _) = get_value(
             &pb::EthTypedMessageValueResponse {
                 root_object: RootObject::Message as _,
                 path: vec![3, 1, 0],

@@ -103,6 +103,28 @@ fn eip1559_sighash(tx: &EIP1559Transaction) -> [u8; 32] {
     keccak256(&prefixed)
 }
 
+fn eip712_sighash(primary_type: &str, data_type: &str, data: &[u8]) -> [u8; 32] {
+    let domain_type_hash = keccak256(b"EIP712Domain(string name)");
+    let name_hash = keccak256(b"Test");
+    let mut domain_input = Vec::new();
+    domain_input.extend_from_slice(&domain_type_hash);
+    domain_input.extend_from_slice(&name_hash);
+    let domain_separator = keccak256(&domain_input);
+
+    let type_hash = keccak256(format!("{primary_type}({data_type} data)").as_bytes());
+    let data_hash = keccak256(data);
+    let mut struct_input = Vec::new();
+    struct_input.extend_from_slice(&type_hash);
+    struct_input.extend_from_slice(&data_hash);
+    let struct_hash = keccak256(&struct_input);
+
+    let mut sig_input = Vec::new();
+    sig_input.extend_from_slice(b"\x19\x01");
+    sig_input.extend_from_slice(&domain_separator);
+    sig_input.extend_from_slice(&struct_hash);
+    keccak256(&sig_input)
+}
+
 fn verify_eth_signature(sighash: &[u8; 32], signature: &[u8; 65]) {
     let secp = secp256k1::Secp256k1::new();
     let path: bitcoin::bip32::DerivationPath = "m/44'/60'/0'/0/0".parse().unwrap();
@@ -309,6 +331,48 @@ async fn test_eth_sign_typed_message_antiklepto_disabled() {
             .await
             .unwrap_err();
         assert!(matches!(err, bitbox_api::error::Error::Version(">=9.26.0")));
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_eth_sign_typed_message_streaming_bytes() {
+    test_initialized_simulators(async |paired_bitbox| {
+        if !semver::VersionReq::parse(">=9.26.0")
+            .unwrap()
+            .matches(paired_bitbox.version())
+        {
+            return;
+        }
+
+        let large_bytes_hex = "aa".repeat(10000);
+        let msg = format!(
+            r#"{{
+  "types": {{
+    "EIP712Domain": [
+      {{ "name": "name", "type": "string" }}
+    ],
+    "Msg": [
+      {{ "name": "data", "type": "bytes" }}
+    ]
+  }},
+  "primaryType": "Msg",
+  "domain": {{
+    "name": "Test"
+  }},
+  "message": {{
+    "data": "0x{large_bytes_hex}"
+  }}
+}}"#
+        );
+
+        let signature = paired_bitbox
+            .eth_sign_typed_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), &msg, false)
+            .await
+            .unwrap();
+        assert_eq!(signature.len(), 65);
+        let sighash = eip712_sighash("Msg", "bytes", &vec![0xaa; 10000]);
+        verify_eth_signature(&sighash, &signature);
     })
     .await
 }
