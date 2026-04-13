@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## 0.13.0
 - eth: add support for streaming transactions and EIP-712 typed data with large data
 - eth: add optional `useAntiklepto` argument to `ethSignTypedMessage()` (set to `false` for
   deterministic typed-message signatures, firmware >=9.26.0)
