@@ -181,7 +181,7 @@ impl<R: Runtime> BitBox<R> {
         let pairing_verification_required_by_device = bb02_handshake_2.as_slice() == [0x01];
         if pairing_verfication_required_by_app || pairing_verification_required_by_device {
             let format_hash = |h| {
-                let encoded = base32::encode(base32::Alphabet::RFC4648 { padding: true }, h);
+                let encoded = base32::encode(base32::Alphabet::Rfc4648 { padding: true }, h);
                 format!(
                     "{} {}\n{} {}",
                     &encoded[0..5],
