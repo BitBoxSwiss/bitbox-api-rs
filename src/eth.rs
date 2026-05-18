@@ -49,6 +49,7 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Query the device for an xpub.
     pub async fn eth_xpub(&self, keypath: &Keypath) -> Result<String, Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto_eth(pb::eth_request::Request::Pub(pb::EthPubRequest {
                 keypath: keypath.to_vec(),
@@ -72,6 +73,7 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath: &Keypath,
         display: bool,
     ) -> Result<String, Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto_eth(pb::eth_request::Request::Pub(pb::EthPubRequest {
                 keypath: keypath.to_vec(),
@@ -519,6 +521,7 @@ impl<R: Runtime> PairedBitBox<R> {
         tx: &Transaction,
         address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
+        let _api_call = self.begin_api_call().await;
         // passing chainID instead of coin only since v9.10.0
         self.validate_version(">=9.10.0")?;
 
@@ -569,6 +572,7 @@ impl<R: Runtime> PairedBitBox<R> {
         tx: &EIP1559Transaction,
         address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
+        let _api_call = self.begin_api_call().await;
         // EIP1559 is suported from v9.16.0
         self.validate_version(">=9.16.0")?;
 
@@ -622,6 +626,7 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath: &Keypath,
         msg: &[u8],
     ) -> Result<[u8; 65], Error> {
+        let _api_call = self.begin_api_call().await;
         // passing chainID instead of coin only since v9.10.0
         self.validate_version(">=9.10.0")?;
 
@@ -652,6 +657,7 @@ impl<R: Runtime> PairedBitBox<R> {
         json_msg: &str,
         use_antiklepto: bool,
     ) -> Result<[u8; 65], Error> {
+        let _api_call = self.begin_api_call().await;
         self.validate_version(">=9.12.0")?;
         if !use_antiklepto {
             self.validate_version(">=9.26.0")?;

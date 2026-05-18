@@ -38,7 +38,7 @@ pub enum JavascriptError {
     #[assoc(js_code="user-abort".into())]
     UserAbort,
     #[error("{0}")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = _0.js_code().into()))]
+    #[cfg_attr(feature = "wasm", assoc(js_code = _0.js_code()))]
     BitBox(#[from] crate::error::Error),
     #[error("invalid JavaScript type: {0}")]
     #[assoc(js_code = "invalid-type".into())]
