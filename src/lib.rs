@@ -40,6 +40,7 @@ use runtime::Runtime;
 use noise_protocol::DH;
 use prost::Message;
 
+use futures_util::lock::{Mutex as AsyncMutex, MutexGuard as ApiMutexGuard};
 use std::sync::Mutex;
 
 pub use keypath::Keypath;
@@ -268,6 +269,7 @@ impl<R: Runtime> PairingBitBox<R> {
 /// receive addresses, etc.
 pub struct PairedBitBox<R: Runtime> {
     communication: communication::HwwCommunication<R>,
+    api_mutex: AsyncMutex<()>,
     noise_send: Mutex<CipherState>,
     noise_recv: Mutex<CipherState>,
 }
@@ -277,9 +279,20 @@ impl<R: Runtime> PairedBitBox<R> {
         let (send, recv) = host.get_ciphers();
         PairedBitBox {
             communication,
+            api_mutex: AsyncMutex::new(()),
             noise_send: Mutex::new(send),
             noise_recv: Mutex::new(recv),
         }
+    }
+
+    /// Serializes all public API calls that touch the device.
+    ///
+    /// The BitBox protocol is an ordered request/response conversation, not a
+    /// multiplexed transport. Some public calls span multiple encrypted
+    /// requests, so this mutex guard is held for the whole public method
+    /// instead of only one query_proto() round trip.
+    pub(crate) async fn begin_api_call(&self) -> ApiMutexGuard<'_, ()> {
+        self.api_mutex.lock().await
     }
 
     fn validate_version(&self, comparison: &'static str) -> Result<(), Error> {
@@ -334,6 +347,7 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     pub async fn device_info(&self) -> Result<pb::DeviceInfoResponse, Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto(Request::DeviceInfo(pb::DeviceInfoRequest {}))
             .await?
@@ -362,19 +376,23 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Returns the hex-encoded 4-byte root fingerprint.
     pub async fn root_fingerprint(&self) -> Result<String, Error> {
+        let _api_call = self.begin_api_call().await;
+        self.root_fingerprint_inner().await.map(hex::encode)
+    }
+
+    pub(crate) async fn root_fingerprint_inner(&self) -> Result<Vec<u8>, Error> {
         match self
             .query_proto(Request::Fingerprint(pb::RootFingerprintRequest {}))
             .await?
         {
-            Response::Fingerprint(pb::RootFingerprintResponse { fingerprint }) => {
-                Ok(hex::encode(fingerprint))
-            }
+            Response::Fingerprint(pb::RootFingerprintResponse { fingerprint }) => Ok(fingerprint),
             _ => Err(Error::UnexpectedResponse),
         }
     }
 
     /// Show recovery words on the Bitbox.
     pub async fn show_mnemonic(&self) -> Result<(), Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto(Request::ShowMnemonic(pb::ShowMnemonicRequest {}))
             .await?
@@ -386,6 +404,7 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Restore from recovery words on the Bitbox.
     pub async fn restore_from_mnemonic(&self) -> Result<(), Error> {
+        let _api_call = self.begin_api_call().await;
         let now = std::time::SystemTime::now();
         let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
         match self
@@ -405,6 +424,7 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Invokes the password change workflow on the device.
     /// Requires firmware version >=9.25.0.
     pub async fn change_password(&self) -> Result<(), Error> {
+        let _api_call = self.begin_api_call().await;
         self.validate_version(">=9.25.0")?;
         match self
             .query_proto(Request::ChangePassword(pb::ChangePasswordRequest {}))
@@ -418,6 +438,7 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Invokes the BIP85-BIP39 workflow on the device, letting the user select the number of words
     /// (12, 28, 24) and an index and display a derived BIP-39 mnemonic.
     pub async fn bip85_app_bip39(&self) -> Result<(), Error> {
+        let _api_call = self.begin_api_call().await;
         self.validate_version(">=9.17.0")?;
         match self
             .query_proto(Request::Bip85(pb::Bip85Request {
@@ -430,5 +451,139 @@ impl<R: Runtime> PairedBitBox<R> {
             }) => Ok(()),
             _ => Err(Error::UnexpectedResponse),
         }
+    }
+}
+
+#[cfg(all(test, not(feature = "multithreaded")))]
+mod tests {
+    use super::*;
+    use crate::communication::{Error as CommunicationError, ReadWrite};
+    use crate::runtime::DefaultRuntime;
+    use crate::util::Threading;
+    use async_trait::async_trait;
+    use futures_channel::oneshot;
+    use prost::Message;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    struct BlockingState {
+        writes: usize,
+        reads: usize,
+        first_read_started: Option<oneshot::Sender<()>>,
+        release_first_read: Option<oneshot::Receiver<()>>,
+        response_cipher: CipherState,
+    }
+
+    struct BlockingReadWrite {
+        state: Rc<RefCell<BlockingState>>,
+    }
+
+    impl Threading for BlockingReadWrite {}
+
+    #[async_trait(?Send)]
+    impl ReadWrite for BlockingReadWrite {
+        fn write(&self, msg: &[u8]) -> Result<usize, CommunicationError> {
+            self.state.borrow_mut().writes += 1;
+            Ok(msg.len())
+        }
+
+        async fn read(&self) -> Result<Vec<u8>, CommunicationError> {
+            let (read_index, started, release) = {
+                let mut state = self.state.borrow_mut();
+                let read_index = state.reads;
+                state.reads += 1;
+                (
+                    read_index,
+                    state.first_read_started.take(),
+                    state.release_first_read.take(),
+                )
+            };
+            if read_index == 0 {
+                if let Some(started) = started {
+                    let _ = started.send(());
+                }
+                if let Some(release) = release {
+                    let _ = release.await;
+                }
+            }
+
+            let response = pb::Response {
+                response: Some(Response::DeviceInfo(pb::DeviceInfoResponse {
+                    name: "BitBox".into(),
+                    initialized: true,
+                    version: "9.26.0".into(),
+                    mnemonic_passphrase_enabled: false,
+                    monotonic_increments_remaining: 42,
+                    securechip_model: "ATECC608B".into(),
+                    bluetooth: None,
+                    password_stretching_algo: "pwhash".into(),
+                })),
+            }
+            .encode_to_vec();
+            let encrypted = self
+                .state
+                .borrow_mut()
+                .response_cipher
+                .encrypt_vec(&response);
+            let mut framed = vec![0x00, RESPONSE_SUCCESS];
+            framed.extend_from_slice(&encrypted);
+            Ok(framed)
+        }
+    }
+
+    fn paired_for_test(state: Rc<RefCell<BlockingState>>) -> PairedBitBox<DefaultRuntime> {
+        let key = [7u8; 32];
+        PairedBitBox {
+            communication: communication::HwwCommunication::from_test_parts(
+                Box::new(BlockingReadWrite { state }),
+                communication::Info {
+                    version: semver::Version::parse("9.26.0").unwrap(),
+                    product: Product::BitBox02Multi,
+                    unlocked: true,
+                    initialized: Some(true),
+                },
+            ),
+            api_mutex: AsyncMutex::new(()),
+            noise_send: Mutex::new(CipherState::new(&key, 0)),
+            noise_recv: Mutex::new(CipherState::new(&key, 0)),
+        }
+    }
+
+    #[tokio::test]
+    async fn paired_api_calls_are_serialized() {
+        let (started_tx, started_rx) = oneshot::channel();
+        let (release_tx, release_rx) = oneshot::channel();
+        let state = Rc::new(RefCell::new(BlockingState {
+            writes: 0,
+            reads: 0,
+            first_read_started: Some(started_tx),
+            release_first_read: Some(release_rx),
+            response_cipher: CipherState::new(&[7u8; 32], 0),
+        }));
+        let paired = Rc::new(paired_for_test(Rc::clone(&state)));
+
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async move {
+                let first = tokio::task::spawn_local({
+                    let paired = Rc::clone(&paired);
+                    async move { paired.device_info().await }
+                });
+                started_rx.await.unwrap();
+                assert_eq!(state.borrow().writes, 1);
+
+                let second = tokio::task::spawn_local({
+                    let paired = Rc::clone(&paired);
+                    async move { paired.device_info().await }
+                });
+                tokio::task::yield_now().await;
+                assert_eq!(state.borrow().writes, 1);
+
+                release_tx.send(()).unwrap();
+                first.await.unwrap().unwrap();
+                second.await.unwrap().unwrap();
+                assert_eq!(state.borrow().writes, 2);
+            })
+            .await;
     }
 }

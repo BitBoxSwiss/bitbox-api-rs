@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## 0.12.1
+- Serialize public API calls that talk to the device to avoid interleaving request/response
+  sequences and breaking the device communication state.
+
 ## 0.12.0
 - eth: add support for streaming transactions and EIP-712 typed data with large data
 - eth: add `use_antiklepto` toggle to `eth_sign_typed_message()` (set `false` for deterministic
