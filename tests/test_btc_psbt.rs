@@ -466,7 +466,7 @@ async fn test_btc_psbt_multisig_p2wsh() {
 
         let multi_descriptor: miniscript::Descriptor<miniscript::DescriptorPublicKey> = format!(
             "wsh(sortedmulti({},[{}/48'/1'/0'/2']{}/<0;1>/*,{}/<0;1>/*))",
-            threshold, our_root_fingerprint, &our_xpub, &some_xpub
+            threshold, our_root_fingerprint, our_xpub, some_xpub
         )
             .parse::<miniscript::Descriptor<miniscript::DescriptorPublicKey>>()
             .unwrap();
@@ -612,7 +612,7 @@ async fn test_btc_psbt_policy_wsh() {
         let multi_descriptor: miniscript::Descriptor<miniscript::DescriptorPublicKey> = policy
             .replace(
                 "@0",
-                &format!("[{}/48'/1'/0'/3']{}", &our_root_fingerprint, &our_xpub),
+                &format!("[{}/48'/1'/0'/3']{}", our_root_fingerprint, our_xpub),
             )
             .replace("@1", &some_xpub.to_string())
             .parse::<miniscript::Descriptor<miniscript::DescriptorPublicKey>>()
@@ -775,7 +775,7 @@ async fn test_btc_psbt_policy_tr_keyspend() {
         let multi_descriptor: miniscript::Descriptor<miniscript::DescriptorPublicKey> = policy
             .replace(
                 "@0",
-                &format!("[{}/48'/1'/0'/3']{}", &our_root_fingerprint, &our_xpub),
+                &format!("[{}/48'/1'/0'/3']{}", our_root_fingerprint, our_xpub),
             )
             .parse::<miniscript::Descriptor<miniscript::DescriptorPublicKey>>()
             .unwrap();
@@ -934,7 +934,7 @@ async fn test_btc_psbt_policy_tr_scriptspend() {
         let multi_descriptor: miniscript::Descriptor<miniscript::DescriptorPublicKey> = policy
             .replace(
                 "@1",
-                &format!("[{}/48'/1'/0'/3']{}", &our_root_fingerprint, &our_xpub),
+                &format!("[{}/48'/1'/0'/3']{}", our_root_fingerprint, our_xpub),
             )
             .replace("@0", &some_xpub.to_string())
             .parse::<miniscript::Descriptor<miniscript::DescriptorPublicKey>>()

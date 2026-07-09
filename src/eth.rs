@@ -420,12 +420,12 @@ fn get_value(
                     .get(&typ.struct_name)
                     .ok_or(format!(
                         "could not lookup type of name: {}",
-                        &typ.struct_name
+                        typ.struct_name
                     ))?
                     .get(*element as usize)
                     .ok_or(format!(
                         "could not lookup member #{} of type: {}",
-                        *element, &typ.struct_name
+                        *element, typ.struct_name
                     ))?;
                 value = Either::JsonValue(
                     value
