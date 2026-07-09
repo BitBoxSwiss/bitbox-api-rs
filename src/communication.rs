@@ -239,6 +239,15 @@ impl<R: Runtime> HwwCommunication<R> {
         })
     }
 
+    #[cfg(all(test, not(feature = "multithreaded")))]
+    pub(crate) fn from_test_parts(communication: Box<dyn ReadWrite>, info: Info) -> Self {
+        HwwCommunication {
+            communication,
+            info,
+            marker: std::marker::PhantomData,
+        }
+    }
+
     pub async fn query(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
         let mut framed_msg = Vec::from([HWW_REQ_NEW]);
         framed_msg.extend_from_slice(msg);

@@ -76,13 +76,13 @@ pub enum Error {
     #[cfg_attr(feature = "wasm", assoc(js_code = "protobuf-decode".into()))]
     ProtobufDecode,
     #[error("bitbox error: {0}")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = String::from("bitbox-") + _0.js_code().into()))]
+    #[cfg_attr(feature = "wasm", assoc(js_code = String::from("bitbox-") + _0.js_code()))]
     BitBox(#[from] BitBoxError),
     #[error("failed parsing keypath: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "keypath-parse".into()))]
     KeypathParse(String),
     #[error("PSBT error: {0}")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = String::from("psbt-") + _0.js_code().into()))]
+    #[cfg_attr(feature = "wasm", assoc(js_code = String::from("psbt-") + _0.js_code()))]
     Psbt(#[from] crate::btc::PsbtError),
     #[error("Unexpected signature format returned by BitBox")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "keypath-parse".into()))]

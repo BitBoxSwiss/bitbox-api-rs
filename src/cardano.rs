@@ -97,6 +97,7 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Query the device for xpubs. The result contains one xpub per requested keypath. Each xpub is
     /// 64 bytes: 32 byte chain code + 32 byte pubkey.
     pub async fn cardano_xpubs(&self, keypaths: &[Keypath]) -> Result<Vec<Vec<u8>>, Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto_cardano(pb::cardano_request::Request::Xpubs(
                 pb::CardanoXpubsRequest {
@@ -117,6 +118,7 @@ impl<R: Runtime> PairedBitBox<R> {
         script_config: &pb::CardanoScriptConfig,
         display: bool,
     ) -> Result<String, Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto_cardano(pb::cardano_request::Request::Address(
                 pb::CardanoAddressRequest {
@@ -137,6 +139,7 @@ impl<R: Runtime> PairedBitBox<R> {
         &self,
         transaction: pb::CardanoSignTransactionRequest,
     ) -> Result<pb::CardanoSignTransactionResponse, Error> {
+        let _api_call = self.begin_api_call().await;
         if transaction.tag_cbor_sets {
             self.validate_version(">=9.22.0")?;
         }

@@ -686,6 +686,17 @@ impl<R: Runtime> PairedBitBox<R> {
         xpub_type: pb::btc_pub_request::XPubType,
         display: bool,
     ) -> Result<String, Error> {
+        let _api_call = self.begin_api_call().await;
+        self.btc_xpub_inner(coin, keypath, xpub_type, display).await
+    }
+
+    async fn btc_xpub_inner(
+        &self,
+        coin: pb::BtcCoin,
+        keypath: &Keypath,
+        xpub_type: pb::btc_pub_request::XPubType,
+        display: bool,
+    ) -> Result<String, Error> {
         match self
             .query_proto(Request::BtcPub(pb::BtcPubRequest {
                 coin: coin as _,
@@ -701,13 +712,14 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     /// Retrieves multiple xpubs at once. Only standard keypaths are allowed.
-    /// On firmware <v9.24.0, this falls back to calling `btc_xpub()` for each keypath.
+    /// On firmware <v9.24.0, this falls back to fetching each xpub one-by-one.
     pub async fn btc_xpubs(
         &self,
         coin: pb::BtcCoin,
         keypaths: &[Keypath],
         xpub_type: pb::btc_xpubs_request::XPubType,
     ) -> Result<Vec<String>, Error> {
+        let _api_call = self.begin_api_call().await;
         if self.validate_version(">=9.24.0").is_err() {
             // Fallback to fetching them one-by-one on older firmware.
             let mut xpubs = Vec::<String>::with_capacity(keypaths.len());
@@ -718,7 +730,7 @@ impl<R: Runtime> PairedBitBox<R> {
                     pb::btc_xpubs_request::XPubType::Xpub => pb::btc_pub_request::XPubType::Xpub,
                 };
                 let xpub = self
-                    .btc_xpub(coin, keypath, converted_xpub_type, false)
+                    .btc_xpub_inner(coin, keypath, converted_xpub_type, false)
                     .await?;
                 xpubs.push(xpub);
             }
@@ -748,6 +760,7 @@ impl<R: Runtime> PairedBitBox<R> {
         script_config: &pb::BtcScriptConfig,
         display: bool,
     ) -> Result<String, Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto(Request::BtcPub(pb::BtcPubRequest {
                 coin: coin as _,
@@ -801,6 +814,16 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Sign a Bitcoin transaction. Returns one 64 byte signature (compact serlization of the R and
     /// S values) per input.
     pub async fn btc_sign(
+        &self,
+        coin: pb::BtcCoin,
+        transaction: &Transaction,
+        format_unit: pb::btc_sign_init_request::FormatUnit,
+    ) -> Result<Vec<Vec<u8>>, Error> {
+        let _api_call = self.begin_api_call().await;
+        self.btc_sign_inner(coin, transaction, format_unit).await
+    }
+
+    async fn btc_sign_inner(
         &self,
         coin: pb::BtcCoin,
         transaction: &Transaction,
@@ -1004,15 +1027,16 @@ impl<R: Runtime> PairedBitBox<R> {
         force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<(), Error> {
+        let _api_call = self.begin_api_call().await;
         // since v9.15.0, the BitBox02 accepts "internal" outputs (ones sent to the BitBox02 with
         // the keypath) even if the keypath is not a change keypath. PSBTs often contain the key
         // origin info in outputs even in regular send-to-self outputs.
         self.validate_version(">=9.15.0")?;
 
-        let our_root_fingerprint = hex::decode(self.root_fingerprint().await?).unwrap();
+        let our_root_fingerprint = self.root_fingerprint_inner().await?;
         let (transaction, our_keys) =
             Transaction::from_psbt(&our_root_fingerprint, psbt, force_script_config)?;
-        let signatures = self.btc_sign(coin, &transaction, format_unit).await?;
+        let signatures = self.btc_sign_inner(coin, &transaction, format_unit).await?;
         for (psbt_input, (signature, our_key)) in
             psbt.inputs.iter_mut().zip(signatures.iter().zip(our_keys))
         {
@@ -1052,6 +1076,7 @@ impl<R: Runtime> PairedBitBox<R> {
         script_config: pb::BtcScriptConfigWithKeypath,
         msg: &[u8],
     ) -> Result<SignMessageSignature, Error> {
+        let _api_call = self.begin_api_call().await;
         self.validate_version(">=9.5.0")?;
 
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
@@ -1114,6 +1139,7 @@ impl<R: Runtime> PairedBitBox<R> {
         script_config: &pb::BtcScriptConfig,
         keypath_account: Option<&Keypath>,
     ) -> Result<bool, Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto_btc(pb::btc_request::Request::IsScriptConfigRegistered(
                 pb::BtcIsScriptConfigRegisteredRequest {
@@ -1151,6 +1177,7 @@ impl<R: Runtime> PairedBitBox<R> {
         xpub_type: pb::btc_register_script_config_request::XPubType,
         name: Option<&str>,
     ) -> Result<(), Error> {
+        let _api_call = self.begin_api_call().await;
         match self
             .query_proto_btc(pb::btc_request::Request::RegisterScriptConfig(
                 pb::BtcRegisterScriptConfigRequest {
