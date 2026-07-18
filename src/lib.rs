@@ -51,6 +51,7 @@ pub use util::Threading;
 use communication::HwwCommunication;
 
 pub use communication::Product;
+pub use communication::{Error as CommunicationError, ReadWrite};
 
 const OP_I_CAN_HAS_HANDSHAEK: u8 = b'h';
 const OP_HER_COMEZ_TEH_HANDSHAEK: u8 = b'H';
@@ -86,6 +87,25 @@ impl<R: Runtime> BitBox<R> {
         })
     }
 
+    /// Creates a new BitBox instance from a custom transport.
+    ///
+    /// The `transport` is a raw byte channel to the device (HID reports); this method wraps it
+    /// in the U2F-HID framing layer internally, so callers only need to implement
+    /// [`ReadWrite`] over their platform-specific transport.
+    ///
+    /// This enables use cases where USB I/O must be delegated to platform-specific code
+    /// (e.g., Android, where USB access requires Java APIs unavailable to `hidapi`).
+    pub async fn from_transport(
+        transport: Box<dyn communication::ReadWrite>,
+        noise_config: Box<dyn NoiseConfig>,
+    ) -> Result<BitBox<R>, Error> {
+        let comm = Box::new(communication::U2fHidCommunication::from(
+            transport,
+            communication::FIRMWARE_CMD,
+        ));
+        Self::from(comm, noise_config).await
+    }
+
     /// Creates a new BitBox instance. The provided noise config determines how the pairing
     /// information is persisted. Use `usb::get_any_bitbox02()` to find a BitBox02 HID device.
     ///
@@ -96,11 +116,7 @@ impl<R: Runtime> BitBox<R> {
         device: hidapi::HidDevice,
         noise_config: Box<dyn NoiseConfig>,
     ) -> Result<BitBox<R>, Error> {
-        let comm = Box::new(communication::U2fHidCommunication::from(
-            Box::new(crate::usb::HidDevice::new(device)),
-            communication::FIRMWARE_CMD,
-        ));
-        Self::from(comm, noise_config).await
+        Self::from_transport(Box::new(crate::usb::HidDevice::new(device)), noise_config).await
     }
 
     #[cfg(feature = "simulator")]
@@ -108,11 +124,11 @@ impl<R: Runtime> BitBox<R> {
         endpoint: Option<&str>,
         noise_config: Box<dyn NoiseConfig>,
     ) -> Result<BitBox<R>, Error> {
-        let comm = Box::new(communication::U2fHidCommunication::from(
+        Self::from_transport(
             crate::simulator::try_connect::<R>(endpoint).await?,
-            communication::FIRMWARE_CMD,
-        ));
-        Self::from(comm, noise_config).await
+            noise_config,
+        )
+        .await
     }
 
     /// Invokes the device unlock and pairing.

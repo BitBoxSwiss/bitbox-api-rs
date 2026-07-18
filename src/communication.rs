@@ -6,7 +6,6 @@ use crate::util::Threading;
 use async_trait::async_trait;
 use thiserror::Error;
 
-#[cfg(any(feature = "wasm", feature = "usb", feature = "simulator"))]
 pub const FIRMWARE_CMD: u8 = 0x80 + 0x40 + 0x01;
 
 #[derive(Error, Debug)]
