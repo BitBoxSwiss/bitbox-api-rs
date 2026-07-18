@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+## 0.13.0
+- Add `BitBox::from_transport()`
+
 ## 0.12.1
 - Serialize public API calls that talk to the device to avoid interleaving request/response
   sequences and breaking the device communication state.

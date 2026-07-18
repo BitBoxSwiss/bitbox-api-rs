@@ -126,7 +126,7 @@ checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
 
 [[package]]
 name = "bitbox-api"
-version = "0.12.1"
+version = "0.13.0"
 dependencies = [
  "async-trait",
  "base32",
