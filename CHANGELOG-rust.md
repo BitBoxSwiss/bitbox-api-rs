@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- Restrict persisted Noise config files to private permissions on Unix.
 
 ## 0.13.0
 - Add `BitBox::from_transport()`
