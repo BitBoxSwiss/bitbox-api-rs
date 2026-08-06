@@ -476,7 +476,11 @@ impl<R: Runtime> PairedBitBox<R> {
                     .await?
                 {
                     pb::eth_response::Response::Sign(pb::EthSignResponse { signature }) => {
-                        crate::antiklepto::verify_ecdsa(&host_nonce, commitment, &signature)?;
+                        crate::antiklepto::verify_recoverable_ecdsa(
+                            &host_nonce,
+                            commitment,
+                            &signature,
+                        )?;
                         signature.try_into().map_err(|_| Error::UnexpectedResponse)
                     }
                     _ => Err(Error::UnexpectedResponse),
@@ -733,10 +737,15 @@ impl<R: Runtime> PairedBitBox<R> {
                 .await?
         } else {
             match response {
-                pb::eth_response::Response::Sign(pb::EthSignResponse { signature }) => signature
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| Error::UnexpectedResponse)?,
+                pb::eth_response::Response::Sign(pb::EthSignResponse { signature }) => {
+                    let signature: [u8; 65] = signature
+                        .as_slice()
+                        .try_into()
+                        .map_err(|_| Error::UnexpectedResponse)?;
+                    crate::secp256k1::validate_signature_recoverable(&signature)
+                        .map_err(|_| Error::InvalidSignature)?;
+                    signature
+                }
                 _ => return Err(Error::UnexpectedResponse),
             }
         };

@@ -1,7 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+
+## 0.13.1
 - Restrict persisted Noise config files to private permissions on Unix.
+- Validate ECDSA signatures and recovery IDs in Anti-Klepto and direct signing flows.
 
 ## 0.13.0
 - Add `BitBox::from_transport()`

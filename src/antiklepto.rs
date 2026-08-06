@@ -14,6 +14,8 @@ pub enum Error {
     GenNonce,
     #[error("{0}")]
     VerificationErr(&'static str),
+    #[error(transparent)]
+    InvalidSignature(#[from] crate::secp256k1::ValidationError),
     #[error(
         "Could not verify that the host nonce was contributed to the signature. \
 		 If this happens repeatedly, the device might be attempting to leak the \
@@ -43,10 +45,29 @@ pub fn host_commit(host_nonce: &[u8]) -> [u8; 32] {
     tagged_sha256(b"s2c/ecdsa/data", host_nonce)
 }
 
-/// antikleptoVerify verifies that hostNonce was used to tweak the nonce during signature
-/// generation according to k' = k + H(clientCommitment, hostNonce) by checking that
-/// k'*G = signerCommitment + H(signerCommitment, hostNonce)*G.
+/// Verifies that `host_nonce` was used to tweak the nonce during signature generation according
+/// to k' = k + H(signer_commitment, host_nonce) by checking that
+/// k'*G = signer_commitment + H(signer_commitment, host_nonce)*G.
 pub fn verify_ecdsa(
+    host_nonce: &[u8],
+    signer_commitment: &[u8],
+    signature: &[u8],
+) -> Result<(), Error> {
+    crate::secp256k1::validate_signature_compact(signature)?;
+    verify_ecdsa_nonce(host_nonce, signer_commitment, signature)
+}
+
+/// Validates a recoverable ECDSA signature and verifies its Anti-Klepto nonce contribution.
+pub fn verify_recoverable_ecdsa(
+    host_nonce: &[u8],
+    signer_commitment: &[u8],
+    signature: &[u8],
+) -> Result<(), Error> {
+    crate::secp256k1::validate_signature_recoverable(signature)?;
+    verify_ecdsa_nonce(host_nonce, signer_commitment, &signature[..64])
+}
+
+fn verify_ecdsa_nonce(
     host_nonce: &[u8],
     signer_commitment: &[u8],
     signature: &[u8],
@@ -142,5 +163,41 @@ mod tests {
             )
             .is_err());
         }
+    }
+
+    #[test]
+    fn test_verify_ecdsa_rejects_high_s() {
+        let unhex = |s| FromHex::from_hex(s).unwrap();
+        let host_nonce: Vec<u8> =
+            unhex("8b4c26aa2695a34bdbc34235f6c91be14b93037a063b13f7c814101359561092");
+        let signer_commitment: Vec<u8> =
+            unhex("0236ff92fe02c08d0d04851e0ce1516104085215f05a178307de60ea53e207f971");
+        let low_s: Vec<u8> = unhex(
+            "7fd66b48ffea2fe048869880bbb3a1819e262af14980e8885df1e5765750cb8f47e01eca356377870356d54853573a955076228e5044cd3dd3a049abe70d5585",
+        );
+        let high_s: Vec<u8> = unhex(
+            "7fd66b48ffea2fe048869880bbb3a1819e262af14980e8885df1e5765750cb8fb81fe135ca9c8878fca92ab7aca8c5696a38ba585f03d2fdec3214e0e928ebbc",
+        );
+
+        assert!(verify_ecdsa(&host_nonce, &signer_commitment, &low_s).is_ok());
+        assert!(verify_ecdsa(&host_nonce, &signer_commitment, &high_s).is_err());
+    }
+
+    #[test]
+    fn test_verify_recoverable_ecdsa() {
+        let unhex = |s| FromHex::from_hex(s).unwrap();
+        let host_nonce: Vec<u8> =
+            unhex("8b4c26aa2695a34bdbc34235f6c91be14b93037a063b13f7c814101359561092");
+        let signer_commitment: Vec<u8> =
+            unhex("0236ff92fe02c08d0d04851e0ce1516104085215f05a178307de60ea53e207f971");
+        let mut signature: Vec<u8> = unhex(
+            "7fd66b48ffea2fe048869880bbb3a1819e262af14980e8885df1e5765750cb8f47e01eca356377870356d54853573a955076228e5044cd3dd3a049abe70d558500",
+        );
+
+        assert!(verify_recoverable_ecdsa(&host_nonce, &signer_commitment, &signature).is_ok());
+        signature[64] = 3;
+        assert!(verify_recoverable_ecdsa(&host_nonce, &signer_commitment, &signature).is_ok());
+        signature[64] = 4;
+        assert!(verify_recoverable_ecdsa(&host_nonce, &signer_commitment, &signature).is_err());
     }
 }
