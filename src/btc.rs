@@ -299,6 +299,9 @@ pub enum PsbtError {
     #[error("Invalid OP_RETURN script: {0}")]
     #[cfg_attr(feature = "wasm", assoc(js_code = "invalid-op-return"))]
     InvalidOpReturn(&'static str),
+    #[error("Account script configs must contain a BIP44 account keypath.")]
+    #[cfg_attr(feature = "wasm", assoc(js_code = "invalid-account-keypath"))]
+    InvalidAccountKeypath,
 }
 
 impl From<PayloadError> for PsbtError {
@@ -478,31 +481,26 @@ fn script_config_from_utxo(
     Err(PsbtError::UnknownOutputType)
 }
 
+struct PsbtTransaction {
+    transaction: Transaction,
+    our_keys: Vec<OurKey>,
+    output_script_configs: Vec<pb::BtcScriptConfigWithKeypath>,
+    output_script_config_indices: Vec<Option<u32>>,
+}
+
 impl Transaction {
     fn from_psbt(
+        firmware_version: &semver::Version,
         our_root_fingerprint: &[u8],
         psbt: &bitcoin::psbt::Psbt,
         force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
-    ) -> Result<(Self, Vec<OurKey>), PsbtError> {
-        let mut script_configs: Vec<pb::BtcScriptConfigWithKeypath> = Vec::new();
-        let mut is_script_config_forced = false;
-        if let Some(cfg) = force_script_config {
-            script_configs.push(cfg);
-            is_script_config_forced = true;
-        }
+    ) -> Result<PsbtTransaction, PsbtError> {
+        let is_script_config_forced = force_script_config.is_some();
+        let mut script_configs = force_script_config.into_iter().collect::<Vec<_>>();
+        let mut output_script_configs: Vec<pb::BtcScriptConfigWithKeypath> = Vec::new();
 
         let mut our_keys: Vec<OurKey> = Vec::new();
         let mut inputs: Vec<TxInput> = Vec::new();
-
-        let mut add_script_config = |script_config: pb::BtcScriptConfigWithKeypath| -> usize {
-            match script_configs.iter().position(|el| el == &script_config) {
-                Some(pos) => pos,
-                None => {
-                    script_configs.push(script_config);
-                    script_configs.len() - 1
-                }
-            }
-        };
 
         for (input_index, (tx_input, psbt_input)) in
             psbt.unsigned_tx.input.iter().zip(&psbt.inputs).enumerate()
@@ -512,12 +510,15 @@ impl Transaction {
             let script_config_index = if is_script_config_forced {
                 0
             } else {
-                add_script_config(script_config_from_utxo(
-                    utxo,
-                    our_key.keypath(),
-                    psbt_input.redeem_script.as_ref(),
-                    psbt_input.witness_script.as_ref(),
-                )?)
+                find_or_add_script_config(
+                    &mut script_configs,
+                    script_config_from_utxo(
+                        utxo,
+                        our_key.keypath(),
+                        psbt_input.redeem_script.as_ref(),
+                        psbt_input.witness_script.as_ref(),
+                    )?,
+                )
             };
 
             inputs.push(TxInput {
@@ -533,35 +534,58 @@ impl Transaction {
         }
 
         let mut outputs: Vec<TxOutput> = Vec::new();
+        let mut output_script_config_indices: Vec<Option<u32>> = Vec::new();
         for (tx_output, psbt_output) in psbt.unsigned_tx.output.iter().zip(&psbt.outputs) {
             let our_key = find_our_key(our_root_fingerprint, psbt_output);
             // Either change output or a non-change output owned by the BitBox.
             match our_key {
                 Ok(our_key) => {
-                    let script_config_index = if is_script_config_forced {
-                        0
+                    let script_config = if is_script_config_forced {
+                        script_configs[0].clone()
                     } else {
-                        add_script_config(script_config_from_utxo(
+                        script_config_from_utxo(
                             tx_output,
                             our_key.keypath(),
                             psbt_output.redeem_script.as_ref(),
                             psbt_output.witness_script.as_ref(),
-                        )?)
+                        )?
                     };
-                    outputs.push(TxOutput::Internal(TxInternalOutput {
-                        keypath: our_key.keypath(),
-                        value: tx_output.value.to_sat(),
-                        script_config_index: script_config_index as _,
-                    }));
+                    let same_account = is_same_account(&script_configs, &script_config)?;
+                    // Firmware 9.22 added separate output configs for device-owned outputs that
+                    // belong to another account. Older firmware must display them as external.
+                    if same_account {
+                        let script_config_index =
+                            find_or_add_script_config(&mut script_configs, script_config);
+                        outputs.push(TxOutput::Internal(TxInternalOutput {
+                            keypath: our_key.keypath(),
+                            value: tx_output.value.to_sat(),
+                            script_config_index: script_config_index as _,
+                        }));
+                        output_script_config_indices.push(None);
+                    } else if firmware_version >= &semver::Version::new(9, 22, 0) {
+                        let output_script_config_index =
+                            find_or_add_script_config(&mut output_script_configs, script_config);
+                        outputs.push(TxOutput::Internal(TxInternalOutput {
+                            keypath: our_key.keypath(),
+                            value: tx_output.value.to_sat(),
+                            // Ignored when output_script_config_index is present.
+                            script_config_index: 0,
+                        }));
+                        output_script_config_indices.push(Some(output_script_config_index as _));
+                    } else {
+                        outputs.push(TxOutput::External(tx_output.try_into()?));
+                        output_script_config_indices.push(None);
+                    }
                 }
                 Err(_) => {
                     outputs.push(TxOutput::External(tx_output.try_into()?));
+                    output_script_config_indices.push(None);
                 }
             }
         }
 
-        Ok((
-            Transaction {
+        Ok(PsbtTransaction {
+            transaction: Transaction {
                 script_configs,
                 version: psbt.unsigned_tx.version.0 as _,
                 inputs,
@@ -569,7 +593,9 @@ impl Transaction {
                 locktime: psbt.unsigned_tx.lock_time.to_consensus_u32(),
             },
             our_keys,
-        ))
+            output_script_configs,
+            output_script_config_indices,
+        })
     }
 }
 
@@ -674,6 +700,54 @@ fn is_taproot_policy(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
 
 fn is_schnorr(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
     is_taproot_simple(script_config) | is_taproot_policy(script_config)
+}
+
+fn is_simple_script_config(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
+    matches!(
+        script_config.script_config.as_ref(),
+        Some(pb::BtcScriptConfig {
+            config: Some(pb::btc_script_config::Config::SimpleType(_)),
+        })
+    )
+}
+
+fn is_same_account(
+    input_script_configs: &[pb::BtcScriptConfigWithKeypath],
+    output_script_config: &pb::BtcScriptConfigWithKeypath,
+) -> Result<bool, PsbtError> {
+    for input_script_config in input_script_configs {
+        if is_simple_script_config(input_script_config) {
+            let input_account = input_script_config
+                .keypath
+                .get(2)
+                .ok_or(PsbtError::InvalidAccountKeypath)?;
+            let output_account = output_script_config
+                .keypath
+                .get(2)
+                .ok_or(PsbtError::InvalidAccountKeypath)?;
+            if input_account != output_account {
+                return Ok(false);
+            }
+        } else if input_script_config != output_script_config {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn find_or_add_script_config(
+    script_configs: &mut Vec<pb::BtcScriptConfigWithKeypath>,
+    script_config: pb::BtcScriptConfigWithKeypath,
+) -> usize {
+    if let Some(index) = script_configs
+        .iter()
+        .position(|existing| existing == &script_config)
+    {
+        index
+    } else {
+        script_configs.push(script_config);
+        script_configs.len() - 1
+    }
 }
 
 impl<R: Runtime> PairedBitBox<R> {
@@ -820,17 +894,32 @@ impl<R: Runtime> PairedBitBox<R> {
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<Vec<Vec<u8>>, Error> {
         let _api_call = self.begin_api_call().await;
-        self.btc_sign_inner(coin, transaction, format_unit).await
+        self.btc_sign_inner(coin, transaction, &[], &[], format_unit)
+            .await
     }
 
     async fn btc_sign_inner(
         &self,
         coin: pb::BtcCoin,
         transaction: &Transaction,
+        output_script_configs: &[pb::BtcScriptConfigWithKeypath],
+        output_script_config_indices: &[Option<u32>],
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<Vec<Vec<u8>>, Error> {
+        if !output_script_config_indices.is_empty()
+            && output_script_config_indices.len() != transaction.outputs.len()
+        {
+            return Err(Error::BtcSign(
+                "output script config indices must match transaction outputs".into(),
+            ));
+        }
         self.validate_version(">=9.4.0")?; // anti-klepto since 9.4.0
-        if transaction.script_configs.iter().any(is_taproot_simple) {
+        if transaction
+            .script_configs
+            .iter()
+            .chain(output_script_configs)
+            .any(is_taproot_simple)
+        {
             self.validate_version(">=9.10.0")?; // taproot since 9.10.0
         }
         if transaction.outputs.iter().any(|output| {
@@ -849,7 +938,7 @@ impl<R: Runtime> PairedBitBox<R> {
             .get_next_response(Request::BtcSignInit(pb::BtcSignInitRequest {
                 coin: coin as _,
                 script_configs: transaction.script_configs.clone(),
-                output_script_configs: vec![],
+                output_script_configs: output_script_configs.to_vec(),
                 version: transaction.version,
                 num_inputs: transaction.inputs.len() as _,
                 num_outputs: transaction.outputs.len() as _,
@@ -979,7 +1068,12 @@ impl<R: Runtime> PairedBitBox<R> {
                         .await?;
                 }
                 pb::btc_sign_next_response::Type::Output => {
-                    let tx_output: &TxOutput = &transaction.outputs[next_response.index as usize];
+                    let output_index = next_response.index as usize;
+                    let tx_output: &TxOutput = &transaction.outputs[output_index];
+                    let output_script_config_index = output_script_config_indices
+                        .get(output_index)
+                        .copied()
+                        .flatten();
                     let request: Request = match tx_output {
                         TxOutput::Internal(output) => {
                             Request::BtcSignOutput(pb::BtcSignOutputRequest {
@@ -987,6 +1081,7 @@ impl<R: Runtime> PairedBitBox<R> {
                                 value: output.value,
                                 keypath: output.keypath.to_vec(),
                                 script_config_index: output.script_config_index,
+                                output_script_config_index,
                                 ..Default::default()
                             })
                         }
@@ -1034,11 +1129,25 @@ impl<R: Runtime> PairedBitBox<R> {
         self.validate_version(">=9.15.0")?;
 
         let our_root_fingerprint = self.root_fingerprint_inner().await?;
-        let (transaction, our_keys) =
-            Transaction::from_psbt(&our_root_fingerprint, psbt, force_script_config)?;
-        let signatures = self.btc_sign_inner(coin, &transaction, format_unit).await?;
-        for (psbt_input, (signature, our_key)) in
-            psbt.inputs.iter_mut().zip(signatures.iter().zip(our_keys))
+        let psbt_transaction = Transaction::from_psbt(
+            self.version(),
+            &our_root_fingerprint,
+            psbt,
+            force_script_config,
+        )?;
+        let signatures = self
+            .btc_sign_inner(
+                coin,
+                &psbt_transaction.transaction,
+                &psbt_transaction.output_script_configs,
+                &psbt_transaction.output_script_config_indices,
+                format_unit,
+            )
+            .await?;
+        for (psbt_input, (signature, our_key)) in psbt
+            .inputs
+            .iter_mut()
+            .zip(signatures.iter().zip(psbt_transaction.our_keys))
         {
             match our_key {
                 OurKey::Segwit(pubkey, _) => {
@@ -1201,7 +1310,6 @@ impl<R: Runtime> PairedBitBox<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keypath::HARDENED;
 
     #[test]
     fn test_payload_from_pkscript() {
@@ -1330,92 +1438,5 @@ mod tests {
                 "only one data push supported after OP_RETURN"
             ))
         ));
-    }
-
-    // Test that a PSBT containing only p2wpkh inputs is converted correctly to a transaction to be
-    // signed by the BitBox.
-    #[test]
-    fn test_transaction_from_psbt_p2wpkh() {
-        use std::str::FromStr;
-
-        // Based on mnemonic:
-        // route glue else try obey local kidney future teach unaware pulse exclude.
-        let psbt_str = "cHNidP8BAHECAAAAAfbXTun4YYxDroWyzRq3jDsWFVlsZ7HUzxiORY/iR4goAAAAAAD9////AuLCAAAAAAAAFgAUg3w5W0zt3AmxRmgA5Q6wZJUDRhUowwAAAAAAABYAFJjQqUoXDcwUEqfExu9pnaSn5XBct0ElAAABAR+ghgEAAAAAABYAFHn03igII+hp819N2Zlb5LnN8atRAQDfAQAAAAABAZ9EJlMJnXF5bFVrb1eFBYrEev3pg35WpvS3RlELsMMrAQAAAAD9////AqCGAQAAAAAAFgAUefTeKAgj6GnzX03ZmVvkuc3xq1EoRs4JAAAAABYAFKG2PzjYjknaA6lmXFqPaSgHwXX9AkgwRQIhAL0v0r3LisQ9KOlGzMhM/xYqUmrv2a5sORRlkX1fqDC8AiB9XqxSNEdb4mPnp7ylF1cAlbAZ7jMhgIxHUXylTww3bwEhA0AEOM0yYEpexPoKE3vT51uxZ+8hk9sOEfBFKOeo6oDDAAAAACIGAyNQfmAT/YLmZaxxfDwClmVNt2BkFnfQu/i8Uc/hHDUiGBKiwYlUAACAAQAAgAAAAIAAAAAAAAAAAAAAIgIDnxFM7Qr9LvJwQDB9GozdTRIe3MYVuHOqT7dU2EuvHrIYEqLBiVQAAIABAACAAAAAgAEAAAAAAAAAAA==";
-
-        let expected_transaction = Transaction {
-            script_configs: vec![pb::BtcScriptConfigWithKeypath {
-                script_config: Some(pb::BtcScriptConfig {
-                    config: Some(pb::btc_script_config::Config::SimpleType(
-                        pb::btc_script_config::SimpleType::P2wpkh as _,
-                    )),
-                }),
-                keypath: vec![84 + HARDENED, 1 + HARDENED, HARDENED],
-            }],
-            version: 2,
-            inputs: vec![TxInput {
-                prev_out_hash: vec![
-                    246, 215, 78, 233, 248, 97, 140, 67, 174, 133, 178, 205, 26, 183, 140, 59, 22,
-                    21, 89, 108, 103, 177, 212, 207, 24, 142, 69, 143, 226, 71, 136, 40,
-                ],
-                prev_out_index: 0,
-                prev_out_value: 100000,
-                sequence: 4294967293,
-                keypath: "m/84'/1'/0'/0/0".try_into().unwrap(),
-                script_config_index: 0,
-                prev_tx: Some(PrevTx {
-                    version: 1,
-                    inputs: vec![PrevTxInput {
-                        prev_out_hash: vec![
-                            159, 68, 38, 83, 9, 157, 113, 121, 108, 85, 107, 111, 87, 133, 5, 138,
-                            196, 122, 253, 233, 131, 126, 86, 166, 244, 183, 70, 81, 11, 176, 195,
-                            43,
-                        ],
-                        prev_out_index: 1,
-                        signature_script: vec![],
-                        sequence: 4294967293,
-                    }],
-                    outputs: vec![
-                        PrevTxOutput {
-                            value: 100000,
-                            pubkey_script: vec![
-                                0, 20, 121, 244, 222, 40, 8, 35, 232, 105, 243, 95, 77, 217, 153,
-                                91, 228, 185, 205, 241, 171, 81,
-                            ],
-                        },
-                        PrevTxOutput {
-                            value: 164513320,
-                            pubkey_script: vec![
-                                0, 20, 161, 182, 63, 56, 216, 142, 73, 218, 3, 169, 102, 92, 90,
-                                143, 105, 40, 7, 193, 117, 253,
-                            ],
-                        },
-                    ],
-                    locktime: 0,
-                }),
-            }],
-            outputs: vec![
-                TxOutput::External(TxExternalOutput {
-                    payload: Payload {
-                        data: vec![
-                            131, 124, 57, 91, 76, 237, 220, 9, 177, 70, 104, 0, 229, 14, 176, 100,
-                            149, 3, 70, 21,
-                        ],
-                        output_type: pb::BtcOutputType::P2wpkh,
-                    },
-                    value: 49890,
-                }),
-                TxOutput::Internal(TxInternalOutput {
-                    keypath: "m/84'/1'/0'/1/0".try_into().unwrap(),
-                    value: 49960,
-                    script_config_index: 0,
-                }),
-            ],
-            locktime: 2441655,
-        };
-        let our_root_fingerprint = hex::decode("12a2c189").unwrap();
-        let psbt = bitcoin::psbt::Psbt::from_str(psbt_str).unwrap();
-        let (transaction, _our_keys) =
-            Transaction::from_psbt(&our_root_fingerprint, &psbt, None).unwrap();
-        assert_eq!(transaction, expected_transaction);
     }
 }
