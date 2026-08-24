@@ -1221,7 +1221,7 @@ impl<R: Runtime> PairedBitBox<R> {
             }
             _ => return Err(Error::UnexpectedResponse),
         };
-        crate::antiklepto::verify_ecdsa(&host_nonce, &signer_commitment, &signature)?;
+        crate::antiklepto::verify_recoverable_ecdsa(&host_nonce, &signer_commitment, &signature)?;
 
         let sig = signature[..64].to_vec();
         let recid = signature[64];

@@ -22,6 +22,7 @@ mod antiklepto;
 mod communication;
 mod constants;
 mod keypath;
+mod secp256k1;
 mod u2fframing;
 mod util;
 
