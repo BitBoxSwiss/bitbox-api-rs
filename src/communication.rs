@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::u2fframing::{self, U2FFraming};
+use super::u2fframing;
 use crate::runtime::Runtime;
 use crate::util::Threading;
 use async_trait::async_trait;
@@ -62,50 +62,6 @@ impl ReadWrite for U2fHidCommunication {
             self.read_write.write(chunk)?;
         }
         Ok(size)
-    }
-
-    async fn read(&self) -> Result<Vec<u8>, Error> {
-        let mut readbuf = self.read_write.read().await?;
-        loop {
-            match self.u2fhid.decode(&readbuf).or(Err(Error::U2fDecode))? {
-                Some(d) => {
-                    return Ok(d);
-                }
-                None => {
-                    let more = self.read_write.read().await?;
-                    readbuf.extend_from_slice(&more);
-                }
-            }
-        }
-    }
-}
-
-#[cfg(feature = "wasm")]
-pub struct U2fWsCommunication {
-    read_write: Box<dyn ReadWrite>,
-    u2fhid: u2fframing::U2fWs,
-}
-
-#[cfg(feature = "wasm")]
-impl Threading for U2fWsCommunication {}
-
-#[cfg(feature = "wasm")]
-impl U2fWsCommunication {
-    pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
-        U2fWsCommunication {
-            read_write,
-            u2fhid: u2fframing::U2fWs::new(cmd),
-        }
-    }
-}
-
-#[cfg(feature = "wasm")]
-#[async_trait(?Send)]
-impl ReadWrite for U2fWsCommunication {
-    fn write(&self, msg: &[u8]) -> Result<usize, Error> {
-        let mut buf = [0u8; u2fframing::MAX_LEN];
-        let size = self.u2fhid.encode(msg, &mut buf).unwrap();
-        self.read_write.write(&buf[..size])
     }
 
     async fn read(&self) -> Result<Vec<u8>, Error> {

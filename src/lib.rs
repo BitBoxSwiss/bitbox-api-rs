@@ -2,9 +2,6 @@
 
 //! Rust BitBox hardware wallet client library.
 
-#[cfg(all(feature = "wasm", feature = "multithreaded"))]
-compile_error!("wasm and multithreaded can't both be active");
-
 pub mod btc;
 pub mod cardano;
 pub mod error;
@@ -15,12 +12,9 @@ pub mod runtime;
 pub mod simulator;
 #[cfg(feature = "usb")]
 pub mod usb;
-#[cfg(feature = "wasm")]
-pub mod wasm;
 
 mod antiklepto;
 mod communication;
-mod constants;
 mod keypath;
 mod secp256k1;
 mod u2fframing;
@@ -78,16 +72,6 @@ pub struct BitBox<R: Runtime> {
 pub type PairingCode = String;
 
 impl<R: Runtime> BitBox<R> {
-    async fn from(
-        device: Box<dyn communication::ReadWrite>,
-        noise_config: Box<dyn NoiseConfig>,
-    ) -> Result<BitBox<R>, Error> {
-        Ok(BitBox {
-            communication: HwwCommunication::from(device).await?,
-            noise_config,
-        })
-    }
-
     /// Creates a new BitBox instance from a custom transport.
     ///
     /// The `transport` is a raw byte channel to the device (HID reports); this method wraps it
@@ -104,14 +88,17 @@ impl<R: Runtime> BitBox<R> {
             transport,
             communication::FIRMWARE_CMD,
         ));
-        Self::from(comm, noise_config).await
+        Ok(BitBox {
+            communication: HwwCommunication::from(comm).await?,
+            noise_config,
+        })
     }
 
     /// Creates a new BitBox instance. The provided noise config determines how the pairing
     /// information is persisted. Use `usb::get_any_bitbox02()` to find a BitBox02 HID device.
     ///
     /// Use `bitbox_api::PersistedNoiseConfig::new(...)` to persist the pairing in a JSON file
-    /// (`serde` feature required) or provide your own implementation of the `NoiseConfig` trait.
+    /// or provide your own implementation of the `NoiseConfig` trait.
     #[cfg(feature = "usb")]
     pub async fn from_hid_device(
         device: hidapi::HidDevice,

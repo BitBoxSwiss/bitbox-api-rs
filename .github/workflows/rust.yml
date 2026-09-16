@@ -45,19 +45,6 @@ jobs:
           sudo apt-get install -y libudev-dev
           ./ci.sh
 
-  WASM:
-    name: WASM and Sandbox
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y clang jq
-          cargo install --force wasm-pack
-          make wasm
-          make build-sandbox
-
   # Temporarily disabled; re-enable when we find a way to use the same protobuf compiler version
   # in the developer docs and here, otherwise this check will often fail.
   # Check-Protobufs:

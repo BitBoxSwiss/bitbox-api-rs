@@ -6,7 +6,6 @@ set -e
 features=(
   "simulator,tokio"
   "usb"
-  "wasm"
   "multithreaded,usb"
 )
 

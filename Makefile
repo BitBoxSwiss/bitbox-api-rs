@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-npm_version=$(shell cat NPM_VERSION)
-
 build-protos:
 	rust-script scripts/build-protos.rs
 example-singlethreaded:
@@ -24,14 +22,3 @@ example-cardano:
 	cargo run --example cardano --features=usb,tokio/rt,tokio/macros
 example-simulator:
 	cargo run --example simulator --features=simulator,tokio/rt,tokio/macros,tokio/rt-multi-thread,multithreaded
-wasm:
-	wasm-pack build --release --features=wasm
-	cp webhid.js pkg/
-	jq '.files += ["webhid.js"]' pkg/package.json > tmp.json && mv tmp.json pkg/package.json
-	jq '.version = "$(npm_version)"' pkg/package.json > tmp.json && mv tmp.json pkg/package.json
-	cp README-npm.md pkg/README.md
-	du -sh pkg/bitbox_api_bg.wasm
-run-sandbox:
-	cd sandbox && npm i && npm run dev
-build-sandbox:
-	cd sandbox && npm i && npm run build

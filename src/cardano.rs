@@ -7,52 +7,6 @@ use crate::pb::{self, request::Request, response::Response};
 use crate::Keypath;
 use crate::PairedBitBox;
 
-#[cfg(feature = "wasm")]
-pub(crate) fn serde_deserialize_network<'de, D>(deserializer: D) -> Result<i32, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::Deserialize;
-    let network = pb::CardanoNetwork::deserialize(deserializer)?;
-    Ok(network as i32)
-}
-
-#[cfg(feature = "wasm")]
-pub(crate) fn serde_deserialize_drep_type<'de, D>(deserializer: D) -> Result<i32, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::Deserialize;
-    let drep_type = pb::cardano_sign_transaction_request::certificate::vote_delegation::CardanoDRepType::deserialize(deserializer)?;
-    Ok(drep_type as i32)
-}
-
-#[cfg(feature = "wasm")]
-#[derive(serde::Deserialize)]
-pub(crate) struct SerdeScriptConfig(pb::cardano_script_config::Config);
-
-#[cfg(feature = "wasm")]
-impl From<SerdeScriptConfig> for pb::CardanoScriptConfig {
-    fn from(value: SerdeScriptConfig) -> Self {
-        pb::CardanoScriptConfig {
-            config: Some(value.0),
-        }
-    }
-}
-
-#[cfg(feature = "wasm")]
-#[derive(serde::Deserialize)]
-pub(crate) struct SerdeCert(pb::cardano_sign_transaction_request::certificate::Cert);
-
-#[cfg(feature = "wasm")]
-impl From<SerdeCert> for pb::cardano_sign_transaction_request::Certificate {
-    fn from(value: SerdeCert) -> Self {
-        pb::cardano_sign_transaction_request::Certificate {
-            cert: Some(value.0),
-        }
-    }
-}
-
 /// Create a Shelley PaymentKeyHash/StakeKeyHash config.
 /// <https://github.com/cardano-foundation/CIPs/blob/6c249ef48f8f5b32efc0ec768fadf4321f3173f2/CIP-0019/CIP-0019.md#shelley-addresses>
 pub fn make_script_config_pkh_skh(

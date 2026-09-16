@@ -18,13 +18,6 @@ const HEADER_CONT_LEN: usize = 5;
 // This is the buffer size needed to fit the largest possible u2f package with headers
 pub const MAX_LEN: usize = 129 * 64;
 
-pub trait U2FFraming {
-    /// Encode function.
-    fn encode(&self, message: &[u8], buf: &mut [u8]) -> io::Result<usize>;
-    /// Decode function. Will fail in case CID and CMD doesn't match stored values.
-    fn decode(&self, buf: &[u8]) -> io::Result<Option<Vec<u8>>>;
-}
-
 pub fn parse_header(buf: &[u8]) -> io::Result<(u32, u8, u16)> {
     if buf.len() < HEADER_INIT_LEN {
         return Err(std::io::Error::new(
@@ -69,78 +62,6 @@ pub fn generate_cid() -> u32 {
     0xff00ff00
 }
 
-// U2FWS (U2F WebSocket framing protocol) writes u2fhid header and payload as single package (up to
-// 7+7609 bytes)
-#[cfg(feature = "wasm")]
-pub struct U2fWs {
-    cid: u32,
-    cmd: u8,
-}
-
-#[cfg(feature = "wasm")]
-impl U2fWs {
-    pub fn new(cmd: u8) -> Self {
-        U2fWs {
-            cid: generate_cid(),
-            cmd,
-        }
-    }
-
-    #[cfg(test)]
-    pub fn with_cid(cid: u32, cmd: u8) -> Self {
-        U2fWs { cid, cmd }
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl Default for U2fWs {
-    fn default() -> Self {
-        Self::new(0)
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl U2FFraming for U2fWs {
-    fn encode(&self, message: &[u8], mut buf: &mut [u8]) -> io::Result<usize> {
-        let len = encode_header_init(self.cid, self.cmd, message.len() as u16, buf)?;
-        buf = &mut buf[len..];
-        if buf.len() < message.len() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Message won't fit in buffer",
-            ));
-        }
-        let buf_slice = &mut buf[..message.len()];
-        buf_slice.copy_from_slice(message);
-        Ok(len + message.len())
-    }
-
-    fn decode(&self, buf: &[u8]) -> io::Result<Option<Vec<u8>>> {
-        let (cid, cmd, len) = parse_header(buf)?;
-        if cid != self.cid {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Wrong CID",
-            ));
-        }
-        if cmd != self.cmd {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Wrong CMD",
-            ));
-        }
-        if buf.len() < HEADER_INIT_LEN + len as usize {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid length",
-            ));
-        }
-        Ok(Some(Vec::from(
-            &buf[HEADER_INIT_LEN..HEADER_INIT_LEN + len as usize],
-        )))
-    }
-}
-
 // U2fHid writes packets / usb reports. 64 bytes at a time
 pub struct U2fHid {
     cid: u32,
@@ -168,16 +89,9 @@ impl U2fHid {
             64 + 64 * ((59 + len - 1) / 59) as usize
         }
     }
-}
 
-impl Default for U2fHid {
-    fn default() -> Self {
-        Self::new(0)
-    }
-}
-
-impl U2FFraming for U2fHid {
-    fn encode(&self, mut message: &[u8], mut buf: &mut [u8]) -> io::Result<usize> {
+    /// Encode function.
+    pub fn encode(&self, mut message: &[u8], mut buf: &mut [u8]) -> io::Result<usize> {
         let enc_len = Self::get_encoded_len(message.len() as u16);
         if buf.len() < enc_len {
             return Err(std::io::Error::new(
@@ -218,7 +132,8 @@ impl U2FFraming for U2fHid {
         Ok(enc_len)
     }
 
-    fn decode(&self, mut buf: &[u8]) -> io::Result<Option<Vec<u8>>> {
+    /// Decode function. Will fail in case CID and CMD doesn't match stored values.
+    pub fn decode(&self, mut buf: &[u8]) -> io::Result<Option<Vec<u8>>> {
         let (cid, cmd, len) = parse_header(buf)?;
         if cid != self.cid {
             return Err(std::io::Error::new(
@@ -302,56 +217,6 @@ mod tests {
         raw[7..64].copy_from_slice(&payload[..57]);
         raw[64..69].copy_from_slice(b"\xEE\xEE\xEE\xEE\x00");
         raw[69..77].copy_from_slice(&payload[57..]);
-        let data = codec.decode(&raw[..]).unwrap().unwrap();
-        assert_eq!(&data[..], &payload[..]);
-    }
-
-    #[cfg(feature = "wasm")]
-    #[test]
-    fn test_u2fws_encode_single() {
-        let codec = U2fWs::with_cid(0xEEEEEEEE, 0x55);
-        let mut data = [0u8; 8000];
-        let len = codec.encode(b"\x01\x02\x03\x04", &mut data[..]).unwrap();
-        assert_eq!(len, 11);
-        assert_eq!(
-            &data[..len],
-            b"\xEE\xEE\xEE\xEE\x55\x00\x04\x01\x02\x03\x04"
-        );
-    }
-
-    #[cfg(feature = "wasm")]
-    #[test]
-    fn test_u2fws_encode_multi() {
-        let payload: Vec<u8> = (0..65u8).collect();
-        let codec = U2fWs::with_cid(0xEEEEEEEE, 0x55);
-        let mut data = [0u8; 8000];
-        let len = codec.encode(&payload[..], &mut data[..]).unwrap();
-        assert_eq!(len, 72);
-        let mut expect = [0u8; 72];
-        expect[..7].copy_from_slice(b"\xEE\xEE\xEE\xEE\x55\x00\x41");
-        expect[7..72].copy_from_slice(&payload[..]);
-        assert_eq!(&data[..len], &expect[..]);
-    }
-
-    #[cfg(feature = "wasm")]
-    #[test]
-    fn test_u2fws_decode_single() {
-        let codec = U2fWs::with_cid(0xEEEEEEEE, 0x55);
-        let data = codec
-            .decode(b"\xEE\xEE\xEE\xEE\x55\x00\x04\x01\x02\x03\x04")
-            .unwrap()
-            .unwrap();
-        assert_eq!(&data[..], b"\x01\x02\x03\x04");
-    }
-
-    #[cfg(feature = "wasm")]
-    #[test]
-    fn test_u2fws_decode_multi() {
-        let payload: Vec<u8> = (0..65u8).collect();
-        let codec = U2fWs::with_cid(0xEEEEEEEE, 0x55);
-        let mut raw = [0u8; 128];
-        raw[..7].copy_from_slice(b"\xEE\xEE\xEE\xEE\x55\x00\x41");
-        raw[7..72].copy_from_slice(&payload[..]);
         let data = codec.decode(&raw[..]).unwrap().unwrap();
         assert_eq!(&data[..], &payload[..]);
     }

@@ -17,64 +17,6 @@ pub use bitcoin::{
 
 use bitcoin::blockdata::{opcodes, script::Instruction};
 
-#[cfg(feature = "wasm")]
-use enum_assoc::Assoc;
-
-#[cfg(feature = "wasm")]
-pub(crate) fn serde_deserialize_simple_type<'de, D>(deserializer: D) -> Result<i32, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::Deserialize;
-    Ok(pb::btc_script_config::SimpleType::deserialize(deserializer)?.into())
-}
-
-#[cfg(feature = "wasm")]
-pub(crate) fn serde_deserialize_multisig<'de, D>(
-    deserializer: D,
-) -> Result<pb::btc_script_config::Multisig, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::Deserialize;
-    use std::str::FromStr;
-
-    #[derive(serde::Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Multisig {
-        threshold: u32,
-        xpubs: Vec<String>,
-        our_xpub_index: u32,
-        script_type: pb::btc_script_config::multisig::ScriptType,
-    }
-    let ms = Multisig::deserialize(deserializer)?;
-    let xpubs = ms
-        .xpubs
-        .iter()
-        .map(|s| Xpub::from_str(s.as_str()))
-        .collect::<Result<Vec<Xpub>, _>>()
-        .map_err(serde::de::Error::custom)?;
-    Ok(pb::btc_script_config::Multisig {
-        threshold: ms.threshold,
-        xpubs: xpubs.iter().map(convert_xpub).collect(),
-        our_xpub_index: ms.our_xpub_index,
-        script_type: ms.script_type.into(),
-    })
-}
-
-#[cfg(feature = "wasm")]
-#[derive(serde::Deserialize)]
-pub(crate) struct SerdeScriptConfig(pb::btc_script_config::Config);
-
-#[cfg(feature = "wasm")]
-impl From<SerdeScriptConfig> for pb::BtcScriptConfig {
-    fn from(value: SerdeScriptConfig) -> Self {
-        pb::BtcScriptConfig {
-            config: Some(value.0),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrevTxInput {
     pub prev_out_hash: Vec<u8>,
@@ -273,8 +215,7 @@ pub struct Transaction {
     pub locktime: u32,
 }
 // See https://github.com/spesmilo/electrum/blob/84dc181b6e7bb20e88ef6b98fb8925c5f645a765/electrum/ecc.py#L521-L523
-#[derive(Debug, PartialEq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq)]
 pub struct SignMessageSignature {
     pub sig: Vec<u8>,
     pub recid: u8,
@@ -282,25 +223,18 @@ pub struct SignMessageSignature {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[cfg_attr(feature = "wasm", derive(Assoc), func(pub const fn js_code(&self) -> &'static str))]
 pub enum PsbtError {
     #[error("{0}")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = "sign-error"))]
     SignError(#[from] bitcoin::psbt::SignError),
     #[error("Taproot pubkeys must be unique across the internal key and all leaf scripts.")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = "key-not-unique"))]
     KeyNotUnique,
     #[error("Could not find our key in an input.")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = "key-not-found"))]
     KeyNotFound,
     #[error("Unrecognized/unsupported output type.")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = "unknown-output-type"))]
     UnknownOutputType,
     #[error("Invalid OP_RETURN script: {0}")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = "invalid-op-return"))]
     InvalidOpReturn(&'static str),
     #[error("Account script configs must contain a BIP44 account keypath.")]
-    #[cfg_attr(feature = "wasm", assoc(js_code = "invalid-account-keypath"))]
     InvalidAccountKeypath,
 }
 
@@ -610,13 +544,7 @@ pub fn make_script_config_simple(
     }
 }
 
-#[derive(Clone)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct KeyOriginInfo {
     pub root_fingerprint: Option<bitcoin::bip32::Fingerprint>,
     pub keypath: Option<Keypath>,

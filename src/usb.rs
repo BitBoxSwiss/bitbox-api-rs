@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::constants::{PRODUCT_ID, VENDOR_ID};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -8,6 +7,9 @@ use thiserror::Error;
 use std::sync::Mutex;
 
 use super::communication::{Error as CommunicationError, ReadWrite};
+
+const VENDOR_ID: u16 = 0x03eb;
+const PRODUCT_ID: u16 = 0x2403;
 
 /// The hid product string of the BitBox02 multi edition firmware.
 const FIRMWARE_PRODUCT_STRING_BITBOX02_MULTI: &str = "BitBox02";

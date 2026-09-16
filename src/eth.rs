@@ -91,11 +91,6 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 pub struct Transaction {
     /// Nonce must be big-endian encoded, no trailing zeroes.
     pub nonce: Vec<u8>,
@@ -109,11 +104,6 @@ pub struct Transaction {
     pub data: Vec<u8>,
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
 pub struct EIP1559Transaction {
     pub chain_id: u64,
     /// Nonce must be big-endian encoded, no trailing zeroes.
