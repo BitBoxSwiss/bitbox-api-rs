@@ -548,10 +548,8 @@ async fn download_simulators() -> Result<Vec<String>, ()> {
     Ok(filenames)
 }
 
-/// Tests on an initialized device, which is not yet seeded.
-pub async fn test_simulators_after_pairing_with_stdout(
-    run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>, &SimulatorStdout),
-) {
+/// Tests on a fresh simulator, allowing the test to connect and disconnect clients.
+pub async fn test_simulators(run: impl AsyncFn(&SimulatorStdout)) {
     let simulator_filenames = if let Some(simulator_filename) = option_env!("SIMULATOR") {
         vec![simulator_filename.into()]
     } else {
@@ -562,6 +560,15 @@ pub async fn test_simulators_after_pairing_with_stdout(
         println!("\tSimulator tests using {simulator_filename}");
         let server = Server::launch(&simulator_filename);
         let stdout = server.stdout();
+        run(&stdout).await;
+    }
+}
+
+/// Tests on an initialized device, which is not yet seeded.
+pub async fn test_simulators_after_pairing_with_stdout(
+    run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>, &SimulatorStdout),
+) {
+    test_simulators(async |stdout| {
         let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
         let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from_simulator(
             None,
@@ -571,8 +578,9 @@ pub async fn test_simulators_after_pairing_with_stdout(
         .unwrap();
         let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
         let paired_bitbox = pairing_bitbox.wait_confirm().await.unwrap();
-        run(&paired_bitbox, &stdout).await;
-    }
+        run(&paired_bitbox, stdout).await;
+    })
+    .await
 }
 
 /// Tests on an initialized device, which is not yet seeded.
