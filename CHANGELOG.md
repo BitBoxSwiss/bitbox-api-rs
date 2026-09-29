@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+- Reset unfinished sessions when connecting to firmware v9.28.0 or newer, allowing host
+  reconnects while the device remains powered on.
 - Remove the `wasm` feature, the public `wasm` module, and the TypeScript/WASM package. The
   TypeScript library is now maintained in
   [BitBoxSwiss/bitbox-api-ts](https://github.com/BitBoxSwiss/bitbox-api-ts/).

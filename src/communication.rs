@@ -88,6 +88,8 @@ const HWW_REQ_NEW: u8 = 0x00;
 const HWW_REQ_RETRY: u8 = 0x01;
 // Cancel any outstanding request.
 // const HWW_REQ_CANCEL: u8 = 0x02;
+// Reset the previous session before starting a new one (since v9.28.0).
+const HWW_REQ_RESET: u8 = 0x03;
 // INFO api call (used to be OP_INFO api call), graduated to the toplevel framing so it works
 // the same way for all firmware versions.
 const HWW_INFO: u8 = b'i';
@@ -176,6 +178,23 @@ async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
     })
 }
 
+async fn reset_session<R: Runtime>(
+    communication: &dyn ReadWrite,
+    version: &semver::Version,
+) -> Result<(), Error> {
+    if *version < semver::Version::new(9, 28, 0) {
+        return Ok(());
+    }
+    // Send at the framing layer so an unfinished workflow cannot consume the request.
+    loop {
+        match communication.query(&[HWW_REQ_RESET]).await?.as_slice() {
+            [HWW_RSP_ACK] => return Ok(()),
+            [HWW_RSP_BUSY] => R::sleep(std::time::Duration::from_secs(1)).await,
+            _ => return Err(Error::Info),
+        }
+    }
+}
+
 impl<R: Runtime> HwwCommunication<R> {
     pub async fn from(communication: Box<dyn ReadWrite>) -> Result<Self, Error> {
         let info = get_info(communication.as_ref()).await?;
@@ -186,6 +205,8 @@ impl<R: Runtime> HwwCommunication<R> {
         {
             return Err(Error::Version(">=7.0.0"));
         }
+
+        reset_session::<R>(communication.as_ref(), &info.version).await?;
 
         Ok(HwwCommunication {
             communication,
