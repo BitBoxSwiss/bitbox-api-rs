@@ -77,3 +77,19 @@ make build-protos
 ```
 
 This will generate/update [src/shiftcrypto.bitbox02.rs](src/shiftcrypto.bitbox02.rs).
+
+## Updating the Bitcoin transaction test vectors
+
+The vectors in [tests/data/btc-transaction-test-vectors.json](tests/data/btc-transaction-test-vectors.json)
+are generated in the BitBox02 firmware repository. Do not modify this JSON file directly.
+
+The source of truth is the Rust constructors in
+[`src/rust/bitbox-test-vectors/src/btc_transaction/cases/`](https://github.com/BitBoxSwiss/bitbox02-firmware/tree/master/src/rust/bitbox-test-vectors/src/btc_transaction/cases).
+Make changes there and regenerate the canonical JSON following the
+[test vector generation instructions](https://github.com/BitBoxSwiss/bitbox02-firmware/blob/master/src/rust/bitbox-test-vectors/README.md).
+Then copy the generated file byte-for-byte into this repository:
+
+```sh
+cp /path/to/bitbox02-firmware/src/rust/bitbox-test-vectors/testdata/btc-transaction-test-vectors.json \
+    tests/data/btc-transaction-test-vectors.json
+```
