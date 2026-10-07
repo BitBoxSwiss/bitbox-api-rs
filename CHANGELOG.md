@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- Preserve the sign of positive EIP-712 signed integers supplied as JSON numbers.
 - Reset unfinished sessions when connecting to firmware v9.28.0 or newer, allowing host
   reconnects while the device remains powered on.
 - Remove the `wasm` feature, the public `wasm` module, and the TypeScript/WASM package. The
