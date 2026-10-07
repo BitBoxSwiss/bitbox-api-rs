@@ -2,6 +2,8 @@
 
 This repo contains the Rust BitBox02 client library.
 
+Read [README.md](README.md) before making changes to this repository.
+
 ## Versioning
 - The client version is in Cargo.toml. The changelog is in CHANGELOG.md. The readme is in README.md.
 
