@@ -18,6 +18,7 @@ mod communication;
 mod keypath;
 mod secp256k1;
 mod u2fframing;
+mod unlock;
 mod util;
 
 /// BitBox protobuf messages.
@@ -37,10 +38,12 @@ use prost::Message;
 
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard as ApiMutexGuard};
 use std::sync::Mutex;
+use zeroize::{Zeroize, Zeroizing};
 
 pub use keypath::Keypath;
 pub use noise::PersistedNoiseConfig;
 pub use noise::{ConfigError, NoiseConfig, NoiseConfigData, NoiseConfigNoCache};
+pub use unlock::{HostPassphraseRequest, PassphraseConfig};
 pub use util::Threading;
 
 use communication::HwwCommunication;
@@ -56,6 +59,8 @@ const _OP_ATTESTATION: u8 = b'a';
 const OP_UNLOCK: u8 = b'u';
 
 const RESPONSE_SUCCESS: u8 = 0x00;
+const RESPONSE_FAILURE: u8 = 0x01;
+const RESPONSE_FAILURE_UNINITIALIZED: u8 = 0x02;
 
 type Cipher = noise_rust_crypto::ChaCha20Poly1305;
 type HandshakeState =
@@ -119,12 +124,22 @@ impl<R: Runtime> BitBox<R> {
         .await
     }
 
-    /// Invokes the device unlock and pairing.
-    pub async fn unlock_and_pair(self) -> Result<PairingBitBox<R>, Error> {
-        self.communication
-            .query(&[OP_UNLOCK])
-            .await
-            .or(Err(Error::Unknown))?;
+    /// Starts pairing, unlocking first only on firmware older than v9.28.0.
+    ///
+    /// On firmware v9.28.0 and later, call [`LockedBitBox::unlock`] after confirming pairing.
+    pub async fn unlock_and_pair(mut self) -> Result<PairingBitBox<R>, Error> {
+        if !unlock::supports_paired_unlock(&self.communication.info.version) {
+            // The legacy response also reports initialization on firmware older than
+            // v9.20.0, whose transport info does not include an initialized flag.
+            self.communication.info.initialized = Some(
+                match self.communication.query(&[OP_UNLOCK]).await?.as_slice() {
+                    [RESPONSE_SUCCESS] => true,
+                    [RESPONSE_FAILURE_UNINITIALIZED] => false,
+                    [RESPONSE_FAILURE] => return Err(BitBoxError::Generic.into()),
+                    _ => return Err(Error::UnexpectedResponse),
+                },
+            );
+        }
         self.pair().await
     }
 
@@ -249,7 +264,15 @@ impl<R: Runtime> PairingBitBox<R> {
         self.pairing_code.clone()
     }
 
-    /// Proceed to the paired state.
+    /// Waits for pairing confirmation and returns the paired device's state.
+    ///
+    /// This does not start unlocking. Initialized devices on firmware v9.28.0 and later
+    /// return [`PairedBitBox::Locked`], even if already unlocked on the device. Older
+    /// firmware was unlocked by [`BitBox::unlock_and_pair`] and returns
+    /// [`PairedBitBox::Unlocked`]. Uninitialized devices always return
+    /// [`PairedBitBox::Uninitialized`].
+    ///
+    /// Once this returns, the application can dismiss its pairing UI before proceeding.
     pub async fn wait_confirm(self) -> Result<PairedBitBox<R>, Error> {
         if self.pairing_code.is_some() {
             let response = self
@@ -265,23 +288,152 @@ impl<R: Runtime> PairingBitBox<R> {
             config_data.add_device_static_pubkey(&remote_static_pubkey);
             self.noise_config.store_config(&config_data)?;
         }
-        Ok(PairedBitBox::from(self.communication, self.host))
+        let initialized = self
+            .communication
+            .info
+            .initialized
+            .ok_or(Error::UnexpectedResponse)?;
+        let needs_unlock = unlock::supports_paired_unlock(&self.communication.info.version);
+        let session = Session::from(self.communication, self.host);
+        Ok(if !initialized {
+            PairedBitBox::Uninitialized(UninitializedBitBox { session })
+        } else if needs_unlock {
+            PairedBitBox::Locked(LockedBitBox { session })
+        } else {
+            PairedBitBox::Unlocked(UnlockedBitBox { session })
+        })
     }
 }
 
-/// Paired BitBox. This is where you can invoke most API functions like getting xpubs, displaying
-/// receive addresses, etc.
-pub struct PairedBitBox<R: Runtime> {
+/// A confirmed pairing, with the operations available in the device's current state.
+///
+/// Match this value to unlock, use the wallet, or set up an uninitialized device.
+pub enum PairedBitBox<R: Runtime> {
+    Locked(LockedBitBox<R>),
+    Unlocked(UnlockedBitBox<R>),
+    Uninitialized(UninitializedBitBox<R>),
+}
+
+impl<R: Runtime> PairedBitBox<R> {
+    /// Returns which product we are connected to.
+    pub fn product(&self) -> Product {
+        match self {
+            Self::Locked(device) => device.product(),
+            Self::Unlocked(device) => device.product(),
+            Self::Uninitialized(device) => device.product(),
+        }
+    }
+
+    /// Returns the firmware version.
+    pub fn version(&self) -> &semver::Version {
+        match self {
+            Self::Locked(device) => device.version(),
+            Self::Unlocked(device) => device.version(),
+            Self::Uninitialized(device) => device.version(),
+        }
+    }
+}
+
+/// A paired device whose unlock step has not yet completed through this client.
+///
+/// Call [`Self::unlock`] to obtain an [`UnlockedBitBox`]. If the device is already
+/// unlocked, that call completes without prompting for a password or passphrase.
+/// Wallet methods are unavailable before this transition.
+///
+/// ```compile_fail
+/// async fn fingerprint(device: bitbox_api::LockedBitBox<bitbox_api::runtime::DefaultRuntime>) {
+///     device.root_fingerprint().await;
+/// }
+/// ```
+pub struct LockedBitBox<R: Runtime> {
+    session: Session<R>,
+}
+
+impl<R: Runtime> LockedBitBox<R> {
+    /// Returns which product we are connected to.
+    pub fn product(&self) -> Product {
+        self.session.communication.info.product
+    }
+
+    /// Returns the firmware version.
+    pub fn version(&self) -> &semver::Version {
+        &self.session.communication.info.version
+    }
+}
+
+/// A paired, initialized and unlocked device, ready for wallet operations.
+pub struct UnlockedBitBox<R: Runtime> {
+    session: Session<R>,
+}
+
+/// A paired device that needs setup before wallet operations are available.
+///
+/// This includes devices whose setup has started but is not yet complete.
+/// [`Self::restore_from_mnemonic`] consumes this value and returns an [`UnlockedBitBox`].
+///
+/// ```compile_fail
+/// async fn fingerprint(device: bitbox_api::UninitializedBitBox<bitbox_api::runtime::DefaultRuntime>) {
+///     device.root_fingerprint().await;
+/// }
+/// ```
+pub struct UninitializedBitBox<R: Runtime> {
+    session: Session<R>,
+}
+
+impl<R: Runtime> UninitializedBitBox<R> {
+    pub async fn device_info(&self) -> Result<pb::DeviceInfoResponse, Error> {
+        self.session.device_info().await
+    }
+
+    /// Returns which product we are connected to.
+    pub fn product(&self) -> Product {
+        self.session.communication.info.product
+    }
+
+    /// Returns the firmware version.
+    pub fn version(&self) -> &semver::Version {
+        &self.session.communication.info.version
+    }
+
+    /// Restores recovery words on the BitBox and returns the initialized, unlocked device.
+    pub async fn restore_from_mnemonic(self) -> Result<UnlockedBitBox<R>, Error> {
+        {
+            let _api_call = self.session.begin_api_call().await;
+            let now = std::time::SystemTime::now();
+            let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
+            match self
+                .session
+                .query_proto(Request::RestoreFromMnemonic(
+                    pb::RestoreFromMnemonicRequest {
+                        timestamp: duration_since_epoch.as_secs() as u32,
+                        timezone_offset: chrono::Local::now().offset().local_minus_utc(),
+                    },
+                ))
+                .await?
+            {
+                Response::Success(_) => (),
+                _ => return Err(Error::UnexpectedResponse),
+            }
+        }
+        Ok(UnlockedBitBox {
+            session: self.session,
+        })
+    }
+}
+
+// The encrypted channel is shared by the public state types. Keeping it private prevents
+// callers from bypassing the transitions that enable setup or wallet operations.
+struct Session<R: Runtime> {
     communication: communication::HwwCommunication<R>,
     api_mutex: AsyncMutex<()>,
     noise_send: Mutex<CipherState>,
     noise_recv: Mutex<CipherState>,
 }
 
-impl<R: Runtime> PairedBitBox<R> {
+impl<R: Runtime> Session<R> {
     fn from(communication: communication::HwwCommunication<R>, host: HandshakeState) -> Self {
         let (send, recv) = host.get_ciphers();
-        PairedBitBox {
+        Session {
             communication,
             api_mutex: AsyncMutex::new(()),
             noise_send: Mutex::new(send),
@@ -295,7 +447,7 @@ impl<R: Runtime> PairedBitBox<R> {
     /// multiplexed transport. Some public calls span multiple encrypted
     /// requests, so this mutex guard is held for the whole public method
     /// instead of only one query_proto() round trip.
-    pub(crate) async fn begin_api_call(&self) -> ApiMutexGuard<'_, ()> {
+    async fn begin_api_call(&self) -> ApiMutexGuard<'_, ()> {
         self.api_mutex.lock().await
     }
 
@@ -314,10 +466,14 @@ impl<R: Runtime> PairedBitBox<R> {
         let mut encrypted = vec![OP_NOISE_MSG];
         encrypted.extend_from_slice({
             let mut send = self.noise_send.lock().unwrap();
-            let proto_msg = pb::Request {
+            let mut proto_msg = pb::Request {
                 request: Some(request),
             };
-            &send.encrypt_vec(&proto_msg.encode_to_vec())
+            let plaintext = Zeroizing::new(proto_msg.encode_to_vec());
+            if let Some(Request::UnlockHostInfo(info)) = &mut proto_msg.request {
+                info.passphrase.zeroize();
+            }
+            &send.encrypt_vec(&plaintext)
         });
 
         let response = self.communication.query(&encrypted).await?;
@@ -350,7 +506,7 @@ impl<R: Runtime> PairedBitBox<R> {
         }
     }
 
-    pub async fn device_info(&self) -> Result<pb::DeviceInfoResponse, Error> {
+    async fn device_info(&self) -> Result<pb::DeviceInfoResponse, Error> {
         let _api_call = self.begin_api_call().await;
         match self
             .query_proto(Request::DeviceInfo(pb::DeviceInfoRequest {}))
@@ -360,10 +516,16 @@ impl<R: Runtime> PairedBitBox<R> {
             _ => Err(Error::UnexpectedResponse),
         }
     }
+}
+
+impl<R: Runtime> UnlockedBitBox<R> {
+    pub async fn device_info(&self) -> Result<pb::DeviceInfoResponse, Error> {
+        self.session.device_info().await
+    }
 
     /// Returns which product we are connected to.
     pub fn product(&self) -> Product {
-        self.communication.info.product
+        self.session.communication.info.product
     }
 
     fn is_multi_edition(&self) -> bool {
@@ -375,17 +537,18 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Returns the firmware version.
     pub fn version(&self) -> &semver::Version {
-        &self.communication.info.version
+        &self.session.communication.info.version
     }
 
     /// Returns the hex-encoded 4-byte root fingerprint.
     pub async fn root_fingerprint(&self) -> Result<String, Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         self.root_fingerprint_inner().await.map(hex::encode)
     }
 
     pub(crate) async fn root_fingerprint_inner(&self) -> Result<Vec<u8>, Error> {
         match self
+            .session
             .query_proto(Request::Fingerprint(pb::RootFingerprintRequest {}))
             .await?
         {
@@ -396,28 +559,10 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Show recovery words on the Bitbox.
     pub async fn show_mnemonic(&self) -> Result<(), Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         match self
+            .session
             .query_proto(Request::ShowMnemonic(pb::ShowMnemonicRequest {}))
-            .await?
-        {
-            Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
-    }
-
-    /// Restore from recovery words on the Bitbox.
-    pub async fn restore_from_mnemonic(&self) -> Result<(), Error> {
-        let _api_call = self.begin_api_call().await;
-        let now = std::time::SystemTime::now();
-        let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
-        match self
-            .query_proto(Request::RestoreFromMnemonic(
-                pb::RestoreFromMnemonicRequest {
-                    timestamp: duration_since_epoch.as_secs() as u32,
-                    timezone_offset: chrono::Local::now().offset().local_minus_utc(),
-                },
-            ))
             .await?
         {
             Response::Success(_) => Ok(()),
@@ -428,9 +573,10 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Invokes the password change workflow on the device.
     /// Requires firmware version >=9.25.0.
     pub async fn change_password(&self) -> Result<(), Error> {
-        let _api_call = self.begin_api_call().await;
-        self.validate_version(">=9.25.0")?;
+        let _api_call = self.session.begin_api_call().await;
+        self.session.validate_version(">=9.25.0")?;
         match self
+            .session
             .query_proto(Request::ChangePassword(pb::ChangePasswordRequest {}))
             .await?
         {
@@ -442,9 +588,10 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Invokes the BIP85-BIP39 workflow on the device, letting the user select the number of words
     /// (12, 28, 24) and an index and display a derived BIP-39 mnemonic.
     pub async fn bip85_app_bip39(&self) -> Result<(), Error> {
-        let _api_call = self.begin_api_call().await;
-        self.validate_version(">=9.17.0")?;
+        let _api_call = self.session.begin_api_call().await;
+        self.session.validate_version(">=9.17.0")?;
         match self
+            .session
             .query_proto(Request::Bip85(pb::Bip85Request {
                 app: Some(pb::bip85_request::App::Bip39(())),
             }))
@@ -521,6 +668,7 @@ mod tests {
                     securechip_model: "ATECC608B".into(),
                     bluetooth: None,
                     password_stretching_algo: "pwhash".into(),
+                    bootloader_version: None,
                 })),
             }
             .encode_to_vec();
@@ -535,21 +683,23 @@ mod tests {
         }
     }
 
-    fn paired_for_test(state: Rc<RefCell<BlockingState>>) -> PairedBitBox<DefaultRuntime> {
+    fn paired_for_test(state: Rc<RefCell<BlockingState>>) -> UnlockedBitBox<DefaultRuntime> {
         let key = [7u8; 32];
-        PairedBitBox {
-            communication: communication::HwwCommunication::from_test_parts(
-                Box::new(BlockingReadWrite { state }),
-                communication::Info {
-                    version: semver::Version::parse("9.26.0").unwrap(),
-                    product: Product::BitBox02Multi,
-                    unlocked: true,
-                    initialized: Some(true),
-                },
-            ),
-            api_mutex: AsyncMutex::new(()),
-            noise_send: Mutex::new(CipherState::new(&key, 0)),
-            noise_recv: Mutex::new(CipherState::new(&key, 0)),
+        UnlockedBitBox {
+            session: Session {
+                communication: communication::HwwCommunication::from_test_parts(
+                    Box::new(BlockingReadWrite { state }),
+                    communication::Info {
+                        version: semver::Version::parse("9.26.0").unwrap(),
+                        product: Product::BitBox02Multi,
+                        unlocked: true,
+                        initialized: Some(true),
+                    },
+                ),
+                api_mutex: AsyncMutex::new(()),
+                noise_send: Mutex::new(CipherState::new(&key, 0)),
+                noise_recv: Mutex::new(CipherState::new(&key, 0)),
+            },
         }
     }
 

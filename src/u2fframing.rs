@@ -14,7 +14,7 @@ const HEADER_CONT_LEN: usize = 5;
 // number 0, which then increments by one to a maximum of 127.
 // With a packet size of 64 bytes (max for full-speed devices), this means that the maximum message
 // payload length is 64 - 7 + 128 * (64 - 5) = 7609 bytes.
-//pub const MAX_PAYLOAD_LEN: usize = 64 - HEADER_INIT_LEN + 128 * (64 - HEADER_CONT_LEN);
+const MAX_PAYLOAD_LEN: usize = 64 - HEADER_INIT_LEN + 128 * (64 - HEADER_CONT_LEN);
 // This is the buffer size needed to fit the largest possible u2f package with headers
 pub const MAX_LEN: usize = 129 * 64;
 
@@ -92,6 +92,12 @@ impl U2fHid {
 
     /// Encode function.
     pub fn encode(&self, mut message: &[u8], mut buf: &mut [u8]) -> io::Result<usize> {
+        if message.len() > MAX_PAYLOAD_LEN {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Message too long",
+            ));
+        }
         let enc_len = Self::get_encoded_len(message.len() as u16);
         if buf.len() < enc_len {
             return Err(std::io::Error::new(
@@ -121,7 +127,7 @@ impl U2fHid {
             message = &message[len..];
 
             seq += 1;
-            if seq > 127 {
+            if seq > 127 && !message.is_empty() {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "More frames than allowed",
@@ -174,6 +180,21 @@ impl U2fHid {
 mod tests {
     use super::*;
     #[test]
+    fn test_u2fhid_payload_length_limit() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        let payload = vec![0x42; MAX_PAYLOAD_LEN];
+        let mut buf = [0; MAX_LEN];
+        assert_eq!(codec.encode(&payload, &mut buf).unwrap(), MAX_LEN);
+        assert_eq!(codec.decode(&buf).unwrap().unwrap(), payload);
+        for len in [MAX_PAYLOAD_LEN + 1, 65536] {
+            assert_eq!(
+                codec.encode(&vec![0; len], &mut buf).unwrap_err().kind(),
+                io::ErrorKind::InvalidInput,
+            );
+        }
+    }
+
+    #[test]
     fn test_u2fhid_encode_single() {
         let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
         let mut data = [0u8; 8000];
@@ -197,6 +218,19 @@ mod tests {
         expect[64..69].copy_from_slice(b"\xEE\xEE\xEE\xEE\x00");
         expect[69..77].copy_from_slice(&payload[57..]);
         assert_eq!(&data[..len], &expect[..]);
+    }
+
+    #[test]
+    fn test_u2fhid_encode_last_continuation_frame() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        // These payloads require a partial and a full frame with sequence 127.
+        for len in [7551, 7609] {
+            let payload = vec![0x42; len];
+            let mut buf = [0; MAX_LEN];
+            assert_eq!(codec.encode(&payload, &mut buf).unwrap(), MAX_LEN);
+            assert_eq!(buf[128 * 64 + 4], 127);
+            assert_eq!(codec.decode(&buf).unwrap().unwrap(), payload);
+        }
     }
 
     #[test]

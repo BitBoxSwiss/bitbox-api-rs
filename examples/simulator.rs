@@ -6,7 +6,17 @@ async fn demo<R: bitbox_api::runtime::Runtime + Sync + Send>() {
         .await
         .unwrap();
     let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
-    let paired_bitbox = pairing_bitbox.wait_confirm().await.unwrap();
+    let paired_bitbox = match pairing_bitbox.wait_confirm().await.unwrap() {
+        bitbox_api::PairedBitBox::Locked(device) => device
+            .unlock(bitbox_api::PassphraseConfig::default())
+            .await
+            .unwrap(),
+        bitbox_api::PairedBitBox::Unlocked(device) => device,
+        bitbox_api::PairedBitBox::Uninitialized(device) => {
+            println!("device info: {:?}", device.device_info().await.unwrap());
+            return;
+        }
+    };
     println!(
         "device info: {:?}",
         paired_bitbox.device_info().await.unwrap()

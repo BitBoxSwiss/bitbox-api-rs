@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use bitbox_api::pb;
 
-async fn get_bitbox02() -> bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime> {
+async fn get_bitbox02() -> bitbox_api::UnlockedBitBox<bitbox_api::runtime::TokioRuntime> {
     let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
     let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from_hid_device(
         bitbox_api::usb::get_any_bitbox02().unwrap(),
@@ -16,7 +16,14 @@ async fn get_bitbox02() -> bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRu
     if let Some(pairing_code) = pairing_bitbox.get_pairing_code().as_ref() {
         println!("Pairing code\n{pairing_code}");
     }
-    pairing_bitbox.wait_confirm().await.unwrap()
+    match pairing_bitbox.wait_confirm().await.unwrap() {
+        bitbox_api::PairedBitBox::Locked(device) => device
+            .unlock(bitbox_api::PassphraseConfig::default())
+            .await
+            .unwrap(),
+        bitbox_api::PairedBitBox::Unlocked(device) => device,
+        bitbox_api::PairedBitBox::Uninitialized(_) => panic!("Initialize the BitBox first"),
+    }
 }
 
 #[tokio::main(flavor = "current_thread")]
