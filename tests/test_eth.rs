@@ -291,6 +291,56 @@ async fn test_eth_sign_typed_message_antiklepto_enabled() {
 }
 
 #[tokio::test]
+async fn test_eth_sign_typed_message_signed_integers() {
+    test_initialized_simulators(async |paired_bitbox| {
+        let msg = r#"{
+            "types": {
+                "EIP712Domain": [{"name": "name", "type": "string"}],
+                "SignedIntegers": [
+                    {"name": "positive", "type": "int16"},
+                    {"name": "negative", "type": "int8"},
+                    {"name": "zero", "type": "int8"}
+                ]
+            },
+            "primaryType": "SignedIntegers",
+            "domain": {"name": "Signed integers"},
+            "message": {"positive": 128, "negative": -128, "zero": 0}
+        }"#;
+        let signature = paired_bitbox
+            .eth_sign_typed_message(1, &"m/44'/60'/0'/0/0".try_into().unwrap(), msg, true)
+            .await
+            .unwrap();
+        assert_eq!(signature.len(), 65);
+
+        // Compute the EIP-712 digest independently of the wire encoder. The device
+        // must sign +128, -128 and zero, not reinterpret or reject their sign bytes.
+        let domain_hash = keccak256(
+            &[
+                keccak256(b"EIP712Domain(string name)"),
+                keccak256(b"Signed integers"),
+            ]
+            .concat(),
+        );
+        let mut positive = [0u8; 32];
+        positive[31] = 0x80;
+        let mut negative = [0xff; 32];
+        negative[31] = 0x80;
+        let message_hash = keccak256(
+            &[
+                keccak256(b"SignedIntegers(int16 positive,int8 negative,int8 zero)"),
+                positive,
+                negative,
+                [0u8; 32],
+            ]
+            .concat(),
+        );
+        let digest = keccak256(&[b"\x19\x01".as_slice(), &domain_hash, &message_hash].concat());
+        verify_eth_signature(&digest, &signature);
+    })
+    .await
+}
+
+#[tokio::test]
 async fn test_eth_sign_typed_message_antiklepto_disabled() {
     test_initialized_simulators(async |paired_bitbox| {
         if semver::VersionReq::parse(">=9.26.0")

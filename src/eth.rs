@@ -333,12 +333,7 @@ fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
                     if (v64 as f64) != v {
                         Err("Number is not an int".to_string())
                     } else {
-                        let mut bytes = BigInt::from(v64).to_signed_bytes_be();
-                        // Drop leading zero. There can be at most one.
-                        if let [0, ..] = bytes.as_slice() {
-                            bytes.remove(0);
-                        }
-                        Ok(bytes)
+                        Ok(BigInt::from(v64).to_signed_bytes_be())
                     }
                 } else {
                     Err("Number is not an int".to_string())
@@ -1164,7 +1159,7 @@ mod tests {
             &2983742332.0.into(),
         )
         .unwrap();
-        assert_eq!(vec![0xb1, 0xd8, 0x4b, 0x7c], encoded);
+        assert_eq!(vec![0x00, 0xb1, 0xd8, 0x4b, 0x7c], encoded);
 
         let encoded = encode_value(
             &parse_type_no_err("int64", &HashMap::new()),
@@ -1216,6 +1211,40 @@ mod tests {
         )
         .unwrap();
         assert_eq!(b"\x00\x00\x03\xe8".to_vec(), encoded);
+    }
+
+    #[test]
+    fn test_encode_value_signed_integers() {
+        let typ = parse_type_no_err("int64", &HashMap::new());
+        for (value, expected) in [
+            (0i64, "00"),
+            (1, "01"),
+            (-1, "ff"),
+            (127, "7f"),
+            (128, "0080"),
+            (129, "0081"),
+            (-127, "81"),
+            (-128, "80"),
+            (-129, "ff7f"),
+            (255, "00ff"),
+            (256, "0100"),
+            (-255, "ff01"),
+            (-256, "ff00"),
+            (32767, "7fff"),
+            (32768, "008000"),
+            (-32768, "8000"),
+            (-32769, "ff7fff"),
+            (65535, "00ffff"),
+            (65536, "010000"),
+        ] {
+            for input in [Value::from(value), Value::from(value.to_string())] {
+                assert_eq!(
+                    hex::encode(encode_value(&typ, &input).unwrap()),
+                    expected,
+                    "{input:?}",
+                );
+            }
+        }
     }
 
     #[test]
