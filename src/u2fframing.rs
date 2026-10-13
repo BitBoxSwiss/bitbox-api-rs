@@ -121,7 +121,7 @@ impl U2fHid {
             message = &message[len..];
 
             seq += 1;
-            if seq > 127 {
+            if seq > 127 && !message.is_empty() {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "More frames than allowed",
@@ -197,6 +197,19 @@ mod tests {
         expect[64..69].copy_from_slice(b"\xEE\xEE\xEE\xEE\x00");
         expect[69..77].copy_from_slice(&payload[57..]);
         assert_eq!(&data[..len], &expect[..]);
+    }
+
+    #[test]
+    fn test_u2fhid_encode_last_continuation_frame() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        // These payloads require a partial and a full frame with sequence 127.
+        for len in [7551, 7609] {
+            let payload = vec![0x42; len];
+            let mut buf = [0; MAX_LEN];
+            assert_eq!(codec.encode(&payload, &mut buf).unwrap(), MAX_LEN);
+            assert_eq!(buf[128 * 64 + 4], 127);
+            assert_eq!(codec.decode(&buf).unwrap().unwrap(), payload);
+        }
     }
 
     #[test]
