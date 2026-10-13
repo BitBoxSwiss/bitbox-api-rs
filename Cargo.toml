@@ -92,7 +92,7 @@ name = "simulator"
 required-features = ["simulator", "tokio/rt", "tokio/macros", "tokio/rt-multi-thread", "multithreaded"]
 
 [features]
-# Implement Sync+Send for PairedBitBox and PairingBitBox.
+# Implement Sync+Send for the BitBox state types.
 # This may or may not cause trouble on macOS, see: https://github.com/libusb/hidapi/issues/503
 multithreaded = []
 usb = ["dep:hidapi"]

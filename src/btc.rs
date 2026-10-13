@@ -7,7 +7,7 @@ use crate::runtime::Runtime;
 use crate::error::Error;
 use crate::pb::{self, request::Request, response::Response};
 use crate::Keypath;
-use crate::PairedBitBox;
+use crate::UnlockedBitBox;
 
 pub use bitcoin::{
     bip32::{Fingerprint, Xpub},
@@ -678,7 +678,7 @@ fn find_or_add_script_config(
     }
 }
 
-impl<R: Runtime> PairedBitBox<R> {
+impl<R: Runtime> UnlockedBitBox<R> {
     /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
     /// `display` is false.
     pub async fn btc_xpub(
@@ -688,7 +688,7 @@ impl<R: Runtime> PairedBitBox<R> {
         xpub_type: pb::btc_pub_request::XPubType,
         display: bool,
     ) -> Result<String, Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         self.btc_xpub_inner(coin, keypath, xpub_type, display).await
     }
 
@@ -700,6 +700,7 @@ impl<R: Runtime> PairedBitBox<R> {
         display: bool,
     ) -> Result<String, Error> {
         match self
+            .session
             .query_proto(Request::BtcPub(pb::BtcPubRequest {
                 coin: coin as _,
                 keypath: keypath.to_vec(),
@@ -721,8 +722,8 @@ impl<R: Runtime> PairedBitBox<R> {
         keypaths: &[Keypath],
         xpub_type: pb::btc_xpubs_request::XPubType,
     ) -> Result<Vec<String>, Error> {
-        let _api_call = self.begin_api_call().await;
-        if self.validate_version(">=9.24.0").is_err() {
+        let _api_call = self.session.begin_api_call().await;
+        if self.session.validate_version(">=9.24.0").is_err() {
             // Fallback to fetching them one-by-one on older firmware.
             let mut xpubs = Vec::<String>::with_capacity(keypaths.len());
             for keypath in keypaths {
@@ -762,8 +763,9 @@ impl<R: Runtime> PairedBitBox<R> {
         script_config: &pb::BtcScriptConfig,
         display: bool,
     ) -> Result<String, Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         match self
+            .session
             .query_proto(Request::BtcPub(pb::BtcPubRequest {
                 coin: coin as _,
                 keypath: keypath.to_vec(),
@@ -784,6 +786,7 @@ impl<R: Runtime> PairedBitBox<R> {
         request: pb::btc_request::Request,
     ) -> Result<pb::btc_response::Response, Error> {
         match self
+            .session
             .query_proto(Request::Btc(pb::BtcRequest {
                 request: Some(request),
             }))
@@ -797,7 +800,7 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     async fn get_next_response(&self, request: Request) -> Result<pb::BtcSignNextResponse, Error> {
-        match self.query_proto(request).await? {
+        match self.session.query_proto(request).await? {
             Response::BtcSignNext(next_response) => Ok(next_response),
             _ => Err(Error::UnexpectedResponse),
         }
@@ -821,7 +824,7 @@ impl<R: Runtime> PairedBitBox<R> {
         transaction: &Transaction,
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<Vec<Vec<u8>>, Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         self.btc_sign_inner(coin, transaction, &[], &[], format_unit)
             .await
     }
@@ -841,14 +844,14 @@ impl<R: Runtime> PairedBitBox<R> {
                 "output script config indices must match transaction outputs".into(),
             ));
         }
-        self.validate_version(">=9.4.0")?; // anti-klepto since 9.4.0
+        self.session.validate_version(">=9.4.0")?; // anti-klepto since 9.4.0
         if transaction
             .script_configs
             .iter()
             .chain(output_script_configs)
             .any(is_taproot_simple)
         {
-            self.validate_version(">=9.10.0")?; // taproot since 9.10.0
+            self.session.validate_version(">=9.10.0")?; // taproot since 9.10.0
         }
         if transaction.outputs.iter().any(|output| {
             matches!(
@@ -857,7 +860,7 @@ impl<R: Runtime> PairedBitBox<R> {
                     if tx_output.payload.output_type == pb::BtcOutputType::OpReturn
             )
         }) {
-            self.validate_version(">=9.24.0")?;
+            self.session.validate_version(">=9.24.0")?;
         }
 
         let mut sigs: Vec<Vec<u8>> = Vec::new();
@@ -1050,11 +1053,11 @@ impl<R: Runtime> PairedBitBox<R> {
         force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<(), Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         // since v9.15.0, the BitBox02 accepts "internal" outputs (ones sent to the BitBox02 with
         // the keypath) even if the keypath is not a change keypath. PSBTs often contain the key
         // origin info in outputs even in regular send-to-self outputs.
-        self.validate_version(">=9.15.0")?;
+        self.session.validate_version(">=9.15.0")?;
 
         let our_root_fingerprint = self.root_fingerprint_inner().await?;
         let psbt_transaction = Transaction::from_psbt(
@@ -1113,8 +1116,8 @@ impl<R: Runtime> PairedBitBox<R> {
         script_config: pb::BtcScriptConfigWithKeypath,
         msg: &[u8],
     ) -> Result<SignMessageSignature, Error> {
-        let _api_call = self.begin_api_call().await;
-        self.validate_version(">=9.5.0")?;
+        let _api_call = self.session.begin_api_call().await;
+        self.session.validate_version(">=9.5.0")?;
 
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::BtcSignMessageRequest {
@@ -1176,7 +1179,7 @@ impl<R: Runtime> PairedBitBox<R> {
         script_config: &pb::BtcScriptConfig,
         keypath_account: Option<&Keypath>,
     ) -> Result<bool, Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         match self
             .query_proto_btc(pb::btc_request::Request::IsScriptConfigRegistered(
                 pb::BtcIsScriptConfigRegisteredRequest {
@@ -1214,7 +1217,7 @@ impl<R: Runtime> PairedBitBox<R> {
         xpub_type: pb::btc_register_script_config_request::XPubType,
         name: Option<&str>,
     ) -> Result<(), Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         match self
             .query_proto_btc(pb::btc_request::Request::RegisterScriptConfig(
                 pb::BtcRegisterScriptConfigRequest {

@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- Return typed device states after pairing, with explicit unlock and setup transitions.
 - Preserve the sign of positive EIP-712 signed integers supplied as JSON numbers.
 - Reset unfinished sessions when connecting to firmware v9.28.0 or newer, allowing host
   reconnects while the device remains powered on.

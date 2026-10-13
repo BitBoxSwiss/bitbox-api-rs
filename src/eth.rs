@@ -11,7 +11,7 @@ use crate::pb::{
     response::Response,
 };
 use crate::Keypath;
-use crate::PairedBitBox;
+use crate::UnlockedBitBox;
 
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -24,12 +24,13 @@ use serde_json::Value;
 /// Transactions with data larger than this use streaming mode.
 const STREAMING_THRESHOLD: usize = 6144;
 
-impl<R: Runtime> PairedBitBox<R> {
+impl<R: Runtime> UnlockedBitBox<R> {
     async fn query_proto_eth(
         &self,
         request: pb::eth_request::Request,
     ) -> Result<pb::eth_response::Response, Error> {
         match self
+            .session
             .query_proto(Request::Eth(pb::EthRequest {
                 request: Some(request),
             }))
@@ -49,7 +50,7 @@ impl<R: Runtime> PairedBitBox<R> {
 
     /// Query the device for an xpub.
     pub async fn eth_xpub(&self, keypath: &Keypath) -> Result<String, Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         match self
             .query_proto_eth(pb::eth_request::Request::Pub(pb::EthPubRequest {
                 keypath: keypath.to_vec(),
@@ -73,7 +74,7 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath: &Keypath,
         display: bool,
     ) -> Result<String, Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         match self
             .query_proto_eth(pb::eth_request::Request::Pub(pb::EthPubRequest {
                 keypath: keypath.to_vec(),
@@ -442,7 +443,7 @@ fn get_value(
     }
 }
 
-impl<R: Runtime> PairedBitBox<R> {
+impl<R: Runtime> UnlockedBitBox<R> {
     async fn handle_antiklepto(
         &self,
         response: &pb::eth_response::Response,
@@ -510,13 +511,13 @@ impl<R: Runtime> PairedBitBox<R> {
         tx: &Transaction,
         address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         // passing chainID instead of coin only since v9.10.0
-        self.validate_version(">=9.10.0")?;
+        self.session.validate_version(">=9.10.0")?;
 
         let use_streaming = tx.data.len() > STREAMING_THRESHOLD;
         if use_streaming {
-            self.validate_version(">=9.26.0")?;
+            self.session.validate_version(">=9.26.0")?;
         }
 
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
@@ -561,13 +562,13 @@ impl<R: Runtime> PairedBitBox<R> {
         tx: &EIP1559Transaction,
         address_case: Option<pb::EthAddressCase>,
     ) -> Result<[u8; 65], Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         // EIP1559 is suported from v9.16.0
-        self.validate_version(">=9.16.0")?;
+        self.session.validate_version(">=9.16.0")?;
 
         let use_streaming = tx.data.len() > STREAMING_THRESHOLD;
         if use_streaming {
-            self.validate_version(">=9.26.0")?;
+            self.session.validate_version(">=9.26.0")?;
         }
 
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
@@ -615,9 +616,9 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath: &Keypath,
         msg: &[u8],
     ) -> Result<[u8; 65], Error> {
-        let _api_call = self.begin_api_call().await;
+        let _api_call = self.session.begin_api_call().await;
         // passing chainID instead of coin only since v9.10.0
-        self.validate_version(">=9.10.0")?;
+        self.session.validate_version(">=9.10.0")?;
 
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::eth_request::Request::SignMsg(pb::EthSignMessageRequest {
@@ -646,10 +647,10 @@ impl<R: Runtime> PairedBitBox<R> {
         json_msg: &str,
         use_antiklepto: bool,
     ) -> Result<[u8; 65], Error> {
-        let _api_call = self.begin_api_call().await;
-        self.validate_version(">=9.12.0")?;
+        let _api_call = self.session.begin_api_call().await;
+        self.session.validate_version(">=9.12.0")?;
         if !use_antiklepto {
-            self.validate_version(">=9.26.0")?;
+            self.session.validate_version(">=9.26.0")?;
         }
 
         let msg: Eip712Message = serde_json::from_str(json_msg)

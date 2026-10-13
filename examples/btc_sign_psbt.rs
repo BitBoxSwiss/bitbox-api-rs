@@ -15,7 +15,11 @@ async fn sign_psbt<R: bitbox_api::runtime::Runtime>(psbt: &mut bitcoin::psbt::Ps
     if let Some(pairing_code) = pairing_device.get_pairing_code().as_ref() {
         println!("Pairing code\n{pairing_code}");
     }
-    let paired = pairing_device.wait_confirm().await.unwrap();
+    let paired = match pairing_device.wait_confirm().await.unwrap() {
+        bitbox_api::PairedBitBox::Locked(device) => device.unlock().await.unwrap(),
+        bitbox_api::PairedBitBox::Unlocked(device) => device,
+        bitbox_api::PairedBitBox::Uninitialized(_) => panic!("Initialize the BitBox first"),
+    };
     paired
         .btc_sign_psbt(
             pb::BtcCoin::Tbtc,

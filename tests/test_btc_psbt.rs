@@ -521,7 +521,7 @@ fn assert_invalid_input_error(vector: &TestVector, error: &bitbox_api::error::Er
 }
 
 async fn register_script_configs(
-    bitbox: &bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>,
+    bitbox: &bitbox_api::UnlockedBitBox<bitbox_api::runtime::TokioRuntime>,
     coin: pb::BtcCoin,
     vector: &TestVector,
 ) -> Result<(), bitbox_api::error::Error> {
@@ -562,7 +562,7 @@ fn convert_format_unit(format_unit: FormatUnit) -> pb::btc_sign_init_request::Fo
 }
 
 async fn run_vector(
-    bitbox: &bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>,
+    bitbox: &bitbox_api::UnlockedBitBox<bitbox_api::runtime::TokioRuntime>,
     stdout: &SimulatorStdout,
     vector: &TestVector,
 ) {

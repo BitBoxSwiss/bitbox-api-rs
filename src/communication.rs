@@ -126,7 +126,6 @@ pub struct Info {
     #[allow(dead_code)]
     pub unlocked: bool,
     // Is None before firmware version 9.20.0.
-    #[allow(dead_code)]
     pub initialized: Option<bool>,
 }
 
