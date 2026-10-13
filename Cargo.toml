@@ -37,6 +37,8 @@ serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1", optional = true, features = ["time"] }
 
 [dev-dependencies]
+cursive = { version = "0.21.1", default-features = false, features = ["crossterm-backend"] }
+inquire = { version = "0.9.4", default-features = false, features = ["crossterm"] }
 # For the base64 PSBT input/output in examples/btc_sign_psbt.rs.
 bitcoin = { version = "0.32", features = ["base64"] }
 futures-channel = "0.3"
@@ -50,6 +52,14 @@ rlp = "0.6"
 # bitcoinconsensus = { git = "https://github.com/rust-bitcoin/rust-bitcoinconsensus.git", rev = "788ce4d210f7fe6fae4414f5be80968216ba0fd8", default-features = false }
 bitcoinconsensus = { version = "0.106.0", default-features = false }
 miniscript = "13.0.0"
+
+[[example]]
+name = "host_passphrase"
+required-features = ["usb", "tokio/rt", "tokio/macros"]
+
+[[example]]
+name = "host_passphrase_auto"
+required-features = ["usb", "tokio/rt", "tokio/macros"]
 
 [[example]]
 name = "singlethreaded"

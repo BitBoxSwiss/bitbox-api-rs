@@ -574,6 +574,7 @@ impl<R: Runtime> UnlockedBitBox<R> {
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
         let request = pb::eth_request::Request::SignEip1559(pb::EthSignEip1559Request {
             chain_id: tx.chain_id,
+            payment_request: None,
             keypath: keypath.to_vec(),
             nonce: crate::util::remove_leading_zeroes(&tx.nonce),
             max_priority_fee_per_gas: crate::util::remove_leading_zeroes(

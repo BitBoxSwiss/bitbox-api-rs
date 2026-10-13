@@ -17,7 +17,10 @@ async fn get_bitbox02() -> bitbox_api::UnlockedBitBox<bitbox_api::runtime::Tokio
         println!("Pairing code\n{pairing_code}");
     }
     match pairing_bitbox.wait_confirm().await.unwrap() {
-        bitbox_api::PairedBitBox::Locked(device) => device.unlock().await.unwrap(),
+        bitbox_api::PairedBitBox::Locked(device) => device
+            .unlock(bitbox_api::PassphraseConfig::default())
+            .await
+            .unwrap(),
         bitbox_api::PairedBitBox::Unlocked(device) => device,
         bitbox_api::PairedBitBox::Uninitialized(_) => panic!("Initialize the BitBox first"),
     }

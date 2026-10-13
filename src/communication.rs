@@ -228,6 +228,13 @@ impl<R: Runtime> HwwCommunication<R> {
         }
     }
 
+    pub(crate) async fn reset_session_once(&self) -> Result<(), Error> {
+        match self.communication.query(&[HWW_REQ_RESET]).await?.as_slice() {
+            [HWW_RSP_ACK] => Ok(()),
+            _ => Err(Error::Info),
+        }
+    }
+
     pub async fn query(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
         let mut framed_msg = Vec::from([HWW_REQ_NEW]);
         framed_msg.extend_from_slice(msg);

@@ -16,7 +16,10 @@ async fn demo<R: bitbox_api::runtime::Runtime + Sync + Send>() {
     }
     multithreading_type_check(&pairing_bitbox);
     let paired_bitbox = match pairing_bitbox.wait_confirm().await.unwrap() {
-        bitbox_api::PairedBitBox::Locked(device) => device.unlock().await.unwrap(),
+        bitbox_api::PairedBitBox::Locked(device) => device
+            .unlock(bitbox_api::PassphraseConfig::default())
+            .await
+            .unwrap(),
         bitbox_api::PairedBitBox::Unlocked(device) => device,
         bitbox_api::PairedBitBox::Uninitialized(_) => panic!("Initialize the BitBox first"),
     };

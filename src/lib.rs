@@ -18,6 +18,7 @@ mod communication;
 mod keypath;
 mod secp256k1;
 mod u2fframing;
+mod unlock;
 mod util;
 
 /// BitBox protobuf messages.
@@ -37,10 +38,12 @@ use prost::Message;
 
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard as ApiMutexGuard};
 use std::sync::Mutex;
+use zeroize::{Zeroize, Zeroizing};
 
 pub use keypath::Keypath;
 pub use noise::PersistedNoiseConfig;
 pub use noise::{ConfigError, NoiseConfig, NoiseConfigData, NoiseConfigNoCache};
+pub use unlock::{HostPassphraseRequest, PassphraseConfig};
 pub use util::Threading;
 
 use communication::HwwCommunication;
@@ -121,18 +124,22 @@ impl<R: Runtime> BitBox<R> {
         .await
     }
 
-    /// Invokes the device unlock and pairing.
+    /// Starts pairing, unlocking first only on firmware older than v9.28.0.
+    ///
+    /// On firmware v9.28.0 and later, call [`LockedBitBox::unlock`] after confirming pairing.
     pub async fn unlock_and_pair(mut self) -> Result<PairingBitBox<R>, Error> {
-        // The legacy response also reports initialization on firmware older than
-        // v9.20.0, whose transport info does not include an initialized flag.
-        self.communication.info.initialized = Some(
-            match self.communication.query(&[OP_UNLOCK]).await?.as_slice() {
-                [RESPONSE_SUCCESS] => true,
-                [RESPONSE_FAILURE_UNINITIALIZED] => false,
-                [RESPONSE_FAILURE] => return Err(BitBoxError::Generic.into()),
-                _ => return Err(Error::UnexpectedResponse),
-            },
-        );
+        if !unlock::supports_paired_unlock(&self.communication.info.version) {
+            // The legacy response also reports initialization on firmware older than
+            // v9.20.0, whose transport info does not include an initialized flag.
+            self.communication.info.initialized = Some(
+                match self.communication.query(&[OP_UNLOCK]).await?.as_slice() {
+                    [RESPONSE_SUCCESS] => true,
+                    [RESPONSE_FAILURE_UNINITIALIZED] => false,
+                    [RESPONSE_FAILURE] => return Err(BitBoxError::Generic.into()),
+                    _ => return Err(Error::UnexpectedResponse),
+                },
+            );
+        }
         self.pair().await
     }
 
@@ -259,9 +266,11 @@ impl<R: Runtime> PairingBitBox<R> {
 
     /// Waits for pairing confirmation and returns the paired device's state.
     ///
-    /// Initialized devices were unlocked by [`BitBox::unlock_and_pair`] and return
-    /// [`PairedBitBox::Unlocked`]. Uninitialized devices return
-    /// [`PairedBitBox::Uninitialized`]. The locked state is not returned yet.
+    /// This does not start unlocking. Initialized devices on firmware v9.28.0 and later
+    /// return [`PairedBitBox::Locked`], even if already unlocked on the device. Older
+    /// firmware was unlocked by [`BitBox::unlock_and_pair`] and returns
+    /// [`PairedBitBox::Unlocked`]. Uninitialized devices always return
+    /// [`PairedBitBox::Uninitialized`].
     ///
     /// Once this returns, the application can dismiss its pairing UI before proceeding.
     pub async fn wait_confirm(self) -> Result<PairedBitBox<R>, Error> {
@@ -284,9 +293,12 @@ impl<R: Runtime> PairingBitBox<R> {
             .info
             .initialized
             .ok_or(Error::UnexpectedResponse)?;
+        let needs_unlock = unlock::supports_paired_unlock(&self.communication.info.version);
         let session = Session::from(self.communication, self.host);
         Ok(if !initialized {
             PairedBitBox::Uninitialized(UninitializedBitBox { session })
+        } else if needs_unlock {
+            PairedBitBox::Locked(LockedBitBox { session })
         } else {
             PairedBitBox::Unlocked(UnlockedBitBox { session })
         })
@@ -324,8 +336,9 @@ impl<R: Runtime> PairedBitBox<R> {
 
 /// A paired device whose unlock step has not yet completed through this client.
 ///
-/// Reserved for unlocking after pairing. The current connection flow unlocks before
-/// pairing, so it never returns this state. Wallet methods are unavailable in this state.
+/// Call [`Self::unlock`] to obtain an [`UnlockedBitBox`]. If the device is already
+/// unlocked, that call completes without prompting for a password or passphrase.
+/// Wallet methods are unavailable before this transition.
 ///
 /// ```compile_fail
 /// async fn fingerprint(device: bitbox_api::LockedBitBox<bitbox_api::runtime::DefaultRuntime>) {
@@ -337,11 +350,6 @@ pub struct LockedBitBox<R: Runtime> {
 }
 
 impl<R: Runtime> LockedBitBox<R> {
-    /// Reserved for unlocking after pairing; the current connection flow never returns this state.
-    pub async fn unlock(self) -> Result<UnlockedBitBox<R>, Error> {
-        unreachable!("devices are unlocked before pairing")
-    }
-
     /// Returns which product we are connected to.
     pub fn product(&self) -> Product {
         self.session.communication.info.product
@@ -458,10 +466,14 @@ impl<R: Runtime> Session<R> {
         let mut encrypted = vec![OP_NOISE_MSG];
         encrypted.extend_from_slice({
             let mut send = self.noise_send.lock().unwrap();
-            let proto_msg = pb::Request {
+            let mut proto_msg = pb::Request {
                 request: Some(request),
             };
-            &send.encrypt_vec(&proto_msg.encode_to_vec())
+            let plaintext = Zeroizing::new(proto_msg.encode_to_vec());
+            if let Some(Request::UnlockHostInfo(info)) = &mut proto_msg.request {
+                info.passphrase.zeroize();
+            }
+            &send.encrypt_vec(&plaintext)
         });
 
         let response = self.communication.query(&encrypted).await?;
@@ -656,6 +668,7 @@ mod tests {
                     securechip_model: "ATECC608B".into(),
                     bluetooth: None,
                     password_stretching_algo: "pwhash".into(),
+                    bootloader_version: None,
                 })),
             }
             .encode_to_vec();
