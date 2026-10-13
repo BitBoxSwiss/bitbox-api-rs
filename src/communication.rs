@@ -18,6 +18,8 @@ pub enum Error {
     Read,
     #[error("u2f framing decoding error")]
     U2fDecode,
+    #[error("u2f framing encoding error")]
+    U2fEncode,
     #[error("error querying device info")]
     Info,
     #[error("firmware version {0} required")]
@@ -57,7 +59,10 @@ impl U2fHidCommunication {
 impl ReadWrite for U2fHidCommunication {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
-        let size = self.u2fhid.encode(msg, &mut buf).unwrap();
+        let size = self
+            .u2fhid
+            .encode(msg, &mut buf)
+            .or(Err(Error::U2fEncode))?;
         for chunk in buf[..size].chunks(64) {
             self.read_write.write(chunk)?;
         }
