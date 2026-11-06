@@ -121,6 +121,9 @@ pub struct DeviceInfoResponse {
     /// algorithm.
     #[prost(string, tag = "8")]
     pub password_stretching_algo: ::prost::alloc::string::String,
+    /// Marketing version of the installed stage1 bootloader. Not present on legacy bootloaders.
+    #[prost(string, optional, tag = "9")]
+    pub bootloader_version: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Nested message and enum types in `DeviceInfoResponse`.
 pub mod device_info_response {
@@ -200,6 +203,117 @@ pub struct SetPasswordRequest {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ChangePasswordRequest {}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncIdentityRequest {}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncIdentityResponse {
+    #[prost(bytes = "vec", tag = "1")]
+    pub auth_public_key: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub wrap_public_key: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncSignLoginIntentRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub challenge: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncSignRefreshIntentRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub challenge: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncSignRevokeAllTokensIntentRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub challenge: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncSignCreateNamespaceInviteIntentRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub challenge: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub namespace_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub invite_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub invite_server_secret_hash: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "5")]
+    pub expires_at: u64,
+    #[prost(uint32, tag = "6")]
+    pub max_accepted: u32,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncSignJoinRequestIntentRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub namespace_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub invite_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "3")]
+    pub server_origin: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "4")]
+    pub expires_at: u64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncUnwrapNamespaceDekRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub namespace_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub wrapped_dek: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncSignatureResponse {
+    #[prost(bytes = "vec", tag = "1")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncUnwrapNamespaceDekResponse {
+    #[prost(bytes = "vec", tag = "1")]
+    pub namespace_dek: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncRequest {
+    #[prost(oneof = "bit_box_sync_request::Request", tags = "1, 2, 3, 4, 5, 6, 7")]
+    pub request: ::core::option::Option<bit_box_sync_request::Request>,
+}
+/// Nested message and enum types in `BitBoxSyncRequest`.
+pub mod bit_box_sync_request {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Request {
+        #[prost(message, tag = "1")]
+        Identity(super::BitBoxSyncIdentityRequest),
+        #[prost(message, tag = "2")]
+        SignLoginIntent(super::BitBoxSyncSignLoginIntentRequest),
+        #[prost(message, tag = "3")]
+        SignRefreshIntent(super::BitBoxSyncSignRefreshIntentRequest),
+        #[prost(message, tag = "4")]
+        SignRevokeAllTokensIntent(super::BitBoxSyncSignRevokeAllTokensIntentRequest),
+        #[prost(message, tag = "5")]
+        SignCreateNamespaceInviteIntent(
+            super::BitBoxSyncSignCreateNamespaceInviteIntentRequest,
+        ),
+        #[prost(message, tag = "6")]
+        SignJoinRequestIntent(super::BitBoxSyncSignJoinRequestIntentRequest),
+        #[prost(message, tag = "7")]
+        UnwrapNamespaceDek(super::BitBoxSyncUnwrapNamespaceDekRequest),
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BitBoxSyncResponse {
+    #[prost(oneof = "bit_box_sync_response::Response", tags = "1, 2, 3")]
+    pub response: ::core::option::Option<bit_box_sync_response::Response>,
+}
+/// Nested message and enum types in `BitBoxSyncResponse`.
+pub mod bit_box_sync_response {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Response {
+        #[prost(message, tag = "1")]
+        Identity(super::BitBoxSyncIdentityResponse),
+        #[prost(message, tag = "2")]
+        Signature(super::BitBoxSyncSignatureResponse),
+        #[prost(message, tag = "3")]
+        UnwrapNamespaceDek(super::BitBoxSyncUnwrapNamespaceDekResponse),
+    }
+}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct BluetoothToggleEnabledRequest {}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -549,7 +663,7 @@ pub struct BtcSignInitRequest {
     pub num_inputs: u32,
     #[prost(uint32, tag = "6")]
     pub num_outputs: u32,
-    /// must be <500000000
+    /// Consensus nLockTime: values below 500000000 are block heights, otherwise Unix timestamps.
     #[prost(uint32, tag = "7")]
     pub locktime: u32,
     #[prost(enumeration = "btc_sign_init_request::FormatUnit", tag = "8")]
@@ -703,6 +817,8 @@ pub struct BtcSignInputRequest {
     /// References a script config from BTCSignInitRequest
     #[prost(uint32, tag = "7")]
     pub script_config_index: u32,
+    /// If omitted, the signature uses the historical deterministic zero-contribution S2C fallback.
+    /// This differs from plain RFC6979 and does not provide anti-klepto protection.
     #[prost(message, optional, tag = "8")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
 }
@@ -866,9 +982,9 @@ pub struct BtcPaymentRequestRequest {
 }
 /// Nested message and enum types in `BTCPaymentRequestRequest`.
 pub mod btc_payment_request_request {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+    #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Memo {
-        #[prost(oneof = "memo::Memo", tags = "1")]
+        #[prost(oneof = "memo::Memo", tags = "1, 2")]
         pub memo: ::core::option::Option<memo::Memo>,
     }
     /// Nested message and enum types in `Memo`.
@@ -878,10 +994,54 @@ pub mod btc_payment_request_request {
             #[prost(string, tag = "1")]
             pub note: ::prost::alloc::string::String,
         }
-        #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+        #[derive(Clone, PartialEq, ::prost::Message)]
+        pub struct CoinPurchaseMemo {
+            /// SLIP-44 coin type
+            #[prost(uint32, tag = "1")]
+            pub coin_type: u32,
+            /// Human-readable amount (e.g. "0.25 ETH")
+            #[prost(string, tag = "2")]
+            pub amount: ::prost::alloc::string::String,
+            /// Address to send the purchased coins to
+            #[prost(string, tag = "3")]
+            pub address: ::prost::alloc::string::String,
+            #[prost(oneof = "coin_purchase_memo::AddressDerivation", tags = "4, 5")]
+            pub address_derivation: ::core::option::Option<
+                coin_purchase_memo::AddressDerivation,
+            >,
+        }
+        /// Nested message and enum types in `CoinPurchaseMemo`.
+        pub mod coin_purchase_memo {
+            /// Derivation info for verifying address ownership.
+            /// NOT part of the SLIP-24 sighash.
+            #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+            pub struct EthAddressDerivation {
+                /// Keypath to the address
+                #[prost(uint32, repeated, tag = "1")]
+                pub keypath: ::prost::alloc::vec::Vec<u32>,
+            }
+            #[derive(Clone, PartialEq, ::prost::Message)]
+            pub struct BtcAddressDerivation {
+                /// Script config + keypath are needed to derive BTC/LTC-family addresses.
+                #[prost(message, optional, tag = "1")]
+                pub script_config: ::core::option::Option<
+                    super::super::super::BtcScriptConfigWithKeypath,
+                >,
+            }
+            #[derive(Clone, PartialEq, ::prost::Oneof)]
+            pub enum AddressDerivation {
+                #[prost(message, tag = "4")]
+                Eth(EthAddressDerivation),
+                #[prost(message, tag = "5")]
+                Btc(BtcAddressDerivation),
+            }
+        }
+        #[derive(Clone, PartialEq, ::prost::Oneof)]
         pub enum Memo {
             #[prost(message, tag = "1")]
             TextMemo(TextMemo),
+            #[prost(message, tag = "2")]
+            CoinPurchaseMemo(CoinPurchaseMemo),
         }
     }
 }
@@ -893,6 +1053,8 @@ pub struct BtcSignMessageRequest {
     pub script_config: ::core::option::Option<BtcScriptConfigWithKeypath>,
     #[prost(bytes = "vec", tag = "3")]
     pub msg: ::prost::alloc::vec::Vec<u8>,
+    /// If omitted, the signature uses the historical deterministic zero-contribution S2C fallback.
+    /// This differs from plain RFC6979 and does not provide anti-klepto protection.
     #[prost(message, optional, tag = "4")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
 }
@@ -1404,6 +1566,8 @@ pub struct EthSignRequest {
     pub value: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes = "vec", tag = "8")]
     pub data: ::prost::alloc::vec::Vec<u8>,
+    /// If omitted, the signature uses the historical deterministic zero-contribution S2C fallback.
+    /// This differs from plain RFC6979 and does not provide anti-klepto protection.
     #[prost(message, optional, tag = "9")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
     /// If non-zero, `coin` is ignored and `chain_id` is used to identify the network.
@@ -1416,7 +1580,7 @@ pub struct EthSignRequest {
     pub data_length: u32,
 }
 /// TX payload for an EIP-1559 (type 2) transaction: <https://eips.ethereum.org/EIPS/eip-1559>
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthSignEip1559Request {
     #[prost(uint64, tag = "1")]
     pub chain_id: u64,
@@ -1442,6 +1606,8 @@ pub struct EthSignEip1559Request {
     pub value: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes = "vec", tag = "9")]
     pub data: ::prost::alloc::vec::Vec<u8>,
+    /// If omitted, the signature uses the historical deterministic zero-contribution S2C fallback.
+    /// This differs from plain RFC6979 and does not provide anti-klepto protection.
     #[prost(message, optional, tag = "10")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
     #[prost(enumeration = "EthAddressCase", tag = "11")]
@@ -1449,6 +1615,8 @@ pub struct EthSignEip1559Request {
     /// For streaming: if non-zero, data field should be empty and data will be requested in chunks
     #[prost(uint32, tag = "12")]
     pub data_length: u32,
+    #[prost(message, optional, tag = "13")]
+    pub payment_request: ::core::option::Option<BtcPaymentRequestRequest>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EthSignDataRequestChunkResponse {
@@ -1471,6 +1639,8 @@ pub struct EthSignMessageRequest {
     pub keypath: ::prost::alloc::vec::Vec<u32>,
     #[prost(bytes = "vec", tag = "3")]
     pub msg: ::prost::alloc::vec::Vec<u8>,
+    /// If omitted, the signature uses the historical deterministic zero-contribution S2C fallback.
+    /// This differs from plain RFC6979 and does not provide anti-klepto protection.
     #[prost(message, optional, tag = "4")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
     /// If non-zero, `coin` is ignored and `chain_id` is used to identify the network.
@@ -1493,6 +1663,7 @@ pub struct EthSignTypedMessageRequest {
     pub types: ::prost::alloc::vec::Vec<eth_sign_typed_message_request::StructType>,
     #[prost(string, tag = "4")]
     pub primary_type: ::prost::alloc::string::String,
+    /// If omitted, plain RFC6979 signing is used without anti-klepto protection.
     #[prost(message, optional, tag = "5")]
     pub host_nonce_commitment: ::core::option::Option<AntiKleptoHostNonceCommitment>,
 }
@@ -1750,6 +1921,80 @@ impl EthAddressCase {
         }
     }
 }
+/// Unlock inside the paired Noise channel (since v9.28.0). Uninitialized and already unlocked
+/// devices return DONE immediately and are left unchanged. Continuations are only valid within
+/// this workflow.
+/// If the passphrase feature is enabled, device entry returns PASSPHRASE_PENDING. The host
+/// polls with UnlockContinueRequest until entry completes or it requests host entry.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnlockRequest {}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnlockContinueRequest {
+    /// False polls device entry; true interrupts it to ask for host-entry consent.
+    /// After PASSPHRASE_ENTERED, continue to await confirmation and unlock;
+    /// host entry is ignored.
+    #[prost(bool, tag = "1")]
+    pub request_host_entry: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnlockHostInfoRequest {
+    /// Only sent after HOST_ENTRY_READY. Absent cancels host input and restarts device entry;
+    /// the empty string submits the empty passphrase. The device confirms the actual value.
+    #[prost(string, optional, tag = "1")]
+    pub passphrase: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnlockResponse {
+    #[prost(enumeration = "unlock_response::State", tag = "1")]
+    pub state: i32,
+}
+/// Nested message and enum types in `UnlockResponse`.
+pub mod unlock_response {
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum State {
+        PassphrasePending = 0,
+        HostEntryReady = 1,
+        /// Passphrase entry on the device finished; confirmation may still be pending.
+        /// Withdraw host entry and send UnlockContinue to await completion.
+        PassphraseEntered = 2,
+        Done = 3,
+    }
+    impl State {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::PassphrasePending => "PASSPHRASE_PENDING",
+                Self::HostEntryReady => "HOST_ENTRY_READY",
+                Self::PassphraseEntered => "PASSPHRASE_ENTERED",
+                Self::Done => "DONE",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "PASSPHRASE_PENDING" => Some(Self::PassphrasePending),
+                "HOST_ENTRY_READY" => Some(Self::HostEntryReady),
+                "PASSPHRASE_ENTERED" => Some(Self::PassphraseEntered),
+                "DONE" => Some(Self::Done),
+                _ => None,
+            }
+        }
+    }
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ElectrumEncryptionKeyRequest {
     #[prost(uint32, repeated, tag = "1")]
@@ -1887,7 +2132,7 @@ pub struct Success {}
 pub struct Request {
     #[prost(
         oneof = "request::Request",
-        tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30"
+        tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34"
     )]
     pub request: ::core::option::Option<request::Request>,
 }
@@ -1953,13 +2198,21 @@ pub mod request {
         Bluetooth(super::BluetoothRequest),
         #[prost(message, tag = "30")]
         ChangePassword(super::ChangePasswordRequest),
+        #[prost(message, tag = "31")]
+        BitboxSync(super::BitBoxSyncRequest),
+        #[prost(message, tag = "32")]
+        Unlock(super::UnlockRequest),
+        #[prost(message, tag = "33")]
+        UnlockContinue(super::UnlockContinueRequest),
+        #[prost(message, tag = "34")]
+        UnlockHostInfo(super::UnlockHostInfoRequest),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Response {
     #[prost(
         oneof = "response::Response",
-        tags = "1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17"
+        tags = "1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19"
     )]
     pub response: ::core::option::Option<response::Response>,
 }
@@ -2000,5 +2253,9 @@ pub mod response {
         Bip85(super::Bip85Response),
         #[prost(message, tag = "17")]
         Bluetooth(super::BluetoothResponse),
+        #[prost(message, tag = "18")]
+        BitboxSync(super::BitBoxSyncResponse),
+        #[prost(message, tag = "19")]
+        Unlock(super::UnlockResponse),
     }
 }

@@ -10,6 +10,10 @@ features=(
 )
 
 examples=(
+  "--example host_passphrase --features=usb,tokio/rt,tokio/macros"
+  "--example host_passphrase --features=usb,tokio/rt,tokio/macros,multithreaded"
+  "--example host_passphrase_auto --features=usb,tokio/rt,tokio/macros"
+  "--example host_passphrase_auto --features=usb,tokio/rt,tokio/macros,multithreaded"
   "--example singlethreaded --features=usb,tokio/rt,tokio/macros"
   "--example multithreaded --features=usb,tokio/rt,tokio/macros,tokio/rt-multi-thread,multithreaded"
   "--example btc_signtx --features=usb,tokio/rt,tokio/macros"

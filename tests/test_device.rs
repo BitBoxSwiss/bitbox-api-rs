@@ -9,7 +9,7 @@ compile_error!("Enable the tokio feature to run simulator tests");
 
 mod util;
 
-use util::{test_initialized_simulators, test_simulators_after_pairing};
+use util::{test_initialized_simulators, test_uninitialized_simulators};
 
 #[tokio::test]
 async fn test_reconnect() {
@@ -52,8 +52,10 @@ async fn test_reconnect() {
     }
 
     util::test_simulators(async |_stdout| {
-        let bitbox = connect().await;
-        bitbox.restore_from_mnemonic().await.unwrap();
+        let PairedBitBox::Uninitialized(bitbox) = connect().await else {
+            panic!("expected an uninitialized simulator");
+        };
+        let bitbox = bitbox.restore_from_mnemonic().await.unwrap();
         if *bitbox.version() >= semver::Version::new(9, 28, 0) {
             // Missing previous transaction data stops the host while the firmware is still
             // waiting for the next signing request.
@@ -117,9 +119,29 @@ async fn test_reconnect() {
             .wait_confirm()
             .await
             .unwrap();
-        // The first reply must be a two-byte HWW ACK + unlock SUCCESS. An unfinished
-        // workflow would return its encrypted error, which unlock_and_pair currently ignores.
+        // The first reply must be a two-byte HWW ACK + SUCCESS: from the handshake on
+        // firmware v9.28.0+, or from legacy unlock on older firmware. An unfinished
+        // workflow would instead return its encrypted error.
         assert_eq!(&responses.lock().unwrap()[5..9], &[0, 2, 0, 0]);
+        let modern = match &bitbox {
+            PairedBitBox::Locked(device) => device.version(),
+            PairedBitBox::Unlocked(device) => device.version(),
+            PairedBitBox::Uninitialized(_) => panic!("restored wallet must stay initialized"),
+        } >= &semver::Version::new(9, 28, 0);
+        let bitbox = if modern {
+            let PairedBitBox::Locked(bitbox) = bitbox else {
+                panic!("modern firmware must require the explicit unlock step");
+            };
+            bitbox
+                .unlock(bitbox_api::PassphraseConfig::default())
+                .await
+                .unwrap()
+        } else {
+            let PairedBitBox::Unlocked(bitbox) = bitbox else {
+                panic!("legacy firmware must already be unlocked");
+            };
+            bitbox
+        };
         assert_eq!(bitbox.root_fingerprint().await.unwrap(), "4c00739d");
     })
     .await
@@ -127,7 +149,7 @@ async fn test_reconnect() {
 
 #[tokio::test]
 async fn test_device_info() {
-    test_simulators_after_pairing(async |paired_bitbox| {
+    test_uninitialized_simulators(async |paired_bitbox| {
         let device_info = paired_bitbox.device_info().await.unwrap();
 
         // Since v9.24.0, the simulator simulates a Nova device.

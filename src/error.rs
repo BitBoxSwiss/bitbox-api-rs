@@ -48,6 +48,8 @@ pub enum Error {
     NoiseConfig(#[from] crate::noise::ConfigError),
     #[error("pairing code rejected by user")]
     NoisePairingRejected,
+    #[error("host passphrase input failed: {0}")]
+    PassphraseInput(String),
     #[error("BitBox returned an unexpected response")]
     UnexpectedResponse,
     #[error("protobuf message could not be decoded")]
