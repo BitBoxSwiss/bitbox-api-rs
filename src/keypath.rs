@@ -51,6 +51,8 @@ fn parse_bip32_keypath(keypath: &str) -> Option<Vec<u32>> {
     Some(res)
 }
 
+// Preserve the public TryFrom conversion. Older Clippy versions need the unknown_lints allowance.
+#[allow(unknown_lints, clippy::try_from_instead_of_from_str)]
 impl TryFrom<&str> for Keypath {
     type Error = Error;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
