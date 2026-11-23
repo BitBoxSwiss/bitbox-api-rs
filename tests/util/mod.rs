@@ -564,9 +564,12 @@ pub async fn test_simulators(run: impl AsyncFn(&SimulatorStdout)) {
     }
 }
 
-/// Tests on an initialized device, which is not yet seeded.
-pub async fn test_simulators_after_pairing_with_stdout(
-    run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>, &SimulatorStdout),
+/// Tests on a paired, uninitialized device, which is not yet seeded.
+pub async fn test_uninitialized_simulators_with_stdout(
+    run: impl AsyncFn(
+        bitbox_api::UninitializedBitBox<bitbox_api::runtime::TokioRuntime>,
+        &SimulatorStdout,
+    ),
 ) {
     test_simulators(async |stdout| {
         let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
@@ -577,17 +580,21 @@ pub async fn test_simulators_after_pairing_with_stdout(
         .await
         .unwrap();
         let pairing_bitbox = bitbox.unlock_and_pair().await.unwrap();
-        let paired_bitbox = pairing_bitbox.wait_confirm().await.unwrap();
-        run(&paired_bitbox, stdout).await;
+        let bitbox_api::PairedBitBox::Uninitialized(device) =
+            pairing_bitbox.wait_confirm().await.unwrap()
+        else {
+            panic!("expected an uninitialized simulator");
+        };
+        run(device, stdout).await;
     })
     .await
 }
 
-/// Tests on an initialized device, which is not yet seeded.
-pub async fn test_simulators_after_pairing(
-    run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>),
+/// Tests on a paired, uninitialized device, which is not yet seeded.
+pub async fn test_uninitialized_simulators(
+    run: impl AsyncFn(bitbox_api::UninitializedBitBox<bitbox_api::runtime::TokioRuntime>),
 ) {
-    test_simulators_after_pairing_with_stdout(async |paired_bitbox, _stdout| {
+    test_uninitialized_simulators_with_stdout(async |paired_bitbox, _stdout| {
         run(paired_bitbox).await;
     })
     .await
@@ -597,18 +604,18 @@ pub async fn test_simulators_after_pairing(
 /// The simulator is initialized with the following mnemonic:
 /// boring mistake dish oyster truth pigeon viable emerge sort crash wire portion cannon couple enact box walk height pull today solid off enable tide
 pub async fn test_initialized_simulators_with_stdout(
-    run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>, &SimulatorStdout),
+    run: impl AsyncFn(&bitbox_api::UnlockedBitBox<bitbox_api::runtime::TokioRuntime>, &SimulatorStdout),
 ) {
-    test_simulators_after_pairing_with_stdout(async |paired_bitbox, stdout| {
-        assert!(paired_bitbox.restore_from_mnemonic().await.is_ok());
-        run(paired_bitbox, stdout).await;
+    test_uninitialized_simulators_with_stdout(async |paired_bitbox, stdout| {
+        let unlocked = paired_bitbox.restore_from_mnemonic().await.unwrap();
+        run(&unlocked, stdout).await;
     })
     .await
 }
 
 /// Tests on an initialized/seeded device.
 pub async fn test_initialized_simulators(
-    run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>),
+    run: impl AsyncFn(&bitbox_api::UnlockedBitBox<bitbox_api::runtime::TokioRuntime>),
 ) {
     test_initialized_simulators_with_stdout(async |paired_bitbox, _stdout| {
         run(paired_bitbox).await;

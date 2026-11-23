@@ -2,6 +2,10 @@
 
 build-protos:
 	rust-script scripts/build-protos.rs
+example-host-passphrase:
+	cargo run --example host_passphrase --features=usb,tokio/rt,tokio/macros
+example-host-passphrase-auto:
+	cargo run --example host_passphrase_auto --features=usb,tokio/rt,tokio/macros
 example-singlethreaded:
 	cargo run --example singlethreaded --features=usb,tokio/rt,tokio/macros
 example-multithreaded:

@@ -18,6 +18,8 @@ pub enum Error {
     Read,
     #[error("u2f framing decoding error")]
     U2fDecode,
+    #[error("u2f framing encoding error")]
+    U2fEncode,
     #[error("error querying device info")]
     Info,
     #[error("firmware version {0} required")]
@@ -57,7 +59,10 @@ impl U2fHidCommunication {
 impl ReadWrite for U2fHidCommunication {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
-        let size = self.u2fhid.encode(msg, &mut buf).unwrap();
+        let size = self
+            .u2fhid
+            .encode(msg, &mut buf)
+            .or(Err(Error::U2fEncode))?;
         for chunk in buf[..size].chunks(64) {
             self.read_write.write(chunk)?;
         }
@@ -121,7 +126,6 @@ pub struct Info {
     #[allow(dead_code)]
     pub unlocked: bool,
     // Is None before firmware version 9.20.0.
-    #[allow(dead_code)]
     pub initialized: Option<bool>,
 }
 
@@ -221,6 +225,13 @@ impl<R: Runtime> HwwCommunication<R> {
             communication,
             info,
             marker: std::marker::PhantomData,
+        }
+    }
+
+    pub(crate) async fn reset_session_once(&self) -> Result<(), Error> {
+        match self.communication.query(&[HWW_REQ_RESET]).await?.as_slice() {
+            [HWW_RSP_ACK] => Ok(()),
+            _ => Err(Error::Info),
         }
     }
 

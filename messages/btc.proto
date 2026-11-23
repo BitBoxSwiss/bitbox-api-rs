@@ -103,7 +103,8 @@ message BTCSignInitRequest {
   uint32 version = 4; // must be 1 or 2
   uint32 num_inputs = 5;
   uint32 num_outputs = 6;
-  uint32 locktime = 7; // must be <500000000
+  // Consensus nLockTime: values below 500000000 are block heights, otherwise Unix timestamps.
+  uint32 locktime = 7;
 
   enum FormatUnit {
     // According to `coin` (BTC, LTC, etc.).
@@ -152,6 +153,8 @@ message BTCSignInputRequest {
   repeated uint32 keypath = 6; // all inputs must be ours.
   // References a script config from BTCSignInitRequest
   uint32 script_config_index = 7;
+  // If omitted, the signature uses the historical deterministic zero-contribution S2C fallback.
+  // This differs from plain RFC6979 and does not provide anti-klepto protection.
   AntiKleptoHostNonceCommitment host_nonce_commitment = 8;
 }
 
@@ -246,8 +249,27 @@ message BTCPaymentRequestRequest {
     message TextMemo {
       string note = 1;
     }
+    message CoinPurchaseMemo {
+      uint32 coin_type = 1; // SLIP-44 coin type
+      string amount = 2; // Human-readable amount (e.g. "0.25 ETH")
+      string address = 3; // Address to send the purchased coins to
+      // Derivation info for verifying address ownership.
+      // NOT part of the SLIP-24 sighash.
+      message EthAddressDerivation {
+        repeated uint32 keypath = 1; // Keypath to the address
+      }
+      message BtcAddressDerivation {
+        // Script config + keypath are needed to derive BTC/LTC-family addresses.
+        BTCScriptConfigWithKeypath script_config = 1;
+      }
+      oneof address_derivation {
+        EthAddressDerivation eth = 4;
+        BtcAddressDerivation btc = 5;
+      }
+    }
     oneof memo {
       TextMemo text_memo = 1;
+      CoinPurchaseMemo coin_purchase_memo = 2;
     }
   }
 
@@ -262,6 +284,8 @@ message BTCSignMessageRequest {
   BTCCoin coin = 1;
   BTCScriptConfigWithKeypath script_config = 2;
   bytes msg = 3;
+  // If omitted, the signature uses the historical deterministic zero-contribution S2C fallback.
+  // This differs from plain RFC6979 and does not provide anti-klepto protection.
   AntiKleptoHostNonceCommitment host_nonce_commitment = 4;
 }
 
