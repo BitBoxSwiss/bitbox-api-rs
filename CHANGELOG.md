@@ -3,7 +3,8 @@
 ## [Unreleased]
 - Expose transport-free protobuf, Bitcoin, signature validation, Noise, and framing primitives
   with `default-features = false`. Defaults retain the async convenience clients.
-- Reject malformed root fingerprints, oversized U2F messages, and invalid continuation headers.
+- Reject malformed fingerprint, pairing, and framing replies, and return an error for an
+  out-of-range previous output when lowering a PSBT.
 - Preserve the sign of positive EIP-712 signed integers supplied as JSON numbers.
 - Reset unfinished sessions when connecting to firmware v9.28.0 or newer, allowing host
   reconnects while the device remains powered on.

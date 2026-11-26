@@ -106,6 +106,7 @@ impl U2fHid {
                 "Message won't fit in buffer",
             ));
         }
+        buf = &mut buf[..enc_len];
         let len = encode_header_init(self.cid, self.cmd, message.len() as u16, buf)?;
         buf = &mut buf[len..];
 
@@ -130,12 +131,22 @@ impl U2fHid {
             seq += 1;
         }
 
+        buf.fill(0);
         Ok(enc_len)
     }
 
     /// Decode a message from whole reports, ignoring extra reports after the message.
     /// Returns `Ok(None)` if more whole reports are needed.
     pub fn decode(&self, buf: &[u8]) -> io::Result<Option<Vec<u8>>> {
+        self.decode_appended(buf, &mut 0)
+    }
+
+    // `validated_continuations` counts reports already checked in an unchanged prefix of `buf`.
+    pub(crate) fn decode_appended(
+        &self,
+        buf: &[u8],
+        validated_continuations: &mut usize,
+    ) -> io::Result<Option<Vec<u8>>> {
         if buf.is_empty() || !buf.chunks_exact(REPORT_LEN).remainder().is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
@@ -164,13 +175,10 @@ impl U2fHid {
         }
 
         let enc_len = Self::get_encoded_len(len);
-        if buf.len() < enc_len {
-            return Ok(None);
-        }
-
-        let mut res = Vec::with_capacity(len);
-        res.extend_from_slice(&buf[HEADER_INIT_LEN..HEADER_INIT_LEN + PAYLOAD_INIT_LEN.min(len)]);
-        for (seq, report) in buf[..enc_len].chunks_exact(REPORT_LEN).skip(1).enumerate() {
+        let available_len = buf.len().min(enc_len);
+        let next_report = (1 + *validated_continuations) * REPORT_LEN;
+        let new_reports = buf[next_report..available_len].chunks_exact(REPORT_LEN);
+        for (seq, report) in (*validated_continuations..).zip(new_reports) {
             if report[..4] != buf[..4] {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "Wrong CID"));
             }
@@ -180,6 +188,15 @@ impl U2fHid {
                     "Wrong continuation sequence",
                 ));
             }
+        }
+        if buf.len() < enc_len {
+            *validated_continuations = available_len / REPORT_LEN - 1;
+            return Ok(None);
+        }
+
+        let mut res = Vec::with_capacity(len);
+        res.extend_from_slice(&buf[HEADER_INIT_LEN..HEADER_INIT_LEN + PAYLOAD_INIT_LEN.min(len)]);
+        for report in buf[REPORT_LEN..enc_len].chunks_exact(REPORT_LEN) {
             let take = PAYLOAD_CONT_LEN.min(len - res.len());
             res.extend_from_slice(&report[HEADER_CONT_LEN..HEADER_CONT_LEN + take]);
         }
@@ -211,19 +228,20 @@ mod tests {
     #[test]
     fn test_u2fhid_encode_single() {
         let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
-        let mut data = [0u8; 8000];
+        let mut data = [0xAA; 128];
         let len = codec.encode(b"\x01\x02\x03\x04", &mut data[..]).unwrap();
         assert_eq!(len, 64);
         let mut expect = [0u8; 64];
         expect[..11].copy_from_slice(b"\xEE\xEE\xEE\xEE\x55\x00\x04\x01\x02\x03\x04");
         assert_eq!(&data[..len], &expect[..]);
+        assert!(data[len..].iter().all(|&byte| byte == 0xAA));
     }
 
     #[test]
     fn test_u2fhid_encode_multi() {
         let payload: Vec<u8> = (0..65u8).collect();
         let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
-        let mut data = [0u8; 8000];
+        let mut data = [0xAA; 192];
         let len = codec.encode(&payload[..], &mut data[..]).unwrap();
         assert_eq!(len, 128);
         let mut expect = [0u8; 128];
@@ -232,6 +250,7 @@ mod tests {
         expect[64..69].copy_from_slice(b"\xEE\xEE\xEE\xEE\x00");
         expect[69..77].copy_from_slice(&payload[57..]);
         assert_eq!(&data[..len], &expect[..]);
+        assert!(data[len..].iter().all(|&byte| byte == 0xAA));
     }
 
     #[test]
@@ -300,6 +319,12 @@ mod tests {
                 codec.decode(&malformed).unwrap_err().kind(),
                 io::ErrorKind::InvalidData,
             );
+            if offset < 128 {
+                assert_eq!(
+                    codec.decode(&malformed[..128]).unwrap_err().kind(),
+                    io::ErrorKind::InvalidData,
+                );
+            }
         }
     }
 

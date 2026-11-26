@@ -44,7 +44,7 @@ pub trait ReadWrite: Threading {
 }
 
 #[cfg(feature = "client")]
-pub struct U2fHidCommunication {
+pub(crate) struct U2fHidCommunication {
     read_write: Box<dyn ReadWrite>,
     u2fhid: u2fframing::U2fHid,
 }
@@ -54,7 +54,7 @@ impl crate::util::Threading for U2fHidCommunication {}
 
 #[cfg(feature = "client")]
 impl U2fHidCommunication {
-    pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
+    pub(crate) fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
         U2fHidCommunication {
             read_write,
             u2fhid: u2fframing::U2fHid::new(cmd),
@@ -73,23 +73,30 @@ impl ReadWrite for U2fHidCommunication {
             .encode(msg, &mut buf)
             .or(Err(Error::U2fEncode))?;
         for chunk in buf[..size].chunks(64) {
-            self.read_write.write(chunk)?;
+            // HID may include the extra report ID byte in its count.
+            if self.read_write.write(chunk)? < chunk.len() {
+                return Err(Error::Write);
+            }
         }
         Ok(size)
     }
 
     async fn read(&self) -> Result<Vec<u8>, Error> {
         let mut readbuf = self.read_write.read().await?;
+        let mut validated_continuations = 0;
         loop {
-            match self.u2fhid.decode(&readbuf).or(Err(Error::U2fDecode))? {
-                Some(d) => {
-                    return Ok(d);
-                }
-                None => {
-                    let more = self.read_write.read().await?;
-                    readbuf.extend_from_slice(&more);
-                }
+            if let Some(payload) = self
+                .u2fhid
+                .decode_appended(&readbuf, &mut validated_continuations)
+                .or(Err(Error::U2fDecode))?
+            {
+                return Ok(payload);
             }
+            let more = self.read_write.read().await?;
+            if more.is_empty() {
+                return Err(Error::Read);
+            }
+            readbuf.extend_from_slice(&more);
         }
     }
 }
@@ -192,6 +199,9 @@ pub fn parse_info(response: &[u8]) -> Result<Info, Error> {
     let edition_byte = *response.get(1).ok_or(Error::Info)?;
     let unlocked_byte = *response.get(2).ok_or(Error::Info)?;
     let initialized_byte = response.get(3);
+    if initialized_byte.is_none() && version >= semver::Version::new(9, 20, 0) {
+        return Err(Error::Info);
+    }
     Ok(Info {
         version,
         product: match (platform_byte, edition_byte) {
@@ -332,7 +342,10 @@ mod tests {
         assert_eq!(old.initialized, None);
         assert!(!needs_session_reset(&old.version));
 
-        let new = parse_info(b"\x07v9.28.0\x02\x01\x00\x01").unwrap();
+        let first = parse_info(b"\x07v9.20.0\x00\x00\x01\x00").unwrap();
+        assert_eq!(first.initialized, Some(false));
+
+        let new = parse_info(b"\x07v9.28.0\x02\x01\x00\x01\xFF").unwrap();
         assert_eq!(new.product, Product::BitBox02NovaBtcOnly);
         assert!(!new.unlocked);
         assert_eq!(new.initialized, Some(true));
@@ -341,12 +354,59 @@ mod tests {
 
         for invalid in [
             &b"\x08v9.28.0"[..],
+            &b"\x07v9.20.0\x00\x00\x01"[..],
             &b"\x079.28.00\x02\x01\x00"[..],
             &b"\x07v9.28.0\x02\x01"[..],
+            &b"\x07v9.28.0\x02\x01\x00"[..],
             &b"\x07v9.28.0\x02\x01\x02"[..],
             &b"\x07v9.28.0\x02\x01\x00\x02"[..],
         ] {
             assert!(matches!(parse_info(invalid), Err(Error::Info)));
         }
+    }
+
+    #[cfg(feature = "client")]
+    #[tokio::test]
+    async fn u2f_transport_checks_report_io() {
+        struct Transport {
+            reads: std::sync::Mutex<std::vec::IntoIter<Vec<u8>>>,
+            write_len: usize,
+        }
+
+        impl Threading for Transport {}
+
+        #[cfg_attr(feature = "multithreaded", async_trait)]
+        #[cfg_attr(not(feature = "multithreaded"), async_trait(?Send))]
+        impl ReadWrite for Transport {
+            fn write(&self, _msg: &[u8]) -> Result<usize, Error> {
+                Ok(self.write_len)
+            }
+
+            async fn read(&self) -> Result<Vec<u8>, Error> {
+                Ok(self.reads.lock().unwrap().next().expect("unexpected read"))
+            }
+        }
+
+        let codec = u2fframing::U2fHid::new(FIRMWARE_CMD);
+        let payload = [0xA5; 117];
+        let mut encoded = [0; 192];
+        assert_eq!(codec.encode(&payload, &mut encoded).unwrap(), encoded.len());
+        let transport = |reads: Vec<Vec<u8>>, write_len| {
+            U2fHidCommunication::from(
+                Box::new(Transport {
+                    reads: std::sync::Mutex::new(reads.into_iter()),
+                    write_len,
+                }),
+                FIRMWARE_CMD,
+            )
+        };
+
+        let short = transport(vec![encoded[..64].to_vec(), vec![]], 63);
+        assert!(matches!(short.write(&payload), Err(Error::Write)));
+        assert!(matches!(short.read().await, Err(Error::Read)));
+
+        let hid = transport(encoded.chunks(64).map(<[u8]>::to_vec).collect(), 65);
+        assert_eq!(hid.write(&payload).unwrap(), encoded.len());
+        assert_eq!(hid.read().await.unwrap(), payload);
     }
 }
