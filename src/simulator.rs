@@ -49,7 +49,9 @@ impl crate::util::Threading for TcpClient {}
 impl ReadWrite for TcpClient {
     fn write(&self, msg: &[u8]) -> Result<usize, CommunicationError> {
         let mut stream = self.stream.lock().unwrap();
-        stream.write_all(msg).map_err(|_| CommunicationError::Write)?;
+        stream
+            .write_all(msg)
+            .map_err(|_| CommunicationError::Write)?;
         Ok(msg.len())
     }
 

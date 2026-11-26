@@ -18,7 +18,7 @@ pub mod simulator;
 pub mod usb;
 
 pub mod antiklepto;
-mod communication;
+pub mod communication;
 mod keypath;
 pub mod secp256k1;
 pub mod u2fframing;
