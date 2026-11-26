@@ -49,17 +49,17 @@ impl crate::util::Threading for TcpClient {}
 impl ReadWrite for TcpClient {
     fn write(&self, msg: &[u8]) -> Result<usize, CommunicationError> {
         let mut stream = self.stream.lock().unwrap();
-        stream.write(msg).map_err(|_| CommunicationError::Write)
+        stream.write_all(msg).map_err(|_| CommunicationError::Write)?;
+        Ok(msg.len())
     }
 
     async fn read(&self) -> Result<Vec<u8>, CommunicationError> {
         let mut stream = self.stream.lock().unwrap();
 
         let mut buffer = vec![0; 64];
-        let n = stream
-            .read(&mut buffer)
+        stream
+            .read_exact(&mut buffer)
             .map_err(|_| CommunicationError::Read)?;
-        buffer.truncate(n);
         Ok(buffer)
     }
 }

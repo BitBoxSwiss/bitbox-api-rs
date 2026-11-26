@@ -21,7 +21,7 @@ pub mod antiklepto;
 mod communication;
 mod keypath;
 pub mod secp256k1;
-mod u2fframing;
+pub mod u2fframing;
 mod util;
 
 /// BitBox protobuf messages.
