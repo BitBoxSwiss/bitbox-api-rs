@@ -1106,6 +1106,10 @@ pub fn validate_signing(
     {
         validate_version(firmware_version, ">=9.10.0")?;
     }
+    if !output_script_configs.is_empty() || output_script_config_indices.iter().any(Option::is_some)
+    {
+        validate_version(firmware_version, ">=9.22.0")?;
+    }
     if transaction.outputs.iter().any(|output| {
         matches!(
             output,
@@ -1970,6 +1974,15 @@ mod tests {
                 resolved.output_script_config_indices
             );
             assert_eq!(resolved.transaction.script_configs.len(), 1);
+            let validate = |version| {
+                validate_signing(
+                    &version,
+                    &resolved.transaction,
+                    &resolved.output_script_configs,
+                    &resolved.output_script_config_indices,
+                )
+            };
+            assert!(validate(version).is_ok());
             if minor == 21 {
                 assert_eq!(resolved.output_script_config_indices, [None]);
                 assert!(resolved.output_script_configs.is_empty());
@@ -1982,6 +1995,10 @@ mod tests {
             } else {
                 assert_eq!(resolved.output_script_config_indices, [Some(0)]);
                 assert_eq!(resolved.output_script_configs.len(), 1);
+                assert!(matches!(
+                    validate(semver::Version::new(9, 21, 0)),
+                    Err(Error::Version(">=9.22.0"))
+                ));
                 assert_eq!(
                     resolved.output_script_configs[0].keypath,
                     Keypath::try_from("m/84'/0'/1'").unwrap().as_slice(),
