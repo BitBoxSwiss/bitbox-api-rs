@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![cfg(feature = "simulator")]
+#![cfg(all(feature = "simulator", feature = "tokio", feature = "clock"))]
 // Simulators only run on linux/amd64.
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
-
-#[cfg(not(feature = "tokio"))]
-compile_error!("Enable the tokio feature to run simulator tests");
 
 mod util;
 
@@ -14,6 +11,7 @@ use bitcoin::secp256k1;
 use tiny_keccak::{Hasher, Keccak};
 use util::test_initialized_simulators;
 
+#[cfg(feature = "persistence")]
 const EIP712_MSG: &str = r#"
 {
   "types": {
@@ -103,6 +101,7 @@ fn eip1559_sighash(tx: &EIP1559Transaction) -> [u8; 32] {
     keccak256(&prefixed)
 }
 
+#[cfg(feature = "persistence")]
 fn eip712_sighash(primary_type: &str, data_type: &str, data: &[u8]) -> [u8; 32] {
     let domain_type_hash = keccak256(b"EIP712Domain(string name)");
     let name_hash = keccak256(b"Test");
@@ -272,6 +271,7 @@ async fn test_eth_sign_1559_transaction_streaming() {
     .await
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn test_eth_sign_typed_message_antiklepto_enabled() {
     test_initialized_simulators(async |paired_bitbox| {
@@ -290,6 +290,7 @@ async fn test_eth_sign_typed_message_antiklepto_enabled() {
     .await
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn test_eth_sign_typed_message_signed_integers() {
     test_initialized_simulators(async |paired_bitbox| {
@@ -340,6 +341,7 @@ async fn test_eth_sign_typed_message_signed_integers() {
     .await
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn test_eth_sign_typed_message_antiklepto_disabled() {
     test_initialized_simulators(async |paired_bitbox| {
@@ -385,6 +387,7 @@ async fn test_eth_sign_typed_message_antiklepto_disabled() {
     .await
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn test_eth_sign_typed_message_streaming_bytes() {
     test_initialized_simulators(async |paired_bitbox| {

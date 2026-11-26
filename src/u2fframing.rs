@@ -6,15 +6,18 @@ use byteorder::WriteBytesExt;
 use std::io;
 use std::io::Cursor;
 
+const REPORT_LEN: usize = 64;
 const HEADER_INIT_LEN: usize = 7;
 const HEADER_CONT_LEN: usize = 5;
+const PAYLOAD_INIT_LEN: usize = REPORT_LEN - HEADER_INIT_LEN;
+const PAYLOAD_CONT_LEN: usize = REPORT_LEN - HEADER_CONT_LEN;
 // U2F specs:
 // With this approach, a message with a payload less or equal to (s - 7) may be sent as one packet.
 // A larger message is then divided into one or more continuation packets, starting with sequence
 // number 0, which then increments by one to a maximum of 127.
 // With a packet size of 64 bytes (max for full-speed devices), this means that the maximum message
 // payload length is 64 - 7 + 128 * (64 - 5) = 7609 bytes.
-//pub const MAX_PAYLOAD_LEN: usize = 64 - HEADER_INIT_LEN + 128 * (64 - HEADER_CONT_LEN);
+const MAX_PAYLOAD_LEN: usize = PAYLOAD_INIT_LEN + 128 * PAYLOAD_CONT_LEN;
 // This is the buffer size needed to fit the largest possible u2f package with headers
 pub const MAX_LEN: usize = 129 * 64;
 
@@ -81,59 +84,75 @@ impl U2fHid {
         U2fHid { cid, cmd }
     }
 
-    fn get_encoded_len(len: u16) -> usize {
-        if len < 57 {
-            64
-        } else {
-            let len = len - 57;
-            64 + 64 * ((59 + len - 1) / 59) as usize
-        }
+    fn get_encoded_len(len: usize) -> usize {
+        REPORT_LEN
+            * (1 + len
+                .saturating_sub(PAYLOAD_INIT_LEN)
+                .div_ceil(PAYLOAD_CONT_LEN))
     }
 
     /// Encode function.
     pub fn encode(&self, mut message: &[u8], mut buf: &mut [u8]) -> io::Result<usize> {
-        let enc_len = Self::get_encoded_len(message.len() as u16);
+        if message.len() > MAX_PAYLOAD_LEN {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Message too long",
+            ));
+        }
+        let enc_len = Self::get_encoded_len(message.len());
         if buf.len() < enc_len {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "Message won't fit in buffer",
             ));
         }
+        buf = &mut buf[..enc_len];
         let len = encode_header_init(self.cid, self.cmd, message.len() as u16, buf)?;
         buf = &mut buf[len..];
 
-        let len = usize::min(64 - len, message.len());
+        let len = PAYLOAD_INIT_LEN.min(message.len());
         let buf_slice = &mut buf[..len];
         buf_slice.copy_from_slice(&message[..len]);
 
         message = &message[len..];
         buf = &mut buf[len..];
 
-        let mut seq = 0;
+        let mut seq = 0u8;
         while !message.is_empty() {
-            let len = encode_header_cont(self.cid, seq as u8, buf)?;
+            let len = encode_header_cont(self.cid, seq, buf)?;
             buf = &mut buf[len..];
 
-            let len = usize::min(64 - len, message.len());
+            let len = PAYLOAD_CONT_LEN.min(message.len());
             let buf_slice = &mut buf[..len];
             buf_slice.copy_from_slice(&message[..len]);
             buf = &mut buf[len..];
             message = &message[len..];
 
             seq += 1;
-            if seq > 127 {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "More frames than allowed",
-                ));
-            }
         }
 
+        buf.fill(0);
         Ok(enc_len)
     }
 
-    /// Decode function. Will fail in case CID and CMD doesn't match stored values.
-    pub fn decode(&self, mut buf: &[u8]) -> io::Result<Option<Vec<u8>>> {
+    /// Decode a message from whole reports, ignoring extra reports after the message.
+    /// Returns `Ok(None)` if more whole reports are needed.
+    pub fn decode(&self, buf: &[u8]) -> io::Result<Option<Vec<u8>>> {
+        self.decode_appended(buf, &mut 0)
+    }
+
+    // `validated_continuations` counts reports already checked in an unchanged prefix of `buf`.
+    pub(crate) fn decode_appended(
+        &self,
+        buf: &[u8],
+        validated_continuations: &mut usize,
+    ) -> io::Result<Option<Vec<u8>>> {
+        if buf.is_empty() || !buf.chunks_exact(REPORT_LEN).remainder().is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "Incomplete U2F report",
+            ));
+        }
         let (cid, cmd, len) = parse_header(buf)?;
         if cid != self.cid {
             return Err(std::io::Error::new(
@@ -147,24 +166,39 @@ impl U2fHid {
                 "Wrong CMD",
             ));
         }
-        if buf.len() < Self::get_encoded_len(len) {
-            // Need more bytes.
+        let len = usize::from(len);
+        if len > MAX_PAYLOAD_LEN {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Message too long",
+            ));
+        }
+
+        let enc_len = Self::get_encoded_len(len);
+        let available_len = buf.len().min(enc_len);
+        let next_report = (1 + *validated_continuations) * REPORT_LEN;
+        let new_reports = buf[next_report..available_len].chunks_exact(REPORT_LEN);
+        for (seq, report) in (*validated_continuations..).zip(new_reports) {
+            if report[..4] != buf[..4] {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "Wrong CID"));
+            }
+            if report[4] != seq as u8 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Wrong continuation sequence",
+                ));
+            }
+        }
+        if buf.len() < enc_len {
+            *validated_continuations = available_len / REPORT_LEN - 1;
             return Ok(None);
         }
 
-        let mut res = Vec::with_capacity(len as usize);
-        let mut left = len as usize;
-
-        let len = usize::min(57, len as usize);
-        res.extend_from_slice(&buf[HEADER_INIT_LEN..HEADER_INIT_LEN + len]);
-        buf = &buf[HEADER_INIT_LEN + len..];
-        left -= len;
-
-        while left > 0 {
-            let len = usize::min(59, left);
-            res.extend_from_slice(&buf[HEADER_CONT_LEN..HEADER_CONT_LEN + len]);
-            buf = &buf[HEADER_CONT_LEN + len..];
-            left -= len;
+        let mut res = Vec::with_capacity(len);
+        res.extend_from_slice(&buf[HEADER_INIT_LEN..HEADER_INIT_LEN + PAYLOAD_INIT_LEN.min(len)]);
+        for report in buf[REPORT_LEN..enc_len].chunks_exact(REPORT_LEN) {
+            let take = PAYLOAD_CONT_LEN.min(len - res.len());
+            res.extend_from_slice(&report[HEADER_CONT_LEN..HEADER_CONT_LEN + take]);
         }
         Ok(Some(res))
     }
@@ -173,22 +207,41 @@ impl U2fHid {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_u2fhid_payload_length_limit() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        let mut buf = [0xAA; MAX_LEN];
+        for len in [7610, 65536] {
+            assert_eq!(
+                codec.encode(&vec![0; len], &mut buf).unwrap_err().kind(),
+                io::ErrorKind::InvalidInput,
+            );
+            assert!(buf.iter().all(|&byte| byte == 0xAA));
+        }
+        assert_eq!(
+            codec.encode(&[0; 58], &mut buf[..64]).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput,
+        );
+    }
+
     #[test]
     fn test_u2fhid_encode_single() {
         let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
-        let mut data = [0u8; 8000];
+        let mut data = [0xAA; 128];
         let len = codec.encode(b"\x01\x02\x03\x04", &mut data[..]).unwrap();
         assert_eq!(len, 64);
         let mut expect = [0u8; 64];
         expect[..11].copy_from_slice(b"\xEE\xEE\xEE\xEE\x55\x00\x04\x01\x02\x03\x04");
         assert_eq!(&data[..len], &expect[..]);
+        assert!(data[len..].iter().all(|&byte| byte == 0xAA));
     }
 
     #[test]
     fn test_u2fhid_encode_multi() {
         let payload: Vec<u8> = (0..65u8).collect();
         let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
-        let mut data = [0u8; 8000];
+        let mut data = [0xAA; 192];
         let len = codec.encode(&payload[..], &mut data[..]).unwrap();
         assert_eq!(len, 128);
         let mut expect = [0u8; 128];
@@ -197,6 +250,19 @@ mod tests {
         expect[64..69].copy_from_slice(b"\xEE\xEE\xEE\xEE\x00");
         expect[69..77].copy_from_slice(&payload[57..]);
         assert_eq!(&data[..len], &expect[..]);
+        assert!(data[len..].iter().all(|&byte| byte == 0xAA));
+    }
+
+    #[test]
+    fn test_u2fhid_encode_last_continuation_frame() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        for len in [7551, 7609] {
+            let payload = vec![0x42; len];
+            let mut buf = [0; MAX_LEN];
+            assert_eq!(codec.encode(&payload, &mut buf).unwrap(), MAX_LEN);
+            assert_eq!(buf[128 * 64 + 4], 127);
+            assert_eq!(codec.decode(&buf).unwrap().unwrap(), payload);
+        }
     }
 
     #[test]
@@ -219,5 +285,57 @@ mod tests {
         raw[69..77].copy_from_slice(&payload[57..]);
         let data = codec.decode(&raw[..]).unwrap().unwrap();
         assert_eq!(&data[..], &payload[..]);
+    }
+
+    #[test]
+    fn test_u2fhid_decode_incomplete_reports() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        let mut raw = [0u8; 128];
+        raw[..7].copy_from_slice(b"\xEE\xEE\xEE\xEE\x55\x00\x3A");
+        raw[64..69].copy_from_slice(b"\xEE\xEE\xEE\xEE\x00");
+        assert_eq!(codec.decode(&raw[..64]).unwrap(), None);
+        for len in [0, 6, 63, 64 + 4, 127] {
+            assert_eq!(
+                codec.decode(&raw[..len]).unwrap_err().kind(),
+                io::ErrorKind::UnexpectedEof,
+            );
+        }
+    }
+
+    #[test]
+    fn test_u2fhid_decode_invalid_continuations() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        let mut raw = [0u8; 256];
+        raw[..7].copy_from_slice(b"\xEE\xEE\xEE\xEE\x55\x00\x75");
+        raw[64..69].copy_from_slice(b"\xEE\xEE\xEE\xEE\x00");
+        raw[128..133].copy_from_slice(b"\xEE\xEE\xEE\xEE\x01");
+        assert_eq!(codec.decode(&raw[..128]).unwrap(), None);
+        assert_eq!(codec.decode(&raw).unwrap(), Some(vec![0; 117]));
+
+        for (offset, bad_byte) in [(64, 0xFF), (68, 1), (128, 0xFF), (132, 0), (132, 128)] {
+            let mut malformed = raw;
+            malformed[offset] = bad_byte;
+            assert_eq!(
+                codec.decode(&malformed).unwrap_err().kind(),
+                io::ErrorKind::InvalidData,
+            );
+            if offset < 128 {
+                assert_eq!(
+                    codec.decode(&malformed[..128]).unwrap_err().kind(),
+                    io::ErrorKind::InvalidData,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_u2fhid_decode_oversized_announcement() {
+        let codec = U2fHid::with_cid(0xEEEEEEEE, 0x55);
+        let mut raw = [0u8; 64];
+        raw[..7].copy_from_slice(b"\xEE\xEE\xEE\xEE\x55\x1D\xBA");
+        assert_eq!(
+            codec.decode(&raw).unwrap_err().kind(),
+            io::ErrorKind::InvalidData,
+        );
     }
 }

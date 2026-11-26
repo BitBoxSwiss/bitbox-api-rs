@@ -1,20 +1,93 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use noise_protocol::{Cipher, HandshakeState, Hash, DH};
+
+use crate::error::Error as ProtocolError;
+#[cfg(any(feature = "client", feature = "persistence"))]
 use crate::util::Threading;
-#[cfg(unix)]
+#[cfg(all(feature = "persistence", unix))]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+#[cfg(any(feature = "client", feature = "persistence"))]
 use thiserror::Error;
 
+const PROLOGUE: &[u8] = b"Noise_XX_25519_ChaChaPoly_SHA256";
+
+pub fn new_handshake<D: DH, C: Cipher, H: Hash>(
+    host_static_key: D::Key,
+    fresh_ephemeral_key: D::Key,
+) -> Result<HandshakeState<D, C, H>, ProtocolError> {
+    if (D::name(), C::name(), H::name()) != ("25519", "ChaChaPoly", "SHA256") {
+        return Err(ProtocolError::Noise);
+    }
+    Ok(HandshakeState::new(
+        noise_protocol::patterns::noise_xx(),
+        true,
+        PROLOGUE,
+        Some(host_static_key),
+        Some(fresh_ephemeral_key),
+        None,
+        None,
+    ))
+}
+
+pub fn handshake_read_write<D: DH, C: Cipher, H: Hash>(
+    host: &mut HandshakeState<D, C, H>,
+    device_message: &[u8],
+) -> Result<Vec<u8>, ProtocolError> {
+    if host.completed() || host.is_write_turn() {
+        return Err(ProtocolError::Noise);
+    }
+    host.read_message_vec(device_message)
+        .map_err(|_| ProtocolError::Noise)?;
+    if host.completed() || !host.is_write_turn() {
+        return Err(ProtocolError::Noise);
+    }
+    host.write_message_vec(b"")
+        .map_err(|_| ProtocolError::Noise)
+}
+
+pub fn handshake_finalize<D: DH, C: Cipher, H: Hash>(
+    host: &HandshakeState<D, C, H>,
+    device_ack: &[u8],
+) -> Result<(bool, D::Pubkey), ProtocolError> {
+    if !host.completed() {
+        return Err(ProtocolError::Noise);
+    }
+    let requires_verification = match device_ack {
+        [0] => false,
+        [1] => true,
+        _ => return Err(ProtocolError::Noise),
+    };
+    Ok((
+        requires_verification,
+        host.get_rs().ok_or(ProtocolError::Noise)?,
+    ))
+}
+
+pub fn pairing_code_from_hash(hash: &[u8; 32]) -> String {
+    let encoded = base32::encode(base32::Alphabet::Rfc4648 { padding: true }, hash);
+    format!(
+        "{} {}\n{} {}",
+        &encoded[0..5],
+        &encoded[5..10],
+        &encoded[10..15],
+        &encoded[15..20]
+    )
+}
+
+#[cfg(any(feature = "client", feature = "persistence"))]
 #[derive(Error, Debug)]
 #[error("{0}")]
 pub struct ConfigError(pub String);
 
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug)]
+#[cfg_attr(feature = "persistence", derive(serde::Serialize, serde::Deserialize))]
 pub struct NoiseConfigData {
     pub app_static_privkey: Option<[u8; 32]>,
     pub device_static_pubkeys: Vec<Vec<u8>>,
 }
 
+#[cfg(feature = "client")]
 impl NoiseConfigData {
     pub(crate) fn contains_device_static_pubkey(&self, pubkey: &[u8]) -> bool {
         self.device_static_pubkeys
@@ -44,6 +117,7 @@ impl NoiseConfigData {
     }
 }
 
+#[cfg(any(feature = "client", feature = "persistence"))]
 pub trait NoiseConfig: Threading {
     fn read_config(&self) -> Result<NoiseConfigData, ConfigError> {
         Ok(NoiseConfigData::default())
@@ -53,11 +127,14 @@ pub trait NoiseConfig: Threading {
     }
 }
 
+#[cfg(any(feature = "client", feature = "persistence"))]
 pub struct NoiseConfigNoCache;
+#[cfg(any(feature = "client", feature = "persistence"))]
 impl NoiseConfig for NoiseConfigNoCache {}
+#[cfg(any(feature = "client", feature = "persistence"))]
 impl Threading for NoiseConfigNoCache {}
 
-#[cfg(unix)]
+#[cfg(all(feature = "persistence", unix))]
 fn ensure_private_file_permissions(path: &std::path::Path) -> Result<(), ConfigError> {
     let metadata = std::fs::symlink_metadata(path).map_err(|e| ConfigError(e.to_string()))?;
 
@@ -70,12 +147,15 @@ fn ensure_private_file_permissions(path: &std::path::Path) -> Result<(), ConfigE
         .map_err(|e| ConfigError(e.to_string()))
 }
 
+#[cfg(feature = "persistence")]
 pub struct PersistedNoiseConfig {
     config_dir: String,
 }
 
+#[cfg(feature = "persistence")]
 impl Threading for PersistedNoiseConfig {}
 
+#[cfg(feature = "persistence")]
 impl PersistedNoiseConfig {
     /// Creates a new persisting noise config, which stores the pairing information in "bitbox.json"
     /// in the provided directory. The directory must already exist and should be created with
@@ -87,6 +167,7 @@ impl PersistedNoiseConfig {
     }
 }
 
+#[cfg(feature = "persistence")]
 impl NoiseConfig for PersistedNoiseConfig {
     fn read_config(&self) -> Result<NoiseConfigData, ConfigError> {
         use std::io::Read;
@@ -135,7 +216,7 @@ impl NoiseConfig for PersistedNoiseConfig {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(all(test, feature = "persistence", unix))]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
@@ -247,5 +328,90 @@ mod tests {
             .file_type()
             .is_symlink());
         assert_eq!(mode(&target), 0o644);
+    }
+}
+
+#[cfg(test)]
+mod handshake_tests {
+    use super::*;
+    use noise_protocol::U8Array;
+    use noise_rust_crypto::{ChaCha20Poly1305, Sha256, Sha512, X25519};
+
+    #[test]
+    fn uses_supplied_keys_and_authenticates_device_message() {
+        let key = |byte| <X25519 as DH>::Key::new_with(byte);
+        let start = || new_handshake::<X25519, ChaCha20Poly1305, Sha256>(key(1), key(2)).unwrap();
+        let mut device = HandshakeState::<X25519, ChaCha20Poly1305, Sha256>::new(
+            noise_protocol::patterns::noise_xx(),
+            false,
+            PROLOGUE,
+            Some(key(3)),
+            Some(key(4)),
+            None,
+            None,
+        );
+        let mut host = start();
+        assert!(matches!(
+            handshake_finalize(&host, &[]),
+            Err(ProtocolError::Noise)
+        ));
+        let first = host.write_message_vec(b"").unwrap();
+        assert_eq!(first, X25519::pubkey(&key(2)));
+        device.read_message_vec(&first).unwrap();
+        let reply = device.write_message_vec(b"").unwrap();
+
+        let mut bad_host = start();
+        bad_host.write_message_vec(b"").unwrap();
+        let mut tampered = reply.clone();
+        *tampered.last_mut().unwrap() ^= 1;
+        assert!(matches!(
+            handshake_read_write(&mut bad_host, &tampered),
+            Err(ProtocolError::Noise)
+        ));
+        assert!(matches!(
+            handshake_finalize(&bad_host, &[1]),
+            Err(ProtocolError::Noise)
+        ));
+
+        let last = handshake_read_write(&mut host, &reply).unwrap();
+        device.read_message_vec(&last).unwrap();
+        assert_eq!(
+            handshake_finalize(&host, &[1]).unwrap(),
+            (true, X25519::pubkey(&key(3)))
+        );
+        assert!(!handshake_finalize(&host, &[0]).unwrap().0);
+        for malformed in [&[][..], &[2], &[1, 0]] {
+            assert!(matches!(
+                handshake_finalize(&host, malformed),
+                Err(ProtocolError::Noise)
+            ));
+        }
+        assert_eq!(host.get_hash(), device.get_hash());
+        let (mut send, mut recv) = host.get_ciphers();
+        let (mut device_recv, mut device_send) = device.get_ciphers();
+        assert_eq!(
+            device_recv
+                .decrypt_vec(&send.encrypt_vec(b"request"))
+                .unwrap(),
+            b"request"
+        );
+        assert_eq!(
+            recv.decrypt_vec(&device_send.encrypt_vec(b"reply"))
+                .unwrap(),
+            b"reply"
+        );
+    }
+
+    #[test]
+    fn checks_protocol_suite_and_pairing_code() {
+        let key = || <X25519 as DH>::Key::new_with(1);
+        assert!(matches!(
+            new_handshake::<X25519, ChaCha20Poly1305, Sha512>(key(), key()),
+            Err(ProtocolError::Noise),
+        ));
+        assert_eq!(
+            pairing_code_from_hash(b"0123456789abcdef0123456789abcdef"),
+            "GAYTE MZUGU\n3DOOB ZMFRG"
+        );
     }
 }

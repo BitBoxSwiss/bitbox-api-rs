@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![cfg(feature = "simulator")]
+#![cfg(all(feature = "simulator", feature = "tokio", feature = "clock"))]
 // Simulators only run on linux/amd64.
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
-
-#[cfg(not(feature = "tokio"))]
-compile_error!("Enable the tokio feature to run simulator tests");
 
 mod util;
 

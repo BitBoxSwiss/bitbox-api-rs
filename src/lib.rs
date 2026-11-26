@@ -2,22 +2,26 @@
 
 //! Rust BitBox hardware wallet client library.
 
+pub mod api;
 pub mod btc;
+#[cfg(feature = "client")]
 pub mod cardano;
 pub mod error;
+#[cfg(feature = "client")]
 pub mod eth;
-mod noise;
+pub mod noise;
+#[cfg(feature = "runtime")]
 pub mod runtime;
 #[cfg(feature = "simulator")]
 pub mod simulator;
 #[cfg(feature = "usb")]
 pub mod usb;
 
-mod antiklepto;
-mod communication;
+pub mod antiklepto;
+pub mod communication;
 mod keypath;
-mod secp256k1;
-mod u2fframing;
+pub mod secp256k1;
+pub mod u2fframing;
 mod util;
 
 /// BitBox protobuf messages.
@@ -26,51 +30,76 @@ pub mod pb {
     include!("./shiftcrypto.bitbox02.rs");
 }
 
+#[cfg(feature = "client")]
 use crate::error::{BitBoxError, Error};
 
+#[cfg(feature = "client")]
 use pb::request::Request;
+#[cfg(feature = "client")]
 use pb::response::Response;
+#[cfg(feature = "client")]
 use runtime::Runtime;
 
+#[cfg(feature = "client")]
 use noise_protocol::DH;
-use prost::Message;
 
+#[cfg(feature = "client")]
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard as ApiMutexGuard};
+#[cfg(feature = "client")]
 use std::sync::Mutex;
 
 pub use keypath::Keypath;
+pub use noise::NoiseConfigData;
+#[cfg(feature = "persistence")]
 pub use noise::PersistedNoiseConfig;
-pub use noise::{ConfigError, NoiseConfig, NoiseConfigData, NoiseConfigNoCache};
+#[cfg(any(feature = "client", feature = "persistence"))]
+pub use noise::{ConfigError, NoiseConfig, NoiseConfigNoCache};
 pub use util::Threading;
 
+#[cfg(feature = "client")]
 use communication::HwwCommunication;
 
+pub use communication::Error as CommunicationError;
 pub use communication::Product;
-pub use communication::{Error as CommunicationError, ReadWrite};
+#[cfg(feature = "read-write")]
+pub use communication::ReadWrite;
 
+#[cfg(feature = "client")]
 const OP_I_CAN_HAS_HANDSHAEK: u8 = b'h';
+#[cfg(feature = "client")]
 const OP_HER_COMEZ_TEH_HANDSHAEK: u8 = b'H';
+#[cfg(feature = "client")]
 const OP_I_CAN_HAS_PAIRIN_VERIFICASHUN: u8 = b'v';
+#[cfg(feature = "client")]
 const OP_NOISE_MSG: u8 = b'n';
+#[cfg(feature = "client")]
 const _OP_ATTESTATION: u8 = b'a';
+#[cfg(feature = "client")]
 const OP_UNLOCK: u8 = b'u';
 
+#[cfg(feature = "client")]
 const RESPONSE_SUCCESS: u8 = 0x00;
 
+#[cfg(feature = "client")]
 type Cipher = noise_rust_crypto::ChaCha20Poly1305;
+#[cfg(feature = "client")]
 type HandshakeState =
     noise_protocol::HandshakeState<noise_rust_crypto::X25519, Cipher, noise_rust_crypto::Sha256>;
 
+#[cfg(feature = "client")]
 type CipherState = noise_protocol::CipherState<Cipher>;
 
+#[cfg(feature = "client")]
 /// BitBox client. See `from_hid_device()`.
 pub struct BitBox<R: Runtime> {
     communication: communication::HwwCommunication<R>,
     noise_config: Box<dyn NoiseConfig>,
 }
 
+#[cfg(feature = "client")]
 pub type PairingCode = String;
 
+#[cfg(feature = "client")]
 impl<R: Runtime> BitBox<R> {
     /// Creates a new BitBox instance from a custom transport.
     ///
@@ -149,15 +178,8 @@ impl<R: Runtime> BitBox<R> {
                 k
             }
         };
-        let mut host = HandshakeState::new(
-            noise_protocol::patterns::noise_xx(),
-            true,
-            b"Noise_XX_25519_ChaChaPoly_SHA256",
-            Some(host_static_key),
-            None,
-            None,
-            None,
-        );
+        let mut host: HandshakeState =
+            noise::new_handshake(host_static_key, noise_rust_crypto::X25519::genkey())?;
 
         if self
             .communication
@@ -172,30 +194,18 @@ impl<R: Runtime> BitBox<R> {
         let host_handshake_1 = host.write_message_vec(b"").or(Err(Error::Noise))?;
         let bb02_handshake_1 = self.handshake_query(&host_handshake_1).await?;
 
-        host.read_message_vec(&bb02_handshake_1)
-            .or(Err(Error::Noise))?;
-        let host_handshake_2 = host.write_message_vec(b"").or(Err(Error::Noise))?;
+        let host_handshake_2 = noise::handshake_read_write(&mut host, &bb02_handshake_1)?;
 
         let bb02_handshake_2 = self.handshake_query(&host_handshake_2).await?;
-        let remote_static_pubkey = host.get_rs().ok_or(Error::Noise)?;
+        let (pairing_verification_required_by_device, remote_static_pubkey) =
+            noise::handshake_finalize(&host, &bb02_handshake_2)?;
         let pairing_verfication_required_by_app = !self
             .noise_config
             .read_config()?
             .contains_device_static_pubkey(&remote_static_pubkey);
-        let pairing_verification_required_by_device = bb02_handshake_2.as_slice() == [0x01];
         if pairing_verfication_required_by_app || pairing_verification_required_by_device {
-            let format_hash = |h| {
-                let encoded = base32::encode(base32::Alphabet::Rfc4648 { padding: true }, h);
-                format!(
-                    "{} {}\n{} {}",
-                    &encoded[0..5],
-                    &encoded[5..10],
-                    &encoded[10..15],
-                    &encoded[15..20]
-                )
-            };
             let handshake_hash: [u8; 32] = host.get_hash().try_into().or(Err(Error::Noise))?;
-            let pairing_code = format_hash(&handshake_hash);
+            let pairing_code = noise::pairing_code_from_hash(&handshake_hash);
 
             Ok(PairingBitBox::from(
                 self.communication,
@@ -214,6 +224,7 @@ impl<R: Runtime> BitBox<R> {
     }
 }
 
+#[cfg(feature = "client")]
 /// BitBox in the pairing state. Use `get_pairing_code()` to display the pairing code to the user
 /// and `wait_confirm()` to proceed to the paired state.
 pub struct PairingBitBox<R: Runtime> {
@@ -223,6 +234,7 @@ pub struct PairingBitBox<R: Runtime> {
     pairing_code: Option<String>,
 }
 
+#[cfg(feature = "client")]
 impl<R: Runtime> PairingBitBox<R> {
     fn from(
         communication: communication::HwwCommunication<R>,
@@ -269,6 +281,7 @@ impl<R: Runtime> PairingBitBox<R> {
     }
 }
 
+#[cfg(feature = "client")]
 /// Paired BitBox. This is where you can invoke most API functions like getting xpubs, displaying
 /// receive addresses, etc.
 pub struct PairedBitBox<R: Runtime> {
@@ -278,6 +291,7 @@ pub struct PairedBitBox<R: Runtime> {
     noise_recv: Mutex<CipherState>,
 }
 
+#[cfg(feature = "client")]
 impl<R: Runtime> PairedBitBox<R> {
     fn from(communication: communication::HwwCommunication<R>, host: HandshakeState) -> Self {
         let (send, recv) = host.get_ciphers();
@@ -300,24 +314,14 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     fn validate_version(&self, comparison: &'static str) -> Result<(), Error> {
-        if semver::VersionReq::parse(comparison)
-            .or(Err(Error::Unknown))?
-            .matches(&self.communication.info.version)
-        {
-            Ok(())
-        } else {
-            Err(Error::Version(comparison))
-        }
+        btc::validate_version(self.version(), comparison)
     }
 
     async fn query_proto(&self, request: Request) -> Result<Response, Error> {
         let mut encrypted = vec![OP_NOISE_MSG];
         encrypted.extend_from_slice({
             let mut send = self.noise_send.lock().unwrap();
-            let proto_msg = pb::Request {
-                request: Some(request),
-            };
-            &send.encrypt_vec(&proto_msg.encode_to_vec())
+            &send.encrypt_vec(&api::encode_request(request))
         });
 
         let response = self.communication.query(&encrypted).await?;
@@ -328,37 +332,16 @@ impl<R: Runtime> PairedBitBox<R> {
             let mut recv = self.noise_recv.lock().unwrap();
             recv.decrypt_vec(&response[1..]).or(Err(Error::Noise))?
         };
-        match pb::Response::decode(&decrypted[..]) {
-            Ok(pb::Response {
-                response: Some(Response::Error(pb::Error { code, .. })),
-            }) => match code {
-                101 => Err(BitBoxError::InvalidInput.into()),
-                102 => Err(BitBoxError::Memory.into()),
-                103 => Err(BitBoxError::Generic.into()),
-                104 => Err(BitBoxError::UserAbort.into()),
-                105 => Err(BitBoxError::InvalidState.into()),
-                106 => Err(BitBoxError::Disabled.into()),
-                107 => Err(BitBoxError::Duplicate.into()),
-                108 => Err(BitBoxError::NoiseEncrypt.into()),
-                109 => Err(BitBoxError::NoiseDecrypt.into()),
-                _ => Err(BitBoxError::Unknown.into()),
-            },
-            Ok(pb::Response {
-                response: Some(response),
-            }) => Ok(response),
-            _ => Err(Error::ProtobufDecode),
+        let response = api::decode_response(&decrypted).map_err(|_| Error::ProtobufDecode)?;
+        match api::response_body(response)? {
+            Response::Error(pb::Error { code, .. }) => Err(BitBoxError::from_code(code).into()),
+            response => Ok(response),
         }
     }
 
     pub async fn device_info(&self) -> Result<pb::DeviceInfoResponse, Error> {
         let _api_call = self.begin_api_call().await;
-        match self
-            .query_proto(Request::DeviceInfo(pb::DeviceInfoRequest {}))
-            .await?
-        {
-            Response::DeviceInfo(di) => Ok(di),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        api::parse_device_info(self.query_proto(api::device_info_request()).await?)
     }
 
     /// Returns which product we are connected to.
@@ -384,45 +367,30 @@ impl<R: Runtime> PairedBitBox<R> {
         self.root_fingerprint_inner().await.map(hex::encode)
     }
 
-    pub(crate) async fn root_fingerprint_inner(&self) -> Result<Vec<u8>, Error> {
-        match self
-            .query_proto(Request::Fingerprint(pb::RootFingerprintRequest {}))
-            .await?
-        {
-            Response::Fingerprint(pb::RootFingerprintResponse { fingerprint }) => Ok(fingerprint),
-            _ => Err(Error::UnexpectedResponse),
-        }
+    pub(crate) async fn root_fingerprint_inner(&self) -> Result<[u8; 4], Error> {
+        let response = self.query_proto(api::root_fingerprint_request()).await?;
+        api::parse_root_fingerprint(response).map(|fingerprint| fingerprint.to_bytes())
     }
 
     /// Show recovery words on the Bitbox.
     pub async fn show_mnemonic(&self) -> Result<(), Error> {
         let _api_call = self.begin_api_call().await;
-        match self
-            .query_proto(Request::ShowMnemonic(pb::ShowMnemonicRequest {}))
-            .await?
-        {
-            Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        api::parse_success(self.query_proto(api::show_mnemonic_request()).await?)
     }
 
+    #[cfg(feature = "clock")]
     /// Restore from recovery words on the Bitbox.
     pub async fn restore_from_mnemonic(&self) -> Result<(), Error> {
         let _api_call = self.begin_api_call().await;
         let now = std::time::SystemTime::now();
         let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
-        match self
-            .query_proto(Request::RestoreFromMnemonic(
-                pb::RestoreFromMnemonicRequest {
-                    timestamp: duration_since_epoch.as_secs() as u32,
-                    timezone_offset: chrono::Local::now().offset().local_minus_utc(),
-                },
+        api::parse_success(
+            self.query_proto(api::restore_from_mnemonic_request(
+                duration_since_epoch.as_secs() as u32,
+                chrono::Local::now().offset().local_minus_utc(),
             ))
-            .await?
-        {
-            Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
+            .await?,
+        )
     }
 
     /// Invokes the password change workflow on the device.
@@ -430,13 +398,10 @@ impl<R: Runtime> PairedBitBox<R> {
     pub async fn change_password(&self) -> Result<(), Error> {
         let _api_call = self.begin_api_call().await;
         self.validate_version(">=9.25.0")?;
-        match self
-            .query_proto(Request::ChangePassword(pb::ChangePasswordRequest {}))
-            .await?
-        {
-            Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        api::parse_success(
+            self.query_proto(Request::ChangePassword(pb::ChangePasswordRequest {}))
+                .await?,
+        )
     }
 
     /// Invokes the BIP85-BIP39 workflow on the device, letting the user select the number of words
@@ -458,7 +423,7 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 }
 
-#[cfg(all(test, not(feature = "multithreaded")))]
+#[cfg(all(test, feature = "client", not(feature = "multithreaded")))]
 mod tests {
     use super::*;
     use crate::communication::{Error as CommunicationError, ReadWrite};

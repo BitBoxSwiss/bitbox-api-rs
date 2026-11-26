@@ -3,21 +3,24 @@
 use crate::runtime::Runtime;
 
 use crate::error::Error;
+use crate::pb::{self, request::Request, response::Response};
+#[cfg(feature = "persistence")]
 use crate::pb::{
-    self,
     eth_sign_typed_message_request::{DataType, Member, MemberType, StructType},
     eth_typed_message_value_response::RootObject,
-    request::Request,
-    response::Response,
 };
 use crate::Keypath;
 use crate::PairedBitBox;
 
+#[cfg(feature = "persistence")]
 use std::collections::HashMap;
+#[cfg(feature = "persistence")]
 use std::str::FromStr;
 
+#[cfg(feature = "persistence")]
 use num_bigint::{BigInt, BigUint};
 //use num_traits::ToPrimitive;
+#[cfg(feature = "persistence")]
 use serde_json::Value;
 
 /// Threshold above which transaction data is streamed in chunks.
@@ -181,12 +184,14 @@ impl TryFrom<&[u8]> for EIP1559Transaction {
     }
 }
 
+#[cfg(feature = "persistence")]
 #[derive(Debug, PartialEq, serde::Deserialize)]
 struct Eip712TypeMember {
     name: String,
     r#type: String,
 }
 
+#[cfg(feature = "persistence")]
 #[derive(Debug, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Eip712Message {
@@ -196,6 +201,7 @@ struct Eip712Message {
     message: HashMap<String, Value>,
 }
 
+#[cfg(feature = "persistence")]
 fn parse_type(
     typ: &str,
     types: &HashMap<String, Vec<Eip712TypeMember>>,
@@ -284,6 +290,7 @@ fn parse_type(
     }
 }
 
+#[cfg(feature = "persistence")]
 fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
     match DataType::try_from(typ.r#type).unwrap() {
         DataType::Bytes => {
@@ -367,6 +374,7 @@ fn encode_value(typ: &MemberType, value: &Value) -> Result<Vec<u8>, String> {
     }
 }
 
+#[cfg(feature = "persistence")]
 fn get_value(
     what: &pb::EthTypedMessageValueResponse,
     msg: &Eip712Message,
@@ -639,6 +647,7 @@ impl<R: Runtime> PairedBitBox<R> {
     /// Signs an Ethereum EIP-712 typed message. It returns a 65 byte signature (R, S, and 1 byte
     /// recID). 27 is added to the recID to denote an uncompressed pubkey.
     /// If `use_antiklepto` is false, signing is deterministic and requires firmware >=9.26.0.
+    #[cfg(feature = "persistence")]
     pub async fn eth_sign_typed_message(
         &self,
         chain_id: u64,
@@ -744,6 +753,7 @@ impl<R: Runtime> PairedBitBox<R> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "persistence")]
     const EIP712_MSG: &str = r#"
         {
     "types": {
@@ -792,6 +802,7 @@ mod tests {
 }
     "#;
 
+    #[cfg(feature = "persistence")]
     fn map_from(elements: &[(&str, Value)]) -> Value {
         let mut m = serde_json::Map::<String, Value>::new();
         for (k, v) in elements.iter().cloned() {
@@ -800,6 +811,7 @@ mod tests {
         m.into()
     }
 
+    #[cfg(feature = "persistence")]
     #[test]
     fn test_deserialize_eip713_message() {
         let msg: Eip712Message = serde_json::from_str(EIP712_MSG).unwrap();
@@ -920,10 +932,12 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "persistence")]
     fn parse_type_no_err(typ: &str, types: &HashMap<String, Vec<Eip712TypeMember>>) -> MemberType {
         parse_type(typ, types).unwrap()
     }
 
+    #[cfg(feature = "persistence")]
     #[test]
     fn test_parse_type() {
         assert_eq!(
@@ -1110,6 +1124,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "persistence")]
     #[test]
     fn test_encode_value() {
         let encoded =
@@ -1213,6 +1228,7 @@ mod tests {
         assert_eq!(b"\x00\x00\x03\xe8".to_vec(), encoded);
     }
 
+    #[cfg(feature = "persistence")]
     #[test]
     fn test_encode_value_signed_integers() {
         let typ = parse_type_no_err("int64", &HashMap::new());
@@ -1247,6 +1263,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "persistence")]
     #[test]
     fn test_get_value() {
         let msg: Eip712Message = serde_json::from_str(EIP712_MSG).unwrap();

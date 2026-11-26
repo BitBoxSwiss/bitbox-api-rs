@@ -12,14 +12,16 @@ impl Keypath {
         self.0.clone()
     }
 
-    pub(crate) fn hardened_prefix(&self) -> Keypath {
-        Keypath(
-            self.0
-                .iter()
-                .cloned()
-                .take_while(|&el| el >= HARDENED)
-                .collect(),
-        )
+    /// Returns the path components without copying them.
+    pub fn as_slice(&self) -> &[u32] {
+        &self.0
+    }
+
+    pub(crate) fn hardened_prefix(&self) -> &[u32] {
+        self.0
+            .split(|&child| child < HARDENED)
+            .next()
+            .unwrap_or_default()
     }
 }
 
@@ -132,7 +134,7 @@ mod tests {
             std::str::FromStr::from_str("m/84'/0'/0'/0/1").unwrap();
         let keypath = Keypath::from(&derivation_path);
         assert_eq!(
-            keypath.to_vec().as_slice(),
+            keypath.as_slice(),
             &[84 + HARDENED, HARDENED, HARDENED, 0, 1]
         );
     }

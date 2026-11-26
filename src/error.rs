@@ -28,6 +28,23 @@ pub enum BitBoxError {
     NoiseDecrypt,
 }
 
+impl BitBoxError {
+    pub fn from_code(code: i32) -> Self {
+        match code {
+            101 => Self::InvalidInput,
+            102 => Self::Memory,
+            103 => Self::Generic,
+            104 => Self::UserAbort,
+            105 => Self::InvalidState,
+            106 => Self::Disabled,
+            107 => Self::Duplicate,
+            108 => Self::NoiseEncrypt,
+            109 => Self::NoiseDecrypt,
+            _ => Self::Unknown,
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("unknown error")]
@@ -44,8 +61,10 @@ pub enum Error {
     Communication(communication::Error),
     #[error("noise channel error")]
     Noise,
+    #[cfg(any(feature = "client", feature = "persistence"))]
     #[error("noise config error: {0}")]
     NoiseConfig(#[from] crate::noise::ConfigError),
+    #[cfg(feature = "client")]
     #[error("pairing code rejected by user")]
     NoisePairingRejected,
     #[error("BitBox returned an unexpected response")]
@@ -62,6 +81,7 @@ pub enum Error {
     InvalidSignature,
     #[error("Antiklepto verification failed: {0}")]
     AntiKlepto(#[from] crate::antiklepto::Error),
+    #[cfg(all(feature = "client", feature = "persistence"))]
     #[error("EIP-712 typed message processing error: {0}")]
     EthTypedMessage(String),
     #[error("Bitcoin transaction signing error: {0}")]

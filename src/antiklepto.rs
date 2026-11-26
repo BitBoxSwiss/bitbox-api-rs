@@ -10,6 +10,7 @@ use std::io::Write;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[cfg(feature = "client")]
     #[error("Failed generating antiklepto host nonce")]
     GenNonce,
     #[error("{0}")]
@@ -35,12 +36,18 @@ fn tagged_sha256(tag: &[u8], msg: &[u8]) -> [u8; 32] {
     sha256::Hash::from_engine(engine).to_byte_array()
 }
 
-pub fn gen_host_nonce() -> Result<[u8; 32], Error> {
+#[cfg(feature = "client")]
+pub(crate) fn gen_host_nonce() -> Result<[u8; 32], Error> {
     let mut result = [0u8; 32];
     getrandom::getrandom(&mut result).map_err(|_| Error::GenNonce)?;
     Ok(result)
 }
 
+/// Commits to a host nonce for one Anti-Klepto signature.
+///
+/// Generate a fresh, secret 32-byte nonce with a cryptographically secure RNG for each
+/// signature. Send only the commitment until the signer returns its commitment, then
+/// reveal the nonce and verify its contribution before accepting the signature.
 pub fn host_commit(host_nonce: &[u8]) -> [u8; 32] {
     tagged_sha256(b"s2c/ecdsa/data", host_nonce)
 }
@@ -48,6 +55,8 @@ pub fn host_commit(host_nonce: &[u8]) -> [u8; 32] {
 /// Verifies that `host_nonce` was used to tweak the nonce during signature generation according
 /// to k' = k + H(signer_commitment, host_nonce) by checking that
 /// k'*G = signer_commitment + H(signer_commitment, host_nonce)*G.
+///
+/// This does not verify the signature against the message and signing key.
 pub fn verify_ecdsa(
     host_nonce: &[u8],
     signer_commitment: &[u8],
@@ -58,6 +67,8 @@ pub fn verify_ecdsa(
 }
 
 /// Validates a recoverable ECDSA signature and verifies its Anti-Klepto nonce contribution.
+///
+/// This does not verify the signature against the message and signing key.
 pub fn verify_recoverable_ecdsa(
     host_nonce: &[u8],
     signer_commitment: &[u8],
