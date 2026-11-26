@@ -1029,6 +1029,17 @@ pub fn parse_sign_next(response: Response) -> Result<pb::BtcSignNextResponse, Er
     }
 }
 
+#[cfg(feature = "client")]
+fn parse_client_sign_next(
+    response: Response,
+    nested: bool,
+) -> Result<pb::BtcSignNextResponse, Error> {
+    if nested != matches!(response, Response::Btc(_)) {
+        return Err(Error::UnexpectedResponse);
+    }
+    parse_sign_next(response)
+}
+
 /// Extracts the device's Anti-Klepto commitment in a message signing exchange.
 pub fn parse_signer_commitment(response: Response) -> Result<Vec<u8>, Error> {
     match btc_response(response)? {
@@ -1221,7 +1232,8 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     async fn get_next_response(&self, request: Request) -> Result<pb::BtcSignNextResponse, Error> {
-        parse_sign_next(self.query_proto(request).await?)
+        let nested = matches!(request, Request::Btc(_));
+        parse_client_sign_next(self.query_proto(request).await?, nested)
     }
 
     /// Sign a Bitcoin transaction. Returns one 64 byte signature (compact serlization of the R and
@@ -1800,6 +1812,25 @@ mod tests {
             parse_sign_next(nested_response(BtcResponse::Success(pb::BtcSuccess {}))),
             Err(Error::UnexpectedResponse)
         ));
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn client_sign_next_rejects_the_wrong_response_envelope() {
+        let next = pb::BtcSignNextResponse::default();
+        for (response, nested) in [
+            (Response::BtcSignNext(next.clone()), false),
+            (
+                nested_response(pb::btc_response::Response::SignNext(next.clone())),
+                true,
+            ),
+        ] {
+            assert!(matches!(
+                parse_client_sign_next(response.clone(), !nested),
+                Err(Error::UnexpectedResponse)
+            ));
+            assert_eq!(parse_client_sign_next(response, nested).unwrap(), next);
+        }
     }
 
     #[test]
