@@ -266,7 +266,9 @@ pub enum OurKey {
 impl OurKey {
     fn keypath(&self) -> &Keypath {
         match self {
-            OurKey::Segwit(_, kp) | OurKey::TaprootInternal(kp) | OurKey::TaprootScript(_, _, kp) => kp,
+            OurKey::Segwit(_, kp)
+            | OurKey::TaprootInternal(kp)
+            | OurKey::TaprootScript(_, _, kp) => kp,
         }
     }
 }
@@ -518,7 +520,8 @@ impl Transaction {
                 OurKey::Segwit(_, keypath)
                 | OurKey::TaprootInternal(keypath)
                 | OurKey::TaprootScript(_, _, keypath),
-            ) = output_key else {
+            ) = output_key
+            else {
                 outputs.push(TxOutput::External(tx_output.try_into()?));
                 output_script_config_indices.push(None);
                 continue;
@@ -535,7 +538,10 @@ impl Transaction {
                     psbt_output.redeem_script.as_ref(),
                 )?;
                 if is_same_account(&script_configs, &script_config)? {
-                    (find_or_add_script_config(&mut script_configs, script_config) as u32, None)
+                    (
+                        find_or_add_script_config(&mut script_configs, script_config) as u32,
+                        None,
+                    )
                 } else if firmware_version >= &semver::Version::new(9, 22, 0) {
                     let index =
                         find_or_add_script_config(&mut output_script_configs, script_config);
@@ -569,6 +575,53 @@ impl Transaction {
             output_script_config_indices,
         })
     }
+}
+
+/// Applies device signatures to their PSBT inputs in input order, preserving other signatures.
+///
+/// A count mismatch is rejected before mutation. If a later signature is malformed, earlier
+/// signatures may already have been applied.
+pub fn apply_signatures(
+    psbt: &mut bitcoin::psbt::Psbt,
+    signatures: &[Vec<u8>],
+    our_keys: &[OurKey],
+) -> Result<(), Error> {
+    let num_inputs = psbt.unsigned_tx.input.len();
+    if psbt.inputs.len() != num_inputs
+        || signatures.len() != num_inputs
+        || our_keys.len() != num_inputs
+    {
+        return Err(Error::BtcSign(
+            "signatures and signing keys must match PSBT inputs".into(),
+        ));
+    }
+
+    for ((input, signature), key) in psbt.inputs.iter_mut().zip(signatures).zip(our_keys) {
+        match key {
+            OurKey::Segwit(pubkey, _) => {
+                let signature = bitcoin::secp256k1::ecdsa::Signature::from_compact(signature)
+                    .map_err(|_| Error::InvalidSignature)?;
+                input.partial_sigs.insert(
+                    bitcoin::PublicKey::new(*pubkey),
+                    bitcoin::ecdsa::Signature::sighash_all(signature),
+                );
+            }
+            OurKey::TaprootInternal(_) => {
+                input.tap_key_sig = Some(
+                    bitcoin::taproot::Signature::from_slice(signature)
+                        .map_err(|_| Error::InvalidSignature)?,
+                );
+            }
+            OurKey::TaprootScript(xonly, leaf_hash, _) => {
+                let signature = bitcoin::taproot::Signature::from_slice(signature)
+                    .map_err(|_| Error::InvalidSignature)?;
+                input
+                    .tap_script_sigs
+                    .insert((*xonly, *leaf_hash), signature);
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Create a single-sig script config.
@@ -892,30 +945,36 @@ pub fn sign_output_request(output: &TxOutput, output_script_config_index: Option
 
 /// Builds a request describing a previous transaction.
 pub fn prevtx_init_request(tx: &PrevTx) -> Request {
-    btc_request(pb::btc_request::Request::PrevtxInit(pb::BtcPrevTxInitRequest {
-        version: tx.version,
-        num_inputs: tx.inputs.len() as _,
-        num_outputs: tx.outputs.len() as _,
-        locktime: tx.locktime,
-    }))
+    btc_request(pb::btc_request::Request::PrevtxInit(
+        pb::BtcPrevTxInitRequest {
+            version: tx.version,
+            num_inputs: tx.inputs.len() as _,
+            num_outputs: tx.outputs.len() as _,
+            locktime: tx.locktime,
+        },
+    ))
 }
 
 /// Builds a request carrying a previous transaction's input.
 pub fn prevtx_input_request(input: &PrevTxInput) -> Request {
-    btc_request(pb::btc_request::Request::PrevtxInput(pb::BtcPrevTxInputRequest {
-        prev_out_hash: input.prev_out_hash.clone(),
-        prev_out_index: input.prev_out_index,
-        signature_script: input.signature_script.clone(),
-        sequence: input.sequence,
-    }))
+    btc_request(pb::btc_request::Request::PrevtxInput(
+        pb::BtcPrevTxInputRequest {
+            prev_out_hash: input.prev_out_hash.clone(),
+            prev_out_index: input.prev_out_index,
+            signature_script: input.signature_script.clone(),
+            sequence: input.sequence,
+        },
+    ))
 }
 
 /// Builds a request carrying a previous transaction's output.
 pub fn prevtx_output_request(output: &PrevTxOutput) -> Request {
-    btc_request(pb::btc_request::Request::PrevtxOutput(pb::BtcPrevTxOutputRequest {
-        value: output.value,
-        pubkey_script: output.pubkey_script.clone(),
-    }))
+    btc_request(pb::btc_request::Request::PrevtxOutput(
+        pb::BtcPrevTxOutputRequest {
+            value: output.value,
+            pubkey_script: output.pubkey_script.clone(),
+        },
+    ))
 }
 
 /// Reveals the host nonce to request an Anti-Klepto signature.
@@ -1127,8 +1186,13 @@ impl<R: Runtime> PairedBitBox<R> {
     ) -> Result<String, Error> {
         let _api_call = self.begin_api_call().await;
         crate::api::parse_pub(
-            self.query_proto(address_request(coin, keypath, script_config.clone(), display))
-                .await?,
+            self.query_proto(address_request(
+                coin,
+                keypath,
+                script_config.clone(),
+                display,
+            ))
+            .await?,
         )
     }
 
@@ -1203,7 +1267,9 @@ impl<R: Runtime> PairedBitBox<R> {
                     next_response = self
                         .get_next_response(sign_input_request(
                             tx_input,
-                            host_nonce.as_ref().map(|nonce| crate::antiklepto::host_commit(nonce)),
+                            host_nonce
+                                .as_ref()
+                                .map(|nonce| crate::antiklepto::host_commit(nonce)),
                         ))
                         .await?;
 
@@ -1273,7 +1339,10 @@ impl<R: Runtime> PairedBitBox<R> {
                         .copied()
                         .flatten();
                     next_response = self
-                        .get_next_response(sign_output_request(tx_output, output_script_config_index))
+                        .get_next_response(sign_output_request(
+                            tx_output,
+                            output_script_config_index,
+                        ))
                         .await?;
                 }
                 pb::btc_sign_next_response::Type::Done => break,
@@ -1323,38 +1392,7 @@ impl<R: Runtime> PairedBitBox<R> {
                 format_unit,
             )
             .await?;
-        for (psbt_input, (signature, our_key)) in psbt
-            .inputs
-            .iter_mut()
-            .zip(signatures.iter().zip(psbt_transaction.our_keys))
-        {
-            match our_key {
-                OurKey::Segwit(pubkey, _) => {
-                    psbt_input.partial_sigs.insert(
-                        bitcoin::PublicKey::new(pubkey),
-                        bitcoin::ecdsa::Signature {
-                            signature: bitcoin::secp256k1::ecdsa::Signature::from_compact(
-                                signature,
-                            )
-                            .map_err(|_| Error::InvalidSignature)?,
-                            sighash_type: bitcoin::sighash::EcdsaSighashType::All,
-                        },
-                    );
-                }
-                OurKey::TaprootInternal(_) => {
-                    psbt_input.tap_key_sig = Some(
-                        bitcoin::taproot::Signature::from_slice(signature)
-                            .map_err(|_| Error::InvalidSignature)?,
-                    );
-                }
-                OurKey::TaprootScript(xonly, leaf_hash, _) => {
-                    let sig = bitcoin::taproot::Signature::from_slice(signature)
-                        .map_err(|_| Error::InvalidSignature)?;
-                    psbt_input.tap_script_sigs.insert((xonly, leaf_hash), sig);
-                }
-            }
-        }
-        Ok(())
+        apply_signatures(psbt, &signatures, &psbt_transaction.our_keys)
     }
 
     /// Sign a message.
@@ -1527,12 +1565,21 @@ mod tests {
             let response = nested_response(BtcResponse::IsScriptConfigRegistered(
                 pb::BtcIsScriptConfigRegisteredResponse { is_registered },
             ));
-            assert_eq!(parse_is_registered(response.clone()).unwrap(), is_registered);
-            assert!(matches!(parse_registered(response), Err(Error::UnexpectedResponse)));
+            assert_eq!(
+                parse_is_registered(response.clone()).unwrap(),
+                is_registered
+            );
+            assert!(matches!(
+                parse_registered(response),
+                Err(Error::UnexpectedResponse)
+            ));
         }
         let response = nested_response(BtcResponse::Success(pb::BtcSuccess {}));
         assert!(parse_registered(response.clone()).is_ok());
-        assert!(matches!(parse_is_registered(response), Err(Error::UnexpectedResponse)));
+        assert!(matches!(
+            parse_is_registered(response),
+            Err(Error::UnexpectedResponse)
+        ));
         assert!(matches!(
             btc_response(Response::Btc(pb::BtcResponse { response: None })),
             Err(Error::UnexpectedResponse)
@@ -1550,7 +1597,9 @@ mod tests {
 
         let coin = pb::BtcCoin::Tbtc;
         let config = pb::BtcScriptConfigWithKeypath {
-            script_config: Some(make_script_config_simple(pb::btc_script_config::SimpleType::P2wpkh)),
+            script_config: Some(make_script_config_simple(
+                pb::btc_script_config::SimpleType::P2wpkh,
+            )),
             keypath: vec![1, 2, 3],
         };
         let keypath = Keypath::try_from("m/7").unwrap();
@@ -1601,7 +1650,12 @@ mod tests {
             ..config.clone()
         };
         assert_eq!(
-            sign_init_request(coin, &tx, std::slice::from_ref(&output_config), FormatUnit::Sat),
+            sign_init_request(
+                coin,
+                &tx,
+                std::slice::from_ref(&output_config),
+                FormatUnit::Sat
+            ),
             Request::BtcSignInit(pb::BtcSignInitRequest {
                 coin: coin as _,
                 script_configs: vec![config.clone()],
@@ -1626,7 +1680,9 @@ mod tests {
                     keypath: vec![7],
                     script_config_index: 11,
                     host_nonce_commitment: host_commitment.map(|_| {
-                        pb::AntiKleptoHostNonceCommitment { commitment: vec![14; 32] }
+                        pb::AntiKleptoHostNonceCommitment {
+                            commitment: vec![14; 32],
+                        }
                     }),
                 }),
             );
@@ -1654,7 +1710,11 @@ mod tests {
             }),
         );
 
-        let nested = |request| Request::Btc(pb::BtcRequest { request: Some(request) });
+        let nested = |request| {
+            Request::Btc(pb::BtcRequest {
+                request: Some(request),
+            })
+        };
         let prevtx = tx.inputs[0].get_prev_tx().unwrap();
         assert_eq!(
             prevtx_init_request(prevtx),
@@ -1694,9 +1754,11 @@ mod tests {
         );
         assert_eq!(
             antiklepto_signature_request(&[15; 32]),
-            nested(BtcRequest::AntikleptoSignature(pb::AntiKleptoSignatureRequest {
-                host_nonce: vec![15; 32],
-            })),
+            nested(BtcRequest::AntikleptoSignature(
+                pb::AntiKleptoSignatureRequest {
+                    host_nonce: vec![15; 32],
+                }
+            )),
         );
     }
 
@@ -1709,7 +1771,10 @@ mod tests {
             prev_index: 3,
             ..Default::default()
         };
-        assert_eq!(parse_sign_next(Response::BtcSignNext(next.clone())).unwrap(), next);
+        assert_eq!(
+            parse_sign_next(Response::BtcSignNext(next.clone())).unwrap(),
+            next
+        );
         assert_eq!(
             parse_sign_next(nested_response(BtcResponse::SignNext(next.clone()))).unwrap(),
             next,
@@ -1725,12 +1790,22 @@ mod tests {
         use pb::btc_response::Response as BtcResponse;
 
         let commitment = nested_response(BtcResponse::AntikleptoSignerCommitment(
-            pb::AntiKleptoSignerCommitment { commitment: vec![42; 33] },
+            pb::AntiKleptoSignerCommitment {
+                commitment: vec![42; 33],
+            },
         ));
-        assert_eq!(parse_signer_commitment(commitment.clone()).unwrap(), vec![42; 33]);
-        assert!(matches!(parse_message_signature(commitment), Err(Error::UnexpectedResponse)));
+        assert_eq!(
+            parse_signer_commitment(commitment.clone()).unwrap(),
+            vec![42; 33]
+        );
+        assert!(matches!(
+            parse_message_signature(commitment),
+            Err(Error::UnexpectedResponse)
+        ));
         let message = |signature| {
-            nested_response(BtcResponse::SignMessage(pb::BtcSignMessageResponse { signature }))
+            nested_response(BtcResponse::SignMessage(pb::BtcSignMessageResponse {
+                signature,
+            }))
         };
         // Compact r = 1, s = 1: valid scalars irrespective of any message or nonce.
         let mut compact = vec![0; 64];
@@ -1754,7 +1829,9 @@ mod tests {
         for malformed in [compact, bad_recid, vec![0; 65]] {
             assert!(matches!(
                 parse_message_signature(message(malformed)),
-                Err(Error::AntiKlepto(crate::antiklepto::Error::InvalidSignature(_)))
+                Err(Error::AntiKlepto(
+                    crate::antiklepto::Error::InvalidSignature(_)
+                ))
             ));
         }
     }
@@ -1772,8 +1849,14 @@ mod tests {
             outputs: vec![],
         };
         let old = Version::new(9, 3, 0);
-        assert!(matches!(validate_version(&old, "not semver"), Err(Error::Unknown)));
-        assert!(matches!(validate_signing(&old, &tx, &[], &[]), Err(Error::Version(">=9.4.0"))));
+        assert!(matches!(
+            validate_version(&old, "not semver"),
+            Err(Error::Unknown)
+        ));
+        assert!(matches!(
+            validate_signing(&old, &tx, &[], &[]),
+            Err(Error::Version(">=9.4.0"))
+        ));
         assert!(validate_signing(&Version::new(9, 4, 0), &tx, &[], &[]).is_ok());
 
         let taproot = pb::BtcScriptConfigWithKeypath {
@@ -1782,7 +1865,12 @@ mod tests {
         };
         assert!(is_schnorr(&taproot));
         assert!(matches!(
-            validate_signing(&Version::new(9, 9, 0), &tx, std::slice::from_ref(&taproot), &[]),
+            validate_signing(
+                &Version::new(9, 9, 0),
+                &tx,
+                std::slice::from_ref(&taproot),
+                &[]
+            ),
             Err(Error::Version(">=9.10.0"))
         ));
         tx.script_configs.push(taproot);
@@ -1809,7 +1897,11 @@ mod tests {
         ));
     }
 
-    fn psbt_fixture() -> (bitcoin::psbt::Psbt, Fingerprint, bitcoin::secp256k1::PublicKey) {
+    fn psbt_fixture() -> (
+        bitcoin::psbt::Psbt,
+        Fingerprint,
+        bitcoin::secp256k1::PublicKey,
+    ) {
         use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey};
         use bitcoin::{absolute, psbt::Psbt, transaction, Amount, CompressedPublicKey, ScriptBuf};
 
@@ -1850,20 +1942,31 @@ mod tests {
                 &version,
                 &psbt,
                 None,
-                vec![OurKey::Segwit(key, Keypath::try_from("m/84'/0'/0'/0/0").unwrap())],
+                vec![OurKey::Segwit(
+                    key,
+                    Keypath::try_from("m/84'/0'/0'/0/0").unwrap(),
+                )],
                 vec![Some(OurKey::Segwit(key, output_keypath.clone()))],
             )
             .unwrap();
             assert_eq!(ordinary.transaction, resolved.transaction);
-            assert_eq!(ordinary.output_script_configs, resolved.output_script_configs);
-            assert_eq!(ordinary.output_script_config_indices, resolved.output_script_config_indices);
+            assert_eq!(
+                ordinary.output_script_configs,
+                resolved.output_script_configs
+            );
+            assert_eq!(
+                ordinary.output_script_config_indices,
+                resolved.output_script_config_indices
+            );
             assert_eq!(resolved.transaction.script_configs.len(), 1);
             if minor == 21 {
                 assert_eq!(resolved.output_script_config_indices, [None]);
                 assert!(resolved.output_script_configs.is_empty());
                 assert_eq!(
                     resolved.transaction.outputs[0],
-                    TxOutput::External(TxExternalOutput::try_from(&psbt.unsigned_tx.output[0]).unwrap()),
+                    TxOutput::External(
+                        TxExternalOutput::try_from(&psbt.unsigned_tx.output[0]).unwrap()
+                    ),
                 );
             } else {
                 assert_eq!(resolved.output_script_config_indices, [Some(0)]);
@@ -1888,7 +1991,12 @@ mod tests {
     fn psbt_lowering_checks_psbt_and_key_cardinalities() {
         let (mut psbt, fingerprint, key) = psbt_fixture();
         let version = semver::Version::new(9, 24, 0);
-        let input_keys = || vec![OurKey::Segwit(key, Keypath::try_from("m/84'/0'/0'/0/0").unwrap())];
+        let input_keys = || {
+            vec![OurKey::Segwit(
+                key,
+                Keypath::try_from("m/84'/0'/0'/0/0").unwrap(),
+            )]
+        };
         let input_error = "input signing keys must match PSBT inputs";
         let output_error = "output signing keys must match PSBT outputs";
         let expect_error = |result, expected: &str| {
@@ -1908,14 +2016,20 @@ mod tests {
             Transaction::from_psbt_with_keys(&version, &psbt, None, input_keys(), vec![None]),
             input_error,
         );
-        expect_error(Transaction::from_psbt(&version, &fingerprint[..], &psbt, None), input_error);
+        expect_error(
+            Transaction::from_psbt(&version, &fingerprint[..], &psbt, None),
+            input_error,
+        );
         psbt.unsigned_tx.input.pop();
         psbt.unsigned_tx.output.clear();
         expect_error(
             Transaction::from_psbt_with_keys(&version, &psbt, None, input_keys(), vec![None]),
             output_error,
         );
-        expect_error(Transaction::from_psbt(&version, &fingerprint[..], &psbt, None), output_error);
+        expect_error(
+            Transaction::from_psbt(&version, &fingerprint[..], &psbt, None),
+            output_error,
+        );
     }
 
     #[test]
@@ -1945,16 +2059,106 @@ mod tests {
             )),
             keypath: vec![],
         };
-        let lowered = Transaction::from_psbt(&version, &fingerprint[..], &psbt, Some(forced.clone()))
-            .unwrap();
+        let lowered =
+            Transaction::from_psbt(&version, &fingerprint[..], &psbt, Some(forced.clone()))
+                .unwrap();
         assert_eq!(lowered.transaction.script_configs, [forced]);
         assert_eq!(lowered.transaction.inputs[0].script_config_index, 0);
         assert!(matches!(
             lowered.transaction.outputs[0],
-            TxOutput::Internal(TxInternalOutput { script_config_index: 0, .. })
+            TxOutput::Internal(TxInternalOutput {
+                script_config_index: 0,
+                ..
+            })
         ));
         assert!(lowered.output_script_configs.is_empty());
         assert_eq!(lowered.output_script_config_indices, [None]);
+    }
+
+    #[test]
+    fn signature_application_checks_counts_before_mutating() {
+        let (mut psbt, _, key) = psbt_fixture();
+        let keys = [OurKey::Segwit(key, Keypath::try_from("m/").unwrap())];
+        let mut compact = vec![0; 64];
+        compact[31] = 1;
+        compact[63] = 1;
+        let signatures = [compact];
+        let mut expect_error = |signatures: &[Vec<u8>], keys: &[OurKey]| {
+            assert!(matches!(
+                apply_signatures(&mut psbt, signatures, keys),
+                Err(Error::BtcSign(message))
+                    if message == "signatures and signing keys must match PSBT inputs"
+            ));
+            assert!(psbt.inputs[0].partial_sigs.is_empty());
+        };
+        expect_error(&[], &keys);
+        expect_error(&signatures, &[]);
+
+        // Matching signatures, keys, and PSBT metadata are still insufficient when the
+        // underlying unsigned transaction has a different input count.
+        psbt.unsigned_tx.input.push(bitcoin::TxIn::default());
+        assert!(matches!(
+            apply_signatures(&mut psbt, &signatures, &keys),
+            Err(Error::BtcSign(message))
+                if message == "signatures and signing keys must match PSBT inputs"
+        ));
+        assert!(psbt.inputs[0].partial_sigs.is_empty());
+    }
+
+    #[test]
+    fn signature_application_preserves_partial_signatures_and_applies_in_order() {
+        use bitcoin::secp256k1::{Keypair, Message, PublicKey, Secp256k1, SecretKey};
+        use bitcoin::taproot::{LeafVersion, TapLeafHash};
+
+        let (mut psbt, _, key) = psbt_fixture();
+        psbt.unsigned_tx
+            .input
+            .resize_with(3, bitcoin::TxIn::default);
+        psbt.inputs.resize_with(3, Default::default);
+
+        let secp = Secp256k1::new();
+        let secret = SecretKey::from_slice(&[1; 32]).unwrap();
+        let cosigner = SecretKey::from_slice(&[2; 32]).unwrap();
+        let cosigner_key = bitcoin::PublicKey::new(PublicKey::from_secret_key(&secp, &cosigner));
+        let digest = Message::from_digest([3; 32]);
+        let existing = bitcoin::ecdsa::Signature::sighash_all(secp.sign_ecdsa(&digest, &cosigner));
+        psbt.inputs[0].partial_sigs.insert(cosigner_key, existing);
+
+        let ecdsa = secp.sign_ecdsa(&digest, &secret);
+        let schnorr =
+            secp.sign_schnorr_no_aux_rand(&digest, &Keypair::from_secret_key(&secp, &secret));
+        let taproot = bitcoin::taproot::Signature {
+            signature: schnorr,
+            sighash_type: bitcoin::sighash::TapSighashType::Default,
+        };
+        let xonly = key.x_only_public_key().0;
+        let leaf = TapLeafHash::from_script(bitcoin::Script::new(), LeafVersion::TapScript);
+        let path = Keypath::try_from("m/").unwrap();
+        let keys = [
+            OurKey::Segwit(key, path.clone()),
+            OurKey::TaprootInternal(path.clone()),
+            OurKey::TaprootScript(xonly, leaf, path),
+        ];
+        let mut signatures = [ecdsa.serialize_compact().to_vec(), vec![], taproot.to_vec()];
+
+        assert!(matches!(
+            apply_signatures(&mut psbt, &signatures, &keys),
+            Err(Error::InvalidSignature)
+        ));
+        let our_pubkey = bitcoin::PublicKey::new(key);
+        assert_eq!(
+            psbt.inputs[0].partial_sigs[&our_pubkey],
+            bitcoin::ecdsa::Signature::sighash_all(ecdsa),
+        );
+        assert!(psbt.inputs[1].tap_key_sig.is_none());
+        assert!(psbt.inputs[2].tap_script_sigs.is_empty());
+
+        signatures[1] = taproot.to_vec();
+        apply_signatures(&mut psbt, &signatures, &keys).unwrap();
+        assert_eq!(psbt.inputs[0].partial_sigs[&cosigner_key], existing);
+        assert_eq!(psbt.inputs[0].partial_sigs.len(), 2);
+        assert_eq!(psbt.inputs[1].tap_key_sig, Some(taproot));
+        assert_eq!(psbt.inputs[2].tap_script_sigs[&(xonly, leaf)], taproot);
     }
 
     #[test]

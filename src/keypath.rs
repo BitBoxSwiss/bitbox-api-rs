@@ -18,7 +18,10 @@ impl Keypath {
     }
 
     pub(crate) fn hardened_prefix(&self) -> &[u32] {
-        self.0.split(|&child| child < HARDENED).next().unwrap_or_default()
+        self.0
+            .split(|&child| child < HARDENED)
+            .next()
+            .unwrap_or_default()
     }
 }
 
