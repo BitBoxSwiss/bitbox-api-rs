@@ -85,10 +85,11 @@ pub struct TxInput {
 }
 
 impl TxInput {
-    fn get_prev_tx(&self) -> Result<&PrevTx, Error> {
-        self.prev_tx.as_ref().ok_or(Error::BtcSign(
-            "input's previous transaction required but missing".into(),
-        ))
+    /// Returns the previous transaction when it is available.
+    pub fn get_prev_tx(&self) -> Result<&PrevTx, Error> {
+        self.prev_tx.as_ref().ok_or_else(|| {
+            Error::BtcSign("input's previous transaction required but missing".into())
+        })
     }
 }
 
@@ -250,7 +251,9 @@ impl From<PayloadError> for PsbtError {
     }
 }
 
-enum OurKey {
+/// The wallet's signing key and derivation path for a PSBT input or output.
+#[derive(Debug)]
+pub enum OurKey {
     Segwit(bitcoin::secp256k1::PublicKey, Keypath),
     TaprootInternal(Keypath),
     TaprootScript(
@@ -261,11 +264,9 @@ enum OurKey {
 }
 
 impl OurKey {
-    fn keypath(&self) -> Keypath {
+    fn keypath(&self) -> &Keypath {
         match self {
-            OurKey::Segwit(_, kp) => kp.clone(),
-            OurKey::TaprootInternal(kp) => kp.clone(),
-            OurKey::TaprootScript(_, _, kp) => kp.clone(),
+            OurKey::Segwit(_, kp) | OurKey::TaprootInternal(kp) | OurKey::TaprootScript(_, _, kp) => kp,
         }
     }
 }
@@ -379,50 +380,33 @@ fn find_our_key<T: PsbtOutputInfo>(
 
 fn script_config_from_utxo(
     output: &bitcoin::TxOut,
-    keypath: Keypath,
+    keypath: &Keypath,
     redeem_script: Option<&bitcoin::ScriptBuf>,
-    _witness_script: Option<&bitcoin::ScriptBuf>,
 ) -> Result<pb::BtcScriptConfigWithKeypath, PsbtError> {
-    let keypath = keypath.hardened_prefix();
-    if output.script_pubkey.is_p2wpkh() {
-        return Ok(pb::BtcScriptConfigWithKeypath {
-            script_config: Some(make_script_config_simple(
-                pb::btc_script_config::SimpleType::P2wpkh,
-            )),
-            keypath: keypath.to_vec(),
-        });
-    }
-    let redeem_script_is_p2wpkh = redeem_script.map(|s| s.is_p2wpkh()).unwrap_or(false);
-    if output.script_pubkey.is_p2sh() && redeem_script_is_p2wpkh {
-        return Ok(pb::BtcScriptConfigWithKeypath {
-            script_config: Some(make_script_config_simple(
-                pb::btc_script_config::SimpleType::P2wpkhP2sh,
-            )),
-            keypath: keypath.to_vec(),
-        });
-    }
-    if output.script_pubkey.is_p2tr() {
-        return Ok(pb::BtcScriptConfigWithKeypath {
-            script_config: Some(make_script_config_simple(
-                pb::btc_script_config::SimpleType::P2tr,
-            )),
-            keypath: keypath.to_vec(),
-        });
-    }
-    // Check for segwit multisig (p2wsh or p2wsh-p2sh).
-    let redeem_script_is_p2wsh = redeem_script.map(|s| s.is_p2wsh()).unwrap_or(false);
-    let is_p2wsh_p2sh = output.script_pubkey.is_p2sh() && redeem_script_is_p2wsh;
-    if output.script_pubkey.is_p2wsh() || is_p2wsh_p2sh {
-        todo!();
-    }
-    Err(PsbtError::UnknownOutputType)
+    use pb::btc_script_config::SimpleType;
+    let script = &output.script_pubkey;
+    let simple_type = if script.is_p2wpkh() {
+        SimpleType::P2wpkh
+    } else if script.is_p2sh() && redeem_script.is_some_and(|script| script.is_p2wpkh()) {
+        SimpleType::P2wpkhP2sh
+    } else if script.is_p2tr() {
+        SimpleType::P2tr
+    } else {
+        return Err(PsbtError::UnknownOutputType);
+    };
+    Ok(pb::BtcScriptConfigWithKeypath {
+        script_config: Some(make_script_config_simple(simple_type)),
+        keypath: keypath.hardened_prefix().to_vec(),
+    })
 }
 
-struct PsbtTransaction {
-    transaction: Transaction,
-    our_keys: Vec<OurKey>,
-    output_script_configs: Vec<pb::BtcScriptConfigWithKeypath>,
-    output_script_config_indices: Vec<Option<u32>>,
+/// A transaction lowered for signing, with keys in input order and config indices in output order.
+#[derive(Debug)]
+pub struct PsbtTransaction {
+    pub transaction: Transaction,
+    pub our_keys: Vec<OurKey>,
+    pub output_script_configs: Vec<pb::BtcScriptConfigWithKeypath>,
+    pub output_script_config_indices: Vec<Option<u32>>,
 }
 
 impl Transaction {
@@ -453,7 +437,6 @@ impl Transaction {
                         utxo,
                         our_key.keypath(),
                         psbt_input.redeem_script.as_ref(),
-                        psbt_input.witness_script.as_ref(),
                     )?,
                 )
             };
@@ -463,7 +446,7 @@ impl Transaction {
                 prev_out_index: tx_input.previous_output.vout,
                 prev_out_value: utxo.value.to_sat(),
                 sequence: tx_input.sequence.to_consensus_u32(),
-                keypath: our_key.keypath(),
+                keypath: our_key.keypath().clone(),
                 script_config_index: script_config_index as _,
                 prev_tx: psbt_input.non_witness_utxo.as_ref().map(PrevTx::from),
             });
@@ -484,7 +467,6 @@ impl Transaction {
                             tx_output,
                             our_key.keypath(),
                             psbt_output.redeem_script.as_ref(),
-                            psbt_output.witness_script.as_ref(),
                         )?
                     };
                     let same_account = is_same_account(&script_configs, &script_config)?;
@@ -494,7 +476,7 @@ impl Transaction {
                         let script_config_index =
                             find_or_add_script_config(&mut script_configs, script_config);
                         outputs.push(TxOutput::Internal(TxInternalOutput {
-                            keypath: our_key.keypath(),
+                            keypath: our_key.keypath().clone(),
                             value: tx_output.value.to_sat(),
                             script_config_index: script_config_index as _,
                         }));
@@ -503,7 +485,7 @@ impl Transaction {
                         let output_script_config_index =
                             find_or_add_script_config(&mut output_script_configs, script_config);
                         outputs.push(TxOutput::Internal(TxInternalOutput {
-                            keypath: our_key.keypath(),
+                            keypath: our_key.keypath().clone(),
                             value: tx_output.value.to_sat(),
                             // Ignored when output_script_config_index is present.
                             script_config_index: 0,
@@ -554,7 +536,8 @@ pub struct KeyOriginInfo {
     pub xpub: bitcoin::bip32::Xpub,
 }
 
-fn convert_xpub(xpub: &bitcoin::bip32::Xpub) -> pb::XPub {
+/// Converts an extended public key to the device's protobuf representation.
+pub fn convert_xpub(xpub: &bitcoin::bip32::Xpub) -> pb::XPub {
     pb::XPub {
         depth: vec![xpub.depth],
         parent_fingerprint: xpub.parent_fingerprint[..].to_vec(),
@@ -629,7 +612,8 @@ fn is_taproot_policy(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
     )
 }
 
-fn is_schnorr(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
+/// Returns whether the script config uses Schnorr signatures.
+pub fn is_schnorr(script_config: &pb::BtcScriptConfigWithKeypath) -> bool {
     is_taproot_simple(script_config) | is_taproot_policy(script_config)
 }
 
@@ -795,6 +779,222 @@ pub fn parse_registered(response: Response) -> Result<(), Error> {
     }
 }
 
+/// Builds the first request of a transaction signing exchange.
+pub fn sign_init_request(
+    coin: pb::BtcCoin,
+    tx: &Transaction,
+    output_script_configs: &[pb::BtcScriptConfigWithKeypath],
+    format_unit: pb::btc_sign_init_request::FormatUnit,
+) -> Request {
+    Request::BtcSignInit(pb::BtcSignInitRequest {
+        coin: coin as _,
+        script_configs: tx.script_configs.clone(),
+        output_script_configs: output_script_configs.to_vec(),
+        version: tx.version,
+        num_inputs: tx.inputs.len() as _,
+        num_outputs: tx.outputs.len() as _,
+        locktime: tx.locktime,
+        format_unit: format_unit as _,
+        contains_silent_payment_outputs: false,
+    })
+}
+
+/// Builds a transaction input request, with a host commitment when using Anti-Klepto.
+pub fn sign_input_request(input: &TxInput, host_nonce_commitment: Option<[u8; 32]>) -> Request {
+    Request::BtcSignInput(pb::BtcSignInputRequest {
+        prev_out_hash: input.prev_out_hash.clone(),
+        prev_out_index: input.prev_out_index,
+        prev_out_value: input.prev_out_value,
+        sequence: input.sequence,
+        keypath: input.keypath.to_vec(),
+        script_config_index: input.script_config_index,
+        host_nonce_commitment: host_nonce_commitment.map(|commitment| {
+            pb::AntiKleptoHostNonceCommitment {
+                commitment: commitment.to_vec(),
+            }
+        }),
+    })
+}
+
+/// Builds a transaction output request. The separate config index applies only to internal outputs.
+pub fn sign_output_request(output: &TxOutput, output_script_config_index: Option<u32>) -> Request {
+    Request::BtcSignOutput(match output {
+        TxOutput::Internal(output) => pb::BtcSignOutputRequest {
+            ours: true,
+            value: output.value,
+            keypath: output.keypath.to_vec(),
+            script_config_index: output.script_config_index,
+            output_script_config_index,
+            ..Default::default()
+        },
+        TxOutput::External(output) => pb::BtcSignOutputRequest {
+            ours: false,
+            value: output.value,
+            r#type: output.payload.output_type as _,
+            payload: output.payload.data.clone(),
+            ..Default::default()
+        },
+    })
+}
+
+/// Builds a request describing a previous transaction.
+pub fn prevtx_init_request(tx: &PrevTx) -> Request {
+    btc_request(pb::btc_request::Request::PrevtxInit(pb::BtcPrevTxInitRequest {
+        version: tx.version,
+        num_inputs: tx.inputs.len() as _,
+        num_outputs: tx.outputs.len() as _,
+        locktime: tx.locktime,
+    }))
+}
+
+/// Builds a request carrying a previous transaction's input.
+pub fn prevtx_input_request(input: &PrevTxInput) -> Request {
+    btc_request(pb::btc_request::Request::PrevtxInput(pb::BtcPrevTxInputRequest {
+        prev_out_hash: input.prev_out_hash.clone(),
+        prev_out_index: input.prev_out_index,
+        signature_script: input.signature_script.clone(),
+        sequence: input.sequence,
+    }))
+}
+
+/// Builds a request carrying a previous transaction's output.
+pub fn prevtx_output_request(output: &PrevTxOutput) -> Request {
+    btc_request(pb::btc_request::Request::PrevtxOutput(pb::BtcPrevTxOutputRequest {
+        value: output.value,
+        pubkey_script: output.pubkey_script.clone(),
+    }))
+}
+
+/// Reveals the host nonce to request an Anti-Klepto signature.
+pub fn antiklepto_signature_request(host_nonce: &[u8; 32]) -> Request {
+    btc_request(pb::btc_request::Request::AntikleptoSignature(
+        pb::AntiKleptoSignatureRequest {
+            host_nonce: host_nonce.to_vec(),
+        },
+    ))
+}
+
+/// Starts a message signing exchange with an Anti-Klepto host commitment.
+pub fn sign_message_request(
+    coin: pb::BtcCoin,
+    script_config: pb::BtcScriptConfigWithKeypath,
+    message: &[u8],
+    host_nonce_commitment: [u8; 32],
+) -> Request {
+    btc_request(pb::btc_request::Request::SignMessage(
+        pb::BtcSignMessageRequest {
+            coin: coin as _,
+            script_config: Some(script_config),
+            msg: message.to_vec(),
+            host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
+                commitment: host_nonce_commitment.to_vec(),
+            }),
+        },
+    ))
+}
+
+/// Parses either a top-level or BTC-nested signing reply without interpreting its phase.
+pub fn parse_sign_next(response: Response) -> Result<pb::BtcSignNextResponse, Error> {
+    match response {
+        Response::BtcSignNext(next) => Ok(next),
+        Response::Btc(pb::BtcResponse {
+            response: Some(pb::btc_response::Response::SignNext(next)),
+        }) => Ok(next),
+        _ => Err(Error::UnexpectedResponse),
+    }
+}
+
+/// Extracts the device's Anti-Klepto commitment in a message signing exchange.
+pub fn parse_signer_commitment(response: Response) -> Result<Vec<u8>, Error> {
+    match btc_response(response)? {
+        pb::btc_response::Response::AntikleptoSignerCommitment(response) => Ok(response.commitment),
+        _ => Err(Error::UnexpectedResponse),
+    }
+}
+
+fn message_signature_bytes(response: Response) -> Result<Vec<u8>, Error> {
+    match btc_response(response)? {
+        pb::btc_response::Response::SignMessage(response) => Ok(response.signature),
+        _ => Err(Error::UnexpectedResponse),
+    }
+}
+
+fn format_validated_message_signature(mut signature: Vec<u8>) -> SignMessageSignature {
+    let recid = signature[64];
+    signature.truncate(64);
+    let mut electrum_sig65 = Vec::with_capacity(65);
+    // Electrum uses 27 plus the recovery ID, plus 4 for compressed pubkeys.
+    electrum_sig65.push(27 + 4 + recid);
+    electrum_sig65.extend_from_slice(&signature);
+    SignMessageSignature {
+        sig: signature,
+        recid,
+        electrum_sig65,
+    }
+}
+
+/// Parses and validates a recoverable message signature's encoding.
+///
+/// This does not verify the Anti-Klepto nonce contribution.
+pub fn parse_message_signature(response: Response) -> Result<SignMessageSignature, Error> {
+    let signature = message_signature_bytes(response)?;
+    crate::secp256k1::validate_signature_recoverable(&signature)
+        .map_err(crate::antiklepto::Error::from)?;
+    Ok(format_validated_message_signature(signature))
+}
+
+/// Checks that the firmware matches the specified semver requirement.
+pub fn validate_version(
+    firmware_version: &semver::Version,
+    comparison: &'static str,
+) -> Result<(), Error> {
+    if semver::VersionReq::parse(comparison)
+        .map_err(|_| Error::Unknown)?
+        .matches(firmware_version)
+    {
+        Ok(())
+    } else {
+        Err(Error::Version(comparison))
+    }
+}
+
+/// Checks output index cardinality and the firmware requirements for raw transaction signing.
+///
+/// An empty `output_script_config_indices` slice means no output has a separate config index.
+pub fn validate_signing(
+    firmware_version: &semver::Version,
+    transaction: &Transaction,
+    output_script_configs: &[pb::BtcScriptConfigWithKeypath],
+    output_script_config_indices: &[Option<u32>],
+) -> Result<(), Error> {
+    if !output_script_config_indices.is_empty()
+        && output_script_config_indices.len() != transaction.outputs.len()
+    {
+        return Err(Error::BtcSign(
+            "output script config indices must match transaction outputs".into(),
+        ));
+    }
+    validate_version(firmware_version, ">=9.4.0")?; // Anti-Klepto
+    if transaction
+        .script_configs
+        .iter()
+        .chain(output_script_configs)
+        .any(is_taproot_simple)
+    {
+        validate_version(firmware_version, ">=9.10.0")?;
+    }
+    if transaction.outputs.iter().any(|output| {
+        matches!(
+            output,
+            TxOutput::External(tx_output)
+                if tx_output.payload.output_type == pb::BtcOutputType::OpReturn
+        )
+    }) {
+        validate_version(firmware_version, ">=9.24.0")?;
+    }
+    Ok(())
+}
+
 #[cfg(feature = "client")]
 impl<R: Runtime> PairedBitBox<R> {
     /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
@@ -887,20 +1087,7 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     async fn get_next_response(&self, request: Request) -> Result<pb::BtcSignNextResponse, Error> {
-        match self.query_proto(request).await? {
-            Response::BtcSignNext(next_response) => Ok(next_response),
-            _ => Err(Error::UnexpectedResponse),
-        }
-    }
-
-    async fn get_next_response_nested(
-        &self,
-        request: pb::btc_request::Request,
-    ) -> Result<pb::BtcSignNextResponse, Error> {
-        match self.query_proto_btc(request).await? {
-            pb::btc_response::Response::SignNext(next_response) => Ok(next_response),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        parse_sign_next(self.query_proto(request).await?)
     }
 
     /// Sign a Bitcoin transaction. Returns one 64 byte signature (compact serlization of the R and
@@ -924,46 +1111,22 @@ impl<R: Runtime> PairedBitBox<R> {
         output_script_config_indices: &[Option<u32>],
         format_unit: pb::btc_sign_init_request::FormatUnit,
     ) -> Result<Vec<Vec<u8>>, Error> {
-        if !output_script_config_indices.is_empty()
-            && output_script_config_indices.len() != transaction.outputs.len()
-        {
-            return Err(Error::BtcSign(
-                "output script config indices must match transaction outputs".into(),
-            ));
-        }
-        self.validate_version(">=9.4.0")?; // anti-klepto since 9.4.0
-        if transaction
-            .script_configs
-            .iter()
-            .chain(output_script_configs)
-            .any(is_taproot_simple)
-        {
-            self.validate_version(">=9.10.0")?; // taproot since 9.10.0
-        }
-        if transaction.outputs.iter().any(|output| {
-            matches!(
-                output,
-                TxOutput::External(tx_output)
-                    if tx_output.payload.output_type == pb::BtcOutputType::OpReturn
-            )
-        }) {
-            self.validate_version(">=9.24.0")?;
-        }
+        validate_signing(
+            self.version(),
+            transaction,
+            output_script_configs,
+            output_script_config_indices,
+        )?;
 
-        let mut sigs: Vec<Vec<u8>> = Vec::new();
+        let mut sigs = Vec::with_capacity(transaction.inputs.len());
 
         let mut next_response = self
-            .get_next_response(Request::BtcSignInit(pb::BtcSignInitRequest {
-                coin: coin as _,
-                script_configs: transaction.script_configs.clone(),
-                output_script_configs: output_script_configs.to_vec(),
-                version: transaction.version,
-                num_inputs: transaction.inputs.len() as _,
-                num_outputs: transaction.outputs.len() as _,
-                locktime: transaction.locktime,
-                format_unit: format_unit as _,
-                contains_silent_payment_outputs: false,
-            }))
+            .get_next_response(sign_init_request(
+                coin,
+                transaction,
+                output_script_configs,
+                format_unit,
+            ))
             .await?;
 
         let mut is_inputs_pass2 = false;
@@ -985,19 +1148,10 @@ impl<R: Runtime> PairedBitBox<R> {
                         None
                     };
                     next_response = self
-                        .get_next_response(Request::BtcSignInput(pb::BtcSignInputRequest {
-                            prev_out_hash: tx_input.prev_out_hash.clone(),
-                            prev_out_index: tx_input.prev_out_index,
-                            prev_out_value: tx_input.prev_out_value,
-                            sequence: tx_input.sequence,
-                            keypath: tx_input.keypath.to_vec(),
-                            script_config_index: tx_input.script_config_index,
-                            host_nonce_commitment: host_nonce.as_ref().map(|host_nonce| {
-                                pb::AntiKleptoHostNonceCommitment {
-                                    commitment: crate::antiklepto::host_commit(host_nonce).to_vec(),
-                                }
-                            }),
-                        }))
+                        .get_next_response(sign_input_request(
+                            tx_input,
+                            host_nonce.as_ref().map(|nonce| crate::antiklepto::host_commit(nonce)),
+                        ))
                         .await?;
 
                     if let Some(host_nonce) = host_nonce {
@@ -1010,13 +1164,7 @@ impl<R: Runtime> PairedBitBox<R> {
                             next_response.anti_klepto_signer_commitment
                         {
                             next_response = self
-                                .get_next_response_nested(
-                                    pb::btc_request::Request::AntikleptoSignature(
-                                        pb::AntiKleptoSignatureRequest {
-                                            host_nonce: host_nonce.to_vec(),
-                                        },
-                                    ),
-                                )
+                                .get_next_response(antiklepto_signature_request(&host_nonce))
                                 .await?;
                             if !next_response.has_signature {
                                 return Err(Error::UnexpectedResponse);
@@ -1035,7 +1183,7 @@ impl<R: Runtime> PairedBitBox<R> {
                         if !next_response.has_signature {
                             return Err(Error::UnexpectedResponse);
                         }
-                        sigs.push(next_response.signature.clone());
+                        sigs.push(std::mem::take(&mut next_response.signature));
                     }
                     if input_index == transaction.inputs.len() - 1 {
                         is_inputs_pass2 = true
@@ -1044,16 +1192,7 @@ impl<R: Runtime> PairedBitBox<R> {
                 pb::btc_sign_next_response::Type::PrevtxInit => {
                     let prevtx: &PrevTx =
                         transaction.inputs[next_response.index as usize].get_prev_tx()?;
-                    next_response = self
-                        .get_next_response_nested(pb::btc_request::Request::PrevtxInit(
-                            pb::BtcPrevTxInitRequest {
-                                version: prevtx.version,
-                                num_inputs: prevtx.inputs.len() as _,
-                                num_outputs: prevtx.outputs.len() as _,
-                                locktime: prevtx.locktime,
-                            },
-                        ))
-                        .await?;
+                    next_response = self.get_next_response(prevtx_init_request(prevtx)).await?;
                 }
                 pb::btc_sign_next_response::Type::PrevtxInput => {
                     let prevtx: &PrevTx =
@@ -1061,14 +1200,7 @@ impl<R: Runtime> PairedBitBox<R> {
                     let prevtx_input: &PrevTxInput =
                         &prevtx.inputs[next_response.prev_index as usize];
                     next_response = self
-                        .get_next_response_nested(pb::btc_request::Request::PrevtxInput(
-                            pb::BtcPrevTxInputRequest {
-                                prev_out_hash: prevtx_input.prev_out_hash.clone(),
-                                prev_out_index: prevtx_input.prev_out_index,
-                                signature_script: prevtx_input.signature_script.clone(),
-                                sequence: prevtx_input.sequence,
-                            },
-                        ))
+                        .get_next_response(prevtx_input_request(prevtx_input))
                         .await?;
                 }
                 pb::btc_sign_next_response::Type::PrevtxOutput => {
@@ -1077,12 +1209,7 @@ impl<R: Runtime> PairedBitBox<R> {
                     let prevtx_output: &PrevTxOutput =
                         &prevtx.outputs[next_response.prev_index as usize];
                     next_response = self
-                        .get_next_response_nested(pb::btc_request::Request::PrevtxOutput(
-                            pb::BtcPrevTxOutputRequest {
-                                value: prevtx_output.value,
-                                pubkey_script: prevtx_output.pubkey_script.clone(),
-                            },
-                        ))
+                        .get_next_response(prevtx_output_request(prevtx_output))
                         .await?;
                 }
                 pb::btc_sign_next_response::Type::Output => {
@@ -1092,28 +1219,9 @@ impl<R: Runtime> PairedBitBox<R> {
                         .get(output_index)
                         .copied()
                         .flatten();
-                    let request: Request = match tx_output {
-                        TxOutput::Internal(output) => {
-                            Request::BtcSignOutput(pb::BtcSignOutputRequest {
-                                ours: true,
-                                value: output.value,
-                                keypath: output.keypath.to_vec(),
-                                script_config_index: output.script_config_index,
-                                output_script_config_index,
-                                ..Default::default()
-                            })
-                        }
-                        TxOutput::External(output) => {
-                            Request::BtcSignOutput(pb::BtcSignOutputRequest {
-                                ours: false,
-                                value: output.value,
-                                r#type: output.payload.output_type as _,
-                                payload: output.payload.data.clone(),
-                                ..Default::default()
-                            })
-                        }
-                    };
-                    next_response = self.get_next_response(request).await?;
+                    next_response = self
+                        .get_next_response(sign_output_request(tx_output, output_script_config_index))
+                        .await?;
                 }
                 pb::btc_sign_next_response::Type::Done => break,
                 pb::btc_sign_next_response::Type::HostNonce => {
@@ -1207,51 +1315,22 @@ impl<R: Runtime> PairedBitBox<R> {
         self.validate_version(">=9.5.0")?;
 
         let host_nonce = crate::antiklepto::gen_host_nonce()?;
-        let request = pb::BtcSignMessageRequest {
-            coin: coin as _,
-            script_config: Some(script_config),
-            msg: msg.to_vec(),
-            host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
-                commitment: crate::antiklepto::host_commit(&host_nonce).to_vec(),
-            }),
-        };
-
-        let response = self
-            .query_proto_btc(pb::btc_request::Request::SignMessage(request))
-            .await?;
-        let signer_commitment = match response {
-            pb::btc_response::Response::AntikleptoSignerCommitment(
-                pb::AntiKleptoSignerCommitment { commitment },
-            ) => commitment,
-            _ => return Err(Error::UnexpectedResponse),
-        };
-
-        let request = pb::AntiKleptoSignatureRequest {
-            host_nonce: host_nonce.to_vec(),
-        };
-
-        let response = self
-            .query_proto_btc(pb::btc_request::Request::AntikleptoSignature(request))
-            .await?;
-        let signature = match response {
-            pb::btc_response::Response::SignMessage(pb::BtcSignMessageResponse { signature }) => {
-                signature
-            }
-            _ => return Err(Error::UnexpectedResponse),
-        };
+        let signer_commitment = parse_signer_commitment(
+            self.query_proto(sign_message_request(
+                coin,
+                script_config,
+                msg,
+                crate::antiklepto::host_commit(&host_nonce),
+            ))
+            .await?,
+        )?;
+        let signature = message_signature_bytes(
+            self.query_proto(antiklepto_signature_request(&host_nonce))
+                .await?,
+        )?;
+        // The nonce verifier also validates the encoding before formatting.
         crate::antiklepto::verify_recoverable_ecdsa(&host_nonce, &signer_commitment, &signature)?;
-
-        let sig = signature[..64].to_vec();
-        let recid = signature[64];
-        let compressed: u8 = 4; // BitBox02 uses only compressed pubkeys
-        let sig65: u8 = 27 + compressed + recid;
-        let mut electrum_sig65 = vec![sig65];
-        electrum_sig65.extend_from_slice(&sig);
-        Ok(SignMessageSignature {
-            sig,
-            recid,
-            electrum_sig65,
-        })
+        Ok(format_validated_message_signature(signature))
     }
 
     /// Before a multisig or policy script config can be used to display receive addresses or sign
@@ -1408,6 +1487,272 @@ mod tests {
         assert!(matches!(
             parse_registered(Response::Success(pb::Success {})),
             Err(Error::UnexpectedResponse)
+        ));
+    }
+
+    #[test]
+    fn signing_requests_preserve_payloads_and_presence() {
+        use pb::btc_request::Request as BtcRequest;
+        use pb::btc_sign_init_request::FormatUnit;
+
+        let coin = pb::BtcCoin::Tbtc;
+        let config = pb::BtcScriptConfigWithKeypath {
+            script_config: Some(make_script_config_simple(pb::btc_script_config::SimpleType::P2wpkh)),
+            keypath: vec![1, 2, 3],
+        };
+        let keypath = Keypath::try_from("m/7").unwrap();
+        let prevtx = PrevTx {
+            version: 1,
+            locktime: 9,
+            inputs: vec![PrevTxInput {
+                prev_out_hash: vec![1; 32],
+                prev_out_index: 2,
+                sequence: 3,
+                signature_script: vec![4],
+            }],
+            outputs: vec![PrevTxOutput {
+                value: 500,
+                pubkey_script: vec![6],
+            }],
+        };
+        let tx = Transaction {
+            version: 2,
+            locktime: 42,
+            script_configs: vec![config.clone()],
+            inputs: vec![TxInput {
+                prev_out_hash: vec![7; 32],
+                prev_out_index: 8,
+                prev_out_value: 900,
+                sequence: 10,
+                keypath: keypath.clone(),
+                script_config_index: 11,
+                prev_tx: Some(prevtx),
+            }],
+            outputs: vec![
+                TxOutput::Internal(TxInternalOutput {
+                    keypath,
+                    value: 100,
+                    script_config_index: 12,
+                }),
+                TxOutput::External(TxExternalOutput {
+                    payload: Payload {
+                        output_type: pb::BtcOutputType::P2wpkh,
+                        data: vec![13; 20],
+                    },
+                    value: 200,
+                }),
+            ],
+        };
+        let output_config = pb::BtcScriptConfigWithKeypath {
+            keypath: vec![1, 2, 4],
+            ..config.clone()
+        };
+        assert_eq!(
+            sign_init_request(coin, &tx, std::slice::from_ref(&output_config), FormatUnit::Sat),
+            Request::BtcSignInit(pb::BtcSignInitRequest {
+                coin: coin as _,
+                script_configs: vec![config.clone()],
+                output_script_configs: vec![output_config],
+                version: 2,
+                num_inputs: 1,
+                num_outputs: 2,
+                locktime: 42,
+                format_unit: FormatUnit::Sat as _,
+                contains_silent_payment_outputs: false,
+            }),
+        );
+        let commitment = [14; 32];
+        for host_commitment in [None, Some(commitment)] {
+            assert_eq!(
+                sign_input_request(&tx.inputs[0], host_commitment),
+                Request::BtcSignInput(pb::BtcSignInputRequest {
+                    prev_out_hash: vec![7; 32],
+                    prev_out_index: 8,
+                    prev_out_value: 900,
+                    sequence: 10,
+                    keypath: vec![7],
+                    script_config_index: 11,
+                    host_nonce_commitment: host_commitment.map(|_| {
+                        pb::AntiKleptoHostNonceCommitment { commitment: vec![14; 32] }
+                    }),
+                }),
+            );
+        }
+        for index in [None, Some(0)] {
+            assert_eq!(
+                sign_output_request(&tx.outputs[0], index),
+                Request::BtcSignOutput(pb::BtcSignOutputRequest {
+                    ours: true,
+                    value: 100,
+                    keypath: vec![7],
+                    script_config_index: 12,
+                    output_script_config_index: index,
+                    ..Default::default()
+                }),
+            );
+        }
+        assert_eq!(
+            sign_output_request(&tx.outputs[1], Some(0)),
+            Request::BtcSignOutput(pb::BtcSignOutputRequest {
+                r#type: pb::BtcOutputType::P2wpkh as _,
+                payload: vec![13; 20],
+                value: 200,
+                ..Default::default()
+            }),
+        );
+
+        let nested = |request| Request::Btc(pb::BtcRequest { request: Some(request) });
+        let prevtx = tx.inputs[0].get_prev_tx().unwrap();
+        assert_eq!(
+            prevtx_init_request(prevtx),
+            nested(BtcRequest::PrevtxInit(pb::BtcPrevTxInitRequest {
+                version: 1,
+                num_inputs: 1,
+                num_outputs: 1,
+                locktime: 9,
+            })),
+        );
+        assert_eq!(
+            prevtx_input_request(&prevtx.inputs[0]),
+            nested(BtcRequest::PrevtxInput(pb::BtcPrevTxInputRequest {
+                prev_out_hash: vec![1; 32],
+                prev_out_index: 2,
+                sequence: 3,
+                signature_script: vec![4],
+            })),
+        );
+        assert_eq!(
+            prevtx_output_request(&prevtx.outputs[0]),
+            nested(BtcRequest::PrevtxOutput(pb::BtcPrevTxOutputRequest {
+                value: 500,
+                pubkey_script: vec![6],
+            })),
+        );
+        assert_eq!(
+            sign_message_request(coin, config.clone(), b"test", commitment),
+            nested(BtcRequest::SignMessage(pb::BtcSignMessageRequest {
+                coin: coin as _,
+                script_config: Some(config),
+                msg: b"test".to_vec(),
+                host_nonce_commitment: Some(pb::AntiKleptoHostNonceCommitment {
+                    commitment: vec![14; 32],
+                }),
+            })),
+        );
+        assert_eq!(
+            antiklepto_signature_request(&[15; 32]),
+            nested(BtcRequest::AntikleptoSignature(pb::AntiKleptoSignatureRequest {
+                host_nonce: vec![15; 32],
+            })),
+        );
+    }
+
+    #[test]
+    fn sign_next_accepts_both_response_nestings() {
+        use pb::btc_response::Response as BtcResponse;
+        let next = pb::BtcSignNextResponse {
+            r#type: pb::btc_sign_next_response::Type::PrevtxOutput as _,
+            index: 2,
+            prev_index: 3,
+            ..Default::default()
+        };
+        assert_eq!(parse_sign_next(Response::BtcSignNext(next.clone())).unwrap(), next);
+        assert_eq!(
+            parse_sign_next(nested_response(BtcResponse::SignNext(next.clone()))).unwrap(),
+            next,
+        );
+        assert!(matches!(
+            parse_sign_next(nested_response(BtcResponse::Success(pb::BtcSuccess {}))),
+            Err(Error::UnexpectedResponse)
+        ));
+    }
+
+    #[test]
+    fn message_reply_parsing_validates_encoding_but_not_nonce() {
+        use pb::btc_response::Response as BtcResponse;
+
+        let commitment = nested_response(BtcResponse::AntikleptoSignerCommitment(
+            pb::AntiKleptoSignerCommitment { commitment: vec![42; 33] },
+        ));
+        assert_eq!(parse_signer_commitment(commitment.clone()).unwrap(), vec![42; 33]);
+        assert!(matches!(parse_message_signature(commitment), Err(Error::UnexpectedResponse)));
+        let message = |signature| {
+            nested_response(BtcResponse::SignMessage(pb::BtcSignMessageResponse { signature }))
+        };
+        // Compact r = 1, s = 1: valid scalars irrespective of any message or nonce.
+        let mut compact = vec![0; 64];
+        compact[31] = 1;
+        compact[63] = 1;
+        assert!(matches!(
+            parse_signer_commitment(message(compact.clone())),
+            Err(Error::UnexpectedResponse)
+        ));
+        for recid in [0, 3] {
+            let mut recoverable = compact.clone();
+            recoverable.push(recid);
+            let parsed = parse_message_signature(message(recoverable)).unwrap();
+            assert_eq!(parsed.sig, compact);
+            assert_eq!(parsed.recid, recid);
+            assert_eq!(parsed.electrum_sig65[0], 31 + recid);
+            assert_eq!(&parsed.electrum_sig65[1..], compact.as_slice());
+        }
+        let mut bad_recid = compact.clone();
+        bad_recid.push(4);
+        for malformed in [compact, bad_recid, vec![0; 65]] {
+            assert!(matches!(
+                parse_message_signature(message(malformed)),
+                Err(Error::AntiKlepto(crate::antiklepto::Error::InvalidSignature(_)))
+            ));
+        }
+    }
+
+    #[test]
+    fn raw_signing_checks_versions_and_output_index_count() {
+        use pb::btc_script_config::SimpleType;
+        use semver::Version;
+
+        let mut tx = Transaction {
+            version: 2,
+            locktime: 0,
+            inputs: vec![],
+            script_configs: vec![],
+            outputs: vec![],
+        };
+        let old = Version::new(9, 3, 0);
+        assert!(matches!(validate_version(&old, "not semver"), Err(Error::Unknown)));
+        assert!(matches!(validate_signing(&old, &tx, &[], &[]), Err(Error::Version(">=9.4.0"))));
+        assert!(validate_signing(&Version::new(9, 4, 0), &tx, &[], &[]).is_ok());
+
+        let taproot = pb::BtcScriptConfigWithKeypath {
+            script_config: Some(make_script_config_simple(SimpleType::P2tr)),
+            keypath: vec![],
+        };
+        assert!(is_schnorr(&taproot));
+        assert!(matches!(
+            validate_signing(&Version::new(9, 9, 0), &tx, std::slice::from_ref(&taproot), &[]),
+            Err(Error::Version(">=9.10.0"))
+        ));
+        tx.script_configs.push(taproot);
+        assert!(matches!(
+            validate_signing(&Version::new(9, 9, 0), &tx, &[], &[]),
+            Err(Error::Version(">=9.10.0"))
+        ));
+        assert!(validate_signing(&Version::new(9, 10, 0), &tx, &[], &[]).is_ok());
+
+        tx.outputs.push(TxOutput::External(TxExternalOutput {
+            value: 0,
+            payload: Payload::from_pkscript(&[0x6a, 1, 42]).unwrap(),
+        }));
+        assert!(matches!(
+            validate_signing(&Version::new(9, 23, 0), &tx, &[], &[]),
+            Err(Error::Version(">=9.24.0"))
+        ));
+        let op_return_version = Version::new(9, 24, 0);
+        assert!(validate_signing(&op_return_version, &tx, &[], &[None]).is_ok());
+        assert!(matches!(
+            validate_signing(&op_return_version, &tx, &[], &[None, None]),
+            Err(Error::BtcSign(message))
+                if message == "output script config indices must match transaction outputs"
         ));
     }
 

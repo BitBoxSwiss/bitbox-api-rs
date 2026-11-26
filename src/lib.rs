@@ -314,14 +314,7 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 
     fn validate_version(&self, comparison: &'static str) -> Result<(), Error> {
-        if semver::VersionReq::parse(comparison)
-            .or(Err(Error::Unknown))?
-            .matches(&self.communication.info.version)
-        {
-            Ok(())
-        } else {
-            Err(Error::Version(comparison))
-        }
+        btc::validate_version(self.version(), comparison)
     }
 
     async fn query_proto(&self, request: Request) -> Result<Response, Error> {
