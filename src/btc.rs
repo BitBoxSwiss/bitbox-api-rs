@@ -592,6 +592,8 @@ impl Transaction {
 ///
 /// A count mismatch is rejected before mutation. If a later signature is malformed, earlier
 /// signatures may already have been applied.
+///
+/// Callers must verify the transaction signatures and any required Anti-Klepto proofs.
 pub fn apply_signatures(
     psbt: &mut bitcoin::psbt::Psbt,
     signatures: &[Vec<u8>],
@@ -610,7 +612,7 @@ pub fn apply_signatures(
     for ((input, signature), key) in psbt.inputs.iter_mut().zip(signatures).zip(our_keys) {
         match key {
             OurKey::Segwit(pubkey, _) => {
-                let signature = bitcoin::secp256k1::ecdsa::Signature::from_compact(signature)
+                let signature = crate::secp256k1::parse_signature_compact(signature)
                     .map_err(|_| Error::InvalidSignature)?;
                 input.partial_sigs.insert(
                     bitcoin::PublicKey::new(*pubkey),
@@ -2171,6 +2173,27 @@ mod tests {
                 if message == "signatures and signing keys must match PSBT inputs"
         ));
         assert!(psbt.inputs[0].partial_sigs.is_empty());
+    }
+
+    #[test]
+    fn signature_application_rejects_invalid_ecdsa_scalars() {
+        let (mut psbt, _, key) = psbt_fixture();
+        let keys = [OurKey::Segwit(key, Keypath::try_from("m/").unwrap())];
+        let mut zero_r = [0; 64];
+        zero_r[63] = 1;
+        let mut zero_s = [0; 64];
+        zero_s[31] = 1;
+        let mut high_s = zero_s;
+        high_s[32..].copy_from_slice(&bitcoin::secp256k1::constants::CURVE_ORDER);
+        high_s[63] -= 1;
+
+        for invalid in [zero_r, zero_s, high_s] {
+            assert!(matches!(
+                apply_signatures(&mut psbt, &[invalid.to_vec()], &keys),
+                Err(Error::InvalidSignature)
+            ));
+            assert!(psbt.inputs[0].partial_sigs.is_empty());
+        }
     }
 
     #[test]

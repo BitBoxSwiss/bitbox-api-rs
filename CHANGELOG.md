@@ -5,6 +5,7 @@
   with `default-features = false`. Defaults retain the async convenience clients.
 - Reject malformed fingerprint, pairing, and framing replies, and return an error for an
   out-of-range previous output when lowering a PSBT.
+- Reject malformed compact ECDSA signatures when applying signatures to a PSBT.
 - Preserve the sign of positive EIP-712 signed integers supplied as JSON numbers.
 - Reset unfinished sessions when connecting to firmware v9.28.0 or newer, allowing host
   reconnects while the device remains powered on.

@@ -12,6 +12,10 @@ pub struct ValidationError(&'static str);
 ///
 /// Both scalars must be nonzero and in range, and `s` must use its low-S encoding.
 pub fn validate_signature_compact(signature: &[u8]) -> Result<(), ValidationError> {
+    parse_signature_compact(signature).map(|_| ())
+}
+
+pub(crate) fn parse_signature_compact(signature: &[u8]) -> Result<Signature, ValidationError> {
     if signature.len() != 64 {
         return Err(ValidationError("Signature must be 64 bytes"));
     }
@@ -28,7 +32,7 @@ pub fn validate_signature_compact(signature: &[u8]) -> Result<(), ValidationErro
     if normalized_signature != parsed_signature {
         return Err(ValidationError("ECDSA signature has high S"));
     }
-    Ok(())
+    Ok(parsed_signature)
 }
 
 /// Validates a 65-byte recoverable ECDSA signature encoded as `r || s || recovery_id`.
