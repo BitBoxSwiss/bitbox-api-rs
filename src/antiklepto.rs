@@ -43,6 +43,11 @@ pub(crate) fn gen_host_nonce() -> Result<[u8; 32], Error> {
     Ok(result)
 }
 
+/// Commits to a host nonce for one Anti-Klepto signature.
+///
+/// Generate a fresh, secret 32-byte nonce with a cryptographically secure RNG for each
+/// signature. Send only the commitment until the signer returns its commitment, then
+/// reveal the nonce and verify its contribution before accepting the signature.
 pub fn host_commit(host_nonce: &[u8]) -> [u8; 32] {
     tagged_sha256(b"s2c/ecdsa/data", host_nonce)
 }
@@ -50,6 +55,8 @@ pub fn host_commit(host_nonce: &[u8]) -> [u8; 32] {
 /// Verifies that `host_nonce` was used to tweak the nonce during signature generation according
 /// to k' = k + H(signer_commitment, host_nonce) by checking that
 /// k'*G = signer_commitment + H(signer_commitment, host_nonce)*G.
+///
+/// This does not verify the signature against the message and signing key.
 pub fn verify_ecdsa(
     host_nonce: &[u8],
     signer_commitment: &[u8],
@@ -60,6 +67,8 @@ pub fn verify_ecdsa(
 }
 
 /// Validates a recoverable ECDSA signature and verifies its Anti-Klepto nonce contribution.
+///
+/// This does not verify the signature against the message and signing key.
 pub fn verify_recoverable_ecdsa(
     host_nonce: &[u8],
     signer_commitment: &[u8],
