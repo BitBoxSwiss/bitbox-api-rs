@@ -22,8 +22,6 @@ pub enum Error {
     Read,
     #[error("u2f framing decoding error")]
     U2fDecode,
-    #[error("u2f framing encoding error")]
-    U2fEncode,
     #[error("error querying device info")]
     Info,
     #[error("firmware version {0} required")]
@@ -68,10 +66,7 @@ impl U2fHidCommunication {
 impl ReadWrite for U2fHidCommunication {
     fn write(&self, msg: &[u8]) -> Result<usize, Error> {
         let mut buf = [0u8; u2fframing::MAX_LEN];
-        let size = self
-            .u2fhid
-            .encode(msg, &mut buf)
-            .or(Err(Error::U2fEncode))?;
+        let size = self.u2fhid.encode(msg, &mut buf).or(Err(Error::Write))?;
         for chunk in buf[..size].chunks(64) {
             // HID may include the extra report ID byte in its count.
             if self.read_write.write(chunk)? < chunk.len() {
@@ -406,6 +401,10 @@ mod tests {
         assert!(matches!(short.read().await, Err(Error::Read)));
 
         let hid = transport(encoded.chunks(64).map(<[u8]>::to_vec).collect(), 65);
+        assert!(matches!(
+            hid.write(&[0; u2fframing::MAX_LEN]),
+            Err(Error::Write)
+        ));
         assert_eq!(hid.write(&payload).unwrap(), encoded.len());
         assert_eq!(hid.read().await.unwrap(), payload);
     }
