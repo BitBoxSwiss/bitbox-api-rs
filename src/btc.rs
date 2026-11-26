@@ -7,7 +7,6 @@ use crate::runtime::Runtime;
 
 use crate::error::Error;
 use crate::pb;
-#[cfg(feature = "client")]
 use crate::pb::{request::Request, response::Response};
 use crate::Keypath;
 #[cfg(feature = "client")]
@@ -682,6 +681,120 @@ fn find_or_add_script_config(
     }
 }
 
+fn btc_request(request: pb::btc_request::Request) -> Request {
+    Request::Btc(pb::BtcRequest {
+        request: Some(request),
+    })
+}
+
+/// Builds a request for a single extended public key.
+pub fn xpub_request(
+    coin: pb::BtcCoin,
+    keypath: &Keypath,
+    xpub_type: pb::btc_pub_request::XPubType,
+    display: bool,
+) -> Request {
+    Request::BtcPub(pb::BtcPubRequest {
+        coin: coin as _,
+        keypath: keypath.to_vec(),
+        display,
+        output: Some(pb::btc_pub_request::Output::XpubType(xpub_type as _)),
+    })
+}
+
+/// Builds a request for a Bitcoin address.
+pub fn address_request(
+    coin: pb::BtcCoin,
+    keypath: &Keypath,
+    script_config: pb::BtcScriptConfig,
+    display: bool,
+) -> Request {
+    Request::BtcPub(pb::BtcPubRequest {
+        coin: coin as _,
+        keypath: keypath.to_vec(),
+        display,
+        output: Some(pb::btc_pub_request::Output::ScriptConfig(script_config)),
+    })
+}
+
+fn script_config_registration(
+    coin: pb::BtcCoin,
+    script_config: pb::BtcScriptConfig,
+    keypath_account: Option<&Keypath>,
+) -> pb::BtcScriptConfigRegistration {
+    pb::BtcScriptConfigRegistration {
+        coin: coin as _,
+        script_config: Some(script_config),
+        keypath: keypath_account.map_or_else(Vec::new, Keypath::to_vec),
+    }
+}
+
+/// Builds a request to check whether a wallet configuration is registered.
+pub fn is_script_config_registered_request(
+    coin: pb::BtcCoin,
+    script_config: pb::BtcScriptConfig,
+    keypath_account: Option<&Keypath>,
+) -> Request {
+    btc_request(pb::btc_request::Request::IsScriptConfigRegistered(
+        pb::BtcIsScriptConfigRegisteredRequest {
+            registration: Some(script_config_registration(
+                coin,
+                script_config,
+                keypath_account,
+            )),
+        },
+    ))
+}
+
+/// Builds a wallet registration request. An absent name prompts on the device.
+pub fn register_script_config_request(
+    coin: pb::BtcCoin,
+    script_config: pb::BtcScriptConfig,
+    keypath_account: Option<&Keypath>,
+    xpub_type: pb::btc_register_script_config_request::XPubType,
+    name: Option<&str>,
+) -> Request {
+    btc_request(pb::btc_request::Request::RegisterScriptConfig(
+        pb::BtcRegisterScriptConfigRequest {
+            registration: Some(script_config_registration(
+                coin,
+                script_config,
+                keypath_account,
+            )),
+            name: name.unwrap_or_default().into(),
+            xpub_type: xpub_type as _,
+        },
+    ))
+}
+
+/// Extracts the body of a Bitcoin-specific response.
+pub fn btc_response(response: Response) -> Result<pb::btc_response::Response, Error> {
+    match response {
+        Response::Btc(pb::BtcResponse {
+            response: Some(response),
+        }) => Ok(response),
+        _ => Err(Error::UnexpectedResponse),
+    }
+}
+
+/// Parses the result of a wallet registration check.
+pub fn parse_is_registered(response: Response) -> Result<bool, Error> {
+    match btc_response(response)? {
+        pb::btc_response::Response::IsScriptConfigRegistered(response) => {
+            Ok(response.is_registered)
+        }
+        _ => Err(Error::UnexpectedResponse),
+    }
+}
+
+/// Parses the acknowledgement of a wallet registration.
+pub fn parse_registered(response: Response) -> Result<(), Error> {
+    match btc_response(response)? {
+        pb::btc_response::Response::Success(_) => Ok(()),
+        _ => Err(Error::UnexpectedResponse),
+    }
+}
+
 #[cfg(feature = "client")]
 impl<R: Runtime> PairedBitBox<R> {
     /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
@@ -704,18 +817,10 @@ impl<R: Runtime> PairedBitBox<R> {
         xpub_type: pb::btc_pub_request::XPubType,
         display: bool,
     ) -> Result<String, Error> {
-        match self
-            .query_proto(Request::BtcPub(pb::BtcPubRequest {
-                coin: coin as _,
-                keypath: keypath.to_vec(),
-                display,
-                output: Some(pb::btc_pub_request::Output::XpubType(xpub_type as _)),
-            }))
-            .await?
-        {
-            Response::Pub(pb::PubResponse { r#pub }) => Ok(r#pub),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        crate::api::parse_pub(
+            self.query_proto(xpub_request(coin, keypath, xpub_type, display))
+                .await?,
+        )
     }
 
     /// Retrieves multiple xpubs at once. Only standard keypaths are allowed.
@@ -768,37 +873,17 @@ impl<R: Runtime> PairedBitBox<R> {
         display: bool,
     ) -> Result<String, Error> {
         let _api_call = self.begin_api_call().await;
-        match self
-            .query_proto(Request::BtcPub(pb::BtcPubRequest {
-                coin: coin as _,
-                keypath: keypath.to_vec(),
-                display,
-                output: Some(pb::btc_pub_request::Output::ScriptConfig(
-                    script_config.clone(),
-                )),
-            }))
-            .await?
-        {
-            Response::Pub(pb::PubResponse { r#pub }) => Ok(r#pub),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        crate::api::parse_pub(
+            self.query_proto(address_request(coin, keypath, script_config.clone(), display))
+                .await?,
+        )
     }
 
     async fn query_proto_btc(
         &self,
         request: pb::btc_request::Request,
     ) -> Result<pb::btc_response::Response, Error> {
-        match self
-            .query_proto(Request::Btc(pb::BtcRequest {
-                request: Some(request),
-            }))
-            .await?
-        {
-            Response::Btc(pb::BtcResponse {
-                response: Some(response),
-            }) => Ok(response),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        btc_response(self.query_proto(btc_request(request)).await?)
     }
 
     async fn get_next_response(&self, request: Request) -> Result<pb::BtcSignNextResponse, Error> {
@@ -1182,23 +1267,14 @@ impl<R: Runtime> PairedBitBox<R> {
         keypath_account: Option<&Keypath>,
     ) -> Result<bool, Error> {
         let _api_call = self.begin_api_call().await;
-        match self
-            .query_proto_btc(pb::btc_request::Request::IsScriptConfigRegistered(
-                pb::BtcIsScriptConfigRegisteredRequest {
-                    registration: Some(pb::BtcScriptConfigRegistration {
-                        coin: coin as _,
-                        script_config: Some(script_config.clone()),
-                        keypath: keypath_account.map_or(vec![], |kp| kp.to_vec()),
-                    }),
-                },
+        parse_is_registered(
+            self.query_proto(is_script_config_registered_request(
+                coin,
+                script_config.clone(),
+                keypath_account,
             ))
-            .await?
-        {
-            pb::btc_response::Response::IsScriptConfigRegistered(response) => {
-                Ok(response.is_registered)
-            }
-            _ => Err(Error::UnexpectedResponse),
-        }
+            .await?,
+        )
     }
 
     /// Before a multisig or policy script config can be used to display receive addresses or sign
@@ -1220,29 +1296,120 @@ impl<R: Runtime> PairedBitBox<R> {
         name: Option<&str>,
     ) -> Result<(), Error> {
         let _api_call = self.begin_api_call().await;
-        match self
-            .query_proto_btc(pb::btc_request::Request::RegisterScriptConfig(
-                pb::BtcRegisterScriptConfigRequest {
-                    registration: Some(pb::BtcScriptConfigRegistration {
-                        coin: coin as _,
-                        script_config: Some(script_config.clone()),
-                        keypath: keypath_account.map_or(vec![], |kp| kp.to_vec()),
-                    }),
-                    name: name.unwrap_or("").into(),
-                    xpub_type: xpub_type as _,
-                },
+        parse_registered(
+            self.query_proto(register_script_config_request(
+                coin,
+                script_config.clone(),
+                keypath_account,
+                xpub_type,
+                name,
             ))
-            .await?
-        {
-            pb::btc_response::Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
+            .await?,
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn nested_response(response: pb::btc_response::Response) -> Response {
+        Response::Btc(pb::BtcResponse {
+            response: Some(response),
+        })
+    }
+
+    #[test]
+    fn one_shot_requests_preserve_variants_and_optional_fields() {
+        use pb::btc_pub_request::{Output, XPubType};
+        use pb::btc_register_script_config_request::XPubType as RegistrationXpub;
+        use pb::btc_request::Request as BtcRequest;
+
+        let coin = pb::BtcCoin::Tbtc;
+        let keypath = Keypath::try_from("m/1").unwrap();
+        let config = make_script_config_simple(pb::btc_script_config::SimpleType::P2wpkh);
+        // The zero-valued Tpub must still be present in the oneof.
+        assert_eq!(
+            xpub_request(coin, &keypath, XPubType::Tpub, false),
+            Request::BtcPub(pb::BtcPubRequest {
+                coin: coin as _,
+                keypath: vec![1],
+                display: false,
+                output: Some(Output::XpubType(0)),
+            }),
+        );
+        assert_eq!(
+            address_request(coin, &keypath, config.clone(), true),
+            Request::BtcPub(pb::BtcPubRequest {
+                coin: coin as _,
+                keypath: vec![1],
+                display: true,
+                output: Some(Output::ScriptConfig(config.clone())),
+            }),
+        );
+        assert_eq!(
+            is_script_config_registered_request(coin, config.clone(), None),
+            Request::Btc(pb::BtcRequest {
+                request: Some(BtcRequest::IsScriptConfigRegistered(
+                    pb::BtcIsScriptConfigRegisteredRequest {
+                        registration: Some(pb::BtcScriptConfigRegistration {
+                            coin: coin as _,
+                            keypath: vec![],
+                            script_config: Some(config.clone()),
+                        }),
+                    },
+                )),
+            }),
+        );
+        for (name, expected) in [(None, ""), (Some("wallet"), "wallet")] {
+            assert_eq!(
+                register_script_config_request(
+                    coin,
+                    config.clone(),
+                    Some(&keypath),
+                    RegistrationXpub::AutoXpubTpub,
+                    name,
+                ),
+                Request::Btc(pb::BtcRequest {
+                    request: Some(BtcRequest::RegisterScriptConfig(
+                        pb::BtcRegisterScriptConfigRequest {
+                            registration: Some(pb::BtcScriptConfigRegistration {
+                                coin: coin as _,
+                                keypath: vec![1],
+                                script_config: Some(config.clone()),
+                            }),
+                            name: expected.into(),
+                            xpub_type: RegistrationXpub::AutoXpubTpub as _,
+                        },
+                    )),
+                }),
+            );
+        }
+    }
+
+    #[test]
+    fn registration_parsers_require_btc_reply_variants() {
+        use pb::btc_response::Response as BtcResponse;
+
+        for is_registered in [false, true] {
+            let response = nested_response(BtcResponse::IsScriptConfigRegistered(
+                pb::BtcIsScriptConfigRegisteredResponse { is_registered },
+            ));
+            assert_eq!(parse_is_registered(response.clone()).unwrap(), is_registered);
+            assert!(matches!(parse_registered(response), Err(Error::UnexpectedResponse)));
+        }
+        let response = nested_response(BtcResponse::Success(pb::BtcSuccess {}));
+        assert!(parse_registered(response.clone()).is_ok());
+        assert!(matches!(parse_is_registered(response), Err(Error::UnexpectedResponse)));
+        assert!(matches!(
+            btc_response(Response::Btc(pb::BtcResponse { response: None })),
+            Err(Error::UnexpectedResponse)
+        ));
+        assert!(matches!(
+            parse_registered(Response::Success(pb::Success {})),
+            Err(Error::UnexpectedResponse)
+        ));
+    }
 
     #[test]
     fn test_payload_from_pkscript() {
