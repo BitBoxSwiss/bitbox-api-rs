@@ -9,7 +9,7 @@ pub mod cardano;
 pub mod error;
 #[cfg(feature = "client")]
 pub mod eth;
-mod noise;
+pub mod noise;
 #[cfg(feature = "runtime")]
 pub mod runtime;
 #[cfg(feature = "simulator")]
@@ -178,15 +178,8 @@ impl<R: Runtime> BitBox<R> {
                 k
             }
         };
-        let mut host = HandshakeState::new(
-            noise_protocol::patterns::noise_xx(),
-            true,
-            b"Noise_XX_25519_ChaChaPoly_SHA256",
-            Some(host_static_key),
-            None,
-            None,
-            None,
-        );
+        let mut host: HandshakeState =
+            noise::new_handshake(host_static_key, noise_rust_crypto::X25519::genkey())?;
 
         if self
             .communication
@@ -201,30 +194,18 @@ impl<R: Runtime> BitBox<R> {
         let host_handshake_1 = host.write_message_vec(b"").or(Err(Error::Noise))?;
         let bb02_handshake_1 = self.handshake_query(&host_handshake_1).await?;
 
-        host.read_message_vec(&bb02_handshake_1)
-            .or(Err(Error::Noise))?;
-        let host_handshake_2 = host.write_message_vec(b"").or(Err(Error::Noise))?;
+        let host_handshake_2 = noise::handshake_read_write(&mut host, &bb02_handshake_1)?;
 
         let bb02_handshake_2 = self.handshake_query(&host_handshake_2).await?;
-        let remote_static_pubkey = host.get_rs().ok_or(Error::Noise)?;
+        let (pairing_verification_required_by_device, remote_static_pubkey) =
+            noise::handshake_finalize(&host, &bb02_handshake_2)?;
         let pairing_verfication_required_by_app = !self
             .noise_config
             .read_config()?
             .contains_device_static_pubkey(&remote_static_pubkey);
-        let pairing_verification_required_by_device = bb02_handshake_2.as_slice() == [0x01];
         if pairing_verfication_required_by_app || pairing_verification_required_by_device {
-            let format_hash = |h| {
-                let encoded = base32::encode(base32::Alphabet::Rfc4648 { padding: true }, h);
-                format!(
-                    "{} {}\n{} {}",
-                    &encoded[0..5],
-                    &encoded[5..10],
-                    &encoded[10..15],
-                    &encoded[15..20]
-                )
-            };
             let handshake_hash: [u8; 32] = host.get_hash().try_into().or(Err(Error::Noise))?;
-            let pairing_code = format_hash(&handshake_hash);
+            let pairing_code = noise::pairing_code_from_hash(&handshake_hash);
 
             Ok(PairingBitBox::from(
                 self.communication,

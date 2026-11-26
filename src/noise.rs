@@ -1,11 +1,73 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use noise_protocol::{Cipher, HandshakeState, Hash, DH};
+
+use crate::error::Error as ProtocolError;
 #[cfg(any(feature = "client", feature = "persistence"))]
 use crate::util::Threading;
 #[cfg(all(feature = "persistence", unix))]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 #[cfg(any(feature = "client", feature = "persistence"))]
 use thiserror::Error;
+
+const PROLOGUE: &[u8] = b"Noise_XX_25519_ChaChaPoly_SHA256";
+
+pub fn new_handshake<D: DH, C: Cipher, H: Hash>(
+    host_static_key: D::Key,
+    fresh_ephemeral_key: D::Key,
+) -> Result<HandshakeState<D, C, H>, ProtocolError> {
+    if (D::name(), C::name(), H::name()) != ("25519", "ChaChaPoly", "SHA256") {
+        return Err(ProtocolError::Noise);
+    }
+    Ok(HandshakeState::new(
+        noise_protocol::patterns::noise_xx(),
+        true,
+        PROLOGUE,
+        Some(host_static_key),
+        Some(fresh_ephemeral_key),
+        None,
+        None,
+    ))
+}
+
+pub fn handshake_read_write<D: DH, C: Cipher, H: Hash>(
+    host: &mut HandshakeState<D, C, H>,
+    device_message: &[u8],
+) -> Result<Vec<u8>, ProtocolError> {
+    if host.completed() || host.is_write_turn() {
+        return Err(ProtocolError::Noise);
+    }
+    host.read_message_vec(device_message)
+        .map_err(|_| ProtocolError::Noise)?;
+    if host.completed() || !host.is_write_turn() {
+        return Err(ProtocolError::Noise);
+    }
+    host.write_message_vec(b"").map_err(|_| ProtocolError::Noise)
+}
+
+pub fn handshake_finalize<D: DH, C: Cipher, H: Hash>(
+    host: &HandshakeState<D, C, H>,
+    device_ack: &[u8],
+) -> Result<(bool, D::Pubkey), ProtocolError> {
+    if !host.completed() {
+        return Err(ProtocolError::Noise);
+    }
+    Ok((
+        device_ack == [0x01],
+        host.get_rs().ok_or(ProtocolError::Noise)?,
+    ))
+}
+
+pub fn pairing_code_from_hash(hash: &[u8; 32]) -> String {
+    let encoded = base32::encode(base32::Alphabet::Rfc4648 { padding: true }, hash);
+    format!(
+        "{} {}\n{} {}",
+        &encoded[0..5],
+        &encoded[5..10],
+        &encoded[10..15],
+        &encoded[15..20]
+    )
+}
 
 #[cfg(any(feature = "client", feature = "persistence"))]
 #[derive(Error, Debug)]
@@ -260,5 +322,81 @@ mod tests {
             .file_type()
             .is_symlink());
         assert_eq!(mode(&target), 0o644);
+    }
+}
+
+#[cfg(test)]
+mod handshake_tests {
+    use super::*;
+    use noise_protocol::U8Array;
+    use noise_rust_crypto::{ChaCha20Poly1305, Sha256, Sha512, X25519};
+
+    #[test]
+    fn uses_supplied_keys_and_authenticates_device_message() {
+        let key = |byte| <X25519 as DH>::Key::new_with(byte);
+        let start = || new_handshake::<X25519, ChaCha20Poly1305, Sha256>(key(1), key(2)).unwrap();
+        let mut device = HandshakeState::<X25519, ChaCha20Poly1305, Sha256>::new(
+            noise_protocol::patterns::noise_xx(),
+            false,
+            PROLOGUE,
+            Some(key(3)),
+            Some(key(4)),
+            None,
+            None,
+        );
+        let mut host = start();
+        assert!(matches!(
+            handshake_finalize(&host, &[]),
+            Err(ProtocolError::Noise)
+        ));
+        let first = host.write_message_vec(b"").unwrap();
+        assert_eq!(first, X25519::pubkey(&key(2)));
+        device.read_message_vec(&first).unwrap();
+        let reply = device.write_message_vec(b"").unwrap();
+
+        let mut bad_host = start();
+        bad_host.write_message_vec(b"").unwrap();
+        let mut tampered = reply.clone();
+        *tampered.last_mut().unwrap() ^= 1;
+        assert!(matches!(
+            handshake_read_write(&mut bad_host, &tampered),
+            Err(ProtocolError::Noise)
+        ));
+        assert!(matches!(
+            handshake_finalize(&bad_host, &[1]),
+            Err(ProtocolError::Noise)
+        ));
+
+        let last = handshake_read_write(&mut host, &reply).unwrap();
+        device.read_message_vec(&last).unwrap();
+        assert_eq!(
+            handshake_finalize(&host, &[1]).unwrap(),
+            (true, X25519::pubkey(&key(3)))
+        );
+        assert!(!handshake_finalize(&host, &[0]).unwrap().0);
+        assert_eq!(host.get_hash(), device.get_hash());
+        let (mut send, mut recv) = host.get_ciphers();
+        let (mut device_recv, mut device_send) = device.get_ciphers();
+        assert_eq!(
+            device_recv.decrypt_vec(&send.encrypt_vec(b"request")).unwrap(),
+            b"request"
+        );
+        assert_eq!(
+            recv.decrypt_vec(&device_send.encrypt_vec(b"reply")).unwrap(),
+            b"reply"
+        );
+    }
+
+    #[test]
+    fn checks_protocol_suite_and_pairing_code() {
+        let key = || <X25519 as DH>::Key::new_with(1);
+        assert!(matches!(
+            new_handshake::<X25519, ChaCha20Poly1305, Sha512>(key(), key()),
+            Err(ProtocolError::Noise),
+        ));
+        assert_eq!(
+            pairing_code_from_hash(b"0123456789abcdef0123456789abcdef"),
+            "GAYTE MZUGU\n3DOOB ZMFRG"
+        );
     }
 }
