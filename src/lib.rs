@@ -367,13 +367,7 @@ impl<R: Runtime> PairedBitBox<R> {
 
     pub async fn device_info(&self) -> Result<pb::DeviceInfoResponse, Error> {
         let _api_call = self.begin_api_call().await;
-        match self
-            .query_proto(Request::DeviceInfo(pb::DeviceInfoRequest {}))
-            .await?
-        {
-            Response::DeviceInfo(di) => Ok(di),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        api::parse_device_info(self.query_proto(api::device_info_request()).await?)
     }
 
     /// Returns which product we are connected to.
@@ -399,26 +393,15 @@ impl<R: Runtime> PairedBitBox<R> {
         self.root_fingerprint_inner().await.map(hex::encode)
     }
 
-    pub(crate) async fn root_fingerprint_inner(&self) -> Result<Vec<u8>, Error> {
-        match self
-            .query_proto(Request::Fingerprint(pb::RootFingerprintRequest {}))
-            .await?
-        {
-            Response::Fingerprint(pb::RootFingerprintResponse { fingerprint }) => Ok(fingerprint),
-            _ => Err(Error::UnexpectedResponse),
-        }
+    pub(crate) async fn root_fingerprint_inner(&self) -> Result<[u8; 4], Error> {
+        let response = self.query_proto(api::root_fingerprint_request()).await?;
+        api::parse_root_fingerprint(response).map(|fingerprint| fingerprint.to_bytes())
     }
 
     /// Show recovery words on the Bitbox.
     pub async fn show_mnemonic(&self) -> Result<(), Error> {
         let _api_call = self.begin_api_call().await;
-        match self
-            .query_proto(Request::ShowMnemonic(pb::ShowMnemonicRequest {}))
-            .await?
-        {
-            Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        api::parse_success(self.query_proto(api::show_mnemonic_request()).await?)
     }
 
     #[cfg(feature = "clock")]
@@ -427,18 +410,13 @@ impl<R: Runtime> PairedBitBox<R> {
         let _api_call = self.begin_api_call().await;
         let now = std::time::SystemTime::now();
         let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
-        match self
-            .query_proto(Request::RestoreFromMnemonic(
-                pb::RestoreFromMnemonicRequest {
-                    timestamp: duration_since_epoch.as_secs() as u32,
-                    timezone_offset: chrono::Local::now().offset().local_minus_utc(),
-                },
+        api::parse_success(
+            self.query_proto(api::restore_from_mnemonic_request(
+                duration_since_epoch.as_secs() as u32,
+                chrono::Local::now().offset().local_minus_utc(),
             ))
-            .await?
-        {
-            Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
+            .await?,
+        )
     }
 
     /// Invokes the password change workflow on the device.
@@ -446,13 +424,10 @@ impl<R: Runtime> PairedBitBox<R> {
     pub async fn change_password(&self) -> Result<(), Error> {
         let _api_call = self.begin_api_call().await;
         self.validate_version(">=9.25.0")?;
-        match self
-            .query_proto(Request::ChangePassword(pb::ChangePasswordRequest {}))
-            .await?
-        {
-            Response::Success(_) => Ok(()),
-            _ => Err(Error::UnexpectedResponse),
-        }
+        api::parse_success(
+            self.query_proto(Request::ChangePassword(pb::ChangePasswordRequest {}))
+                .await?,
+        )
     }
 
     /// Invokes the BIP85-BIP39 workflow on the device, letting the user select the number of words
