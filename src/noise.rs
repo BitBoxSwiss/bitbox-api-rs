@@ -53,8 +53,13 @@ pub fn handshake_finalize<D: DH, C: Cipher, H: Hash>(
     if !host.completed() {
         return Err(ProtocolError::Noise);
     }
+    let requires_verification = match device_ack {
+        [0] => false,
+        [1] => true,
+        _ => return Err(ProtocolError::Noise),
+    };
     Ok((
-        device_ack == [0x01],
+        requires_verification,
         host.get_rs().ok_or(ProtocolError::Noise)?,
     ))
 }
@@ -375,6 +380,12 @@ mod handshake_tests {
             (true, X25519::pubkey(&key(3)))
         );
         assert!(!handshake_finalize(&host, &[0]).unwrap().0);
+        for malformed in [&[][..], &[2], &[1, 0]] {
+            assert!(matches!(
+                handshake_finalize(&host, malformed),
+                Err(ProtocolError::Noise)
+            ));
+        }
         assert_eq!(host.get_hash(), device.get_hash());
         let (mut send, mut recv) = host.get_ciphers();
         let (mut device_recv, mut device_send) = device.get_ciphers();
