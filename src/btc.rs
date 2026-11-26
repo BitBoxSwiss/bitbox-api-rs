@@ -409,25 +409,78 @@ pub struct PsbtTransaction {
     pub output_script_config_indices: Vec<Option<u32>>,
 }
 
+fn validate_psbt_key_counts(
+    psbt: &bitcoin::psbt::Psbt,
+    input_keys: usize,
+    output_keys: usize,
+) -> Result<(), Error> {
+    if psbt.inputs.len() != psbt.unsigned_tx.input.len() || input_keys != psbt.inputs.len() {
+        return Err(Error::BtcSign(
+            "input signing keys must match PSBT inputs".into(),
+        ));
+    }
+    if psbt.outputs.len() != psbt.unsigned_tx.output.len() || output_keys != psbt.outputs.len() {
+        return Err(Error::BtcSign(
+            "output signing keys must match PSBT outputs".into(),
+        ));
+    }
+    Ok(())
+}
+
 impl Transaction {
-    fn from_psbt(
+    /// Lowers a PSBT using the device fingerprint to look up owned keys.
+    pub fn from_psbt(
         firmware_version: &semver::Version,
         our_root_fingerprint: &[u8],
         psbt: &bitcoin::psbt::Psbt,
         force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
-    ) -> Result<PsbtTransaction, PsbtError> {
+    ) -> Result<PsbtTransaction, Error> {
+        validate_psbt_key_counts(psbt, psbt.inputs.len(), psbt.outputs.len())?;
+        let input_keys = psbt
+            .inputs
+            .iter()
+            .map(|input| find_our_key(our_root_fingerprint, input))
+            .collect::<Result<Vec<_>, _>>()?;
+        let output_keys = psbt
+            .outputs
+            .iter()
+            .map(|output| find_our_key(our_root_fingerprint, output).ok())
+            .collect();
+        Self::from_psbt_with_keys(
+            firmware_version,
+            psbt,
+            force_script_config,
+            input_keys,
+            output_keys,
+        )
+    }
+
+    /// Lowers a PSBT given caller-resolved keys in PSBT input and output order.
+    ///
+    /// An output key of `None` marks an external output. This does not verify key ownership.
+    pub fn from_psbt_with_keys(
+        firmware_version: &semver::Version,
+        psbt: &bitcoin::psbt::Psbt,
+        force_script_config: Option<pb::BtcScriptConfigWithKeypath>,
+        input_keys: Vec<OurKey>,
+        output_keys: Vec<Option<OurKey>>,
+    ) -> Result<PsbtTransaction, Error> {
+        validate_psbt_key_counts(psbt, input_keys.len(), output_keys.len())?;
+
         let is_script_config_forced = force_script_config.is_some();
         let mut script_configs = force_script_config.into_iter().collect::<Vec<_>>();
-        let mut output_script_configs: Vec<pb::BtcScriptConfigWithKeypath> = Vec::new();
+        let mut output_script_configs = Vec::new();
+        let mut inputs = Vec::with_capacity(input_keys.len());
 
-        let mut our_keys: Vec<OurKey> = Vec::new();
-        let mut inputs: Vec<TxInput> = Vec::new();
-
-        for (input_index, (tx_input, psbt_input)) in
-            psbt.unsigned_tx.input.iter().zip(&psbt.inputs).enumerate()
+        for (input_index, ((tx_input, psbt_input), our_key)) in psbt
+            .unsigned_tx
+            .input
+            .iter()
+            .zip(&psbt.inputs)
+            .zip(&input_keys)
+            .enumerate()
         {
-            let utxo = psbt.spend_utxo(input_index)?;
-            let our_key = find_our_key(our_root_fingerprint, psbt_input)?;
+            let utxo = psbt.spend_utxo(input_index).map_err(PsbtError::from)?;
             let script_config_index = if is_script_config_forced {
                 0
             } else {
@@ -450,57 +503,57 @@ impl Transaction {
                 script_config_index: script_config_index as _,
                 prev_tx: psbt_input.non_witness_utxo.as_ref().map(PrevTx::from),
             });
-            our_keys.push(our_key);
         }
 
-        let mut outputs: Vec<TxOutput> = Vec::new();
-        let mut output_script_config_indices: Vec<Option<u32>> = Vec::new();
-        for (tx_output, psbt_output) in psbt.unsigned_tx.output.iter().zip(&psbt.outputs) {
-            let our_key = find_our_key(our_root_fingerprint, psbt_output);
-            // Either change output or a non-change output owned by the BitBox.
-            match our_key {
-                Ok(our_key) => {
-                    let script_config = if is_script_config_forced {
-                        script_configs[0].clone()
-                    } else {
-                        script_config_from_utxo(
-                            tx_output,
-                            our_key.keypath(),
-                            psbt_output.redeem_script.as_ref(),
-                        )?
-                    };
-                    let same_account = is_same_account(&script_configs, &script_config)?;
-                    // Firmware 9.22 added separate output configs for device-owned outputs that
-                    // belong to another account. Older firmware must display them as external.
-                    if same_account {
-                        let script_config_index =
-                            find_or_add_script_config(&mut script_configs, script_config);
-                        outputs.push(TxOutput::Internal(TxInternalOutput {
-                            keypath: our_key.keypath().clone(),
-                            value: tx_output.value.to_sat(),
-                            script_config_index: script_config_index as _,
-                        }));
-                        output_script_config_indices.push(None);
-                    } else if firmware_version >= &semver::Version::new(9, 22, 0) {
-                        let output_script_config_index =
-                            find_or_add_script_config(&mut output_script_configs, script_config);
-                        outputs.push(TxOutput::Internal(TxInternalOutput {
-                            keypath: our_key.keypath().clone(),
-                            value: tx_output.value.to_sat(),
-                            // Ignored when output_script_config_index is present.
-                            script_config_index: 0,
-                        }));
-                        output_script_config_indices.push(Some(output_script_config_index as _));
-                    } else {
-                        outputs.push(TxOutput::External(tx_output.try_into()?));
-                        output_script_config_indices.push(None);
-                    }
-                }
-                Err(_) => {
+        let mut outputs = Vec::with_capacity(output_keys.len());
+        let mut output_script_config_indices = Vec::with_capacity(output_keys.len());
+        for ((tx_output, psbt_output), output_key) in psbt
+            .unsigned_tx
+            .output
+            .iter()
+            .zip(&psbt.outputs)
+            .zip(output_keys)
+        {
+            let Some(
+                OurKey::Segwit(_, keypath)
+                | OurKey::TaprootInternal(keypath)
+                | OurKey::TaprootScript(_, _, keypath),
+            ) = output_key else {
+                outputs.push(TxOutput::External(tx_output.try_into()?));
+                output_script_config_indices.push(None);
+                continue;
+            };
+            let (script_config_index, output_script_config_index) = if is_script_config_forced {
+                // The forced config is used for all owned inputs and outputs, but still check
+                // that a forced simple config has an account keypath.
+                is_same_account(&script_configs, &script_configs[0])?;
+                (0, None)
+            } else {
+                let script_config = script_config_from_utxo(
+                    tx_output,
+                    &keypath,
+                    psbt_output.redeem_script.as_ref(),
+                )?;
+                if is_same_account(&script_configs, &script_config)? {
+                    (find_or_add_script_config(&mut script_configs, script_config) as u32, None)
+                } else if firmware_version >= &semver::Version::new(9, 22, 0) {
+                    let index =
+                        find_or_add_script_config(&mut output_script_configs, script_config);
+                    // The input config index is ignored when the output config index is present.
+                    (0, Some(index as u32))
+                } else {
+                    // Older firmware displays device-owned outputs of other accounts as external.
                     outputs.push(TxOutput::External(tx_output.try_into()?));
                     output_script_config_indices.push(None);
+                    continue;
                 }
-            }
+            };
+            outputs.push(TxOutput::Internal(TxInternalOutput {
+                keypath,
+                value: tx_output.value.to_sat(),
+                script_config_index,
+            }));
+            output_script_config_indices.push(output_script_config_index);
         }
 
         Ok(PsbtTransaction {
@@ -511,7 +564,7 @@ impl Transaction {
                 outputs,
                 locktime: psbt.unsigned_tx.lock_time.to_consensus_u32(),
             },
-            our_keys,
+            our_keys: input_keys,
             output_script_configs,
             output_script_config_indices,
         })
@@ -1754,6 +1807,154 @@ mod tests {
             Err(Error::BtcSign(message))
                 if message == "output script config indices must match transaction outputs"
         ));
+    }
+
+    fn psbt_fixture() -> (bitcoin::psbt::Psbt, Fingerprint, bitcoin::secp256k1::PublicKey) {
+        use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey};
+        use bitcoin::{absolute, psbt::Psbt, transaction, Amount, CompressedPublicKey, ScriptBuf};
+
+        let key = PublicKey::from_secret_key(
+            &Secp256k1::new(),
+            &SecretKey::from_slice(&[1; 32]).unwrap(),
+        );
+        let fingerprint = Fingerprint::from([1, 2, 3, 4]);
+        let output = bitcoin::TxOut {
+            value: Amount::from_sat(1000),
+            script_pubkey: ScriptBuf::new_p2wpkh(&CompressedPublicKey(key).wpubkey_hash()),
+        };
+        let mut psbt = Psbt::from_unsigned_tx(bitcoin::Transaction {
+            version: transaction::Version::TWO,
+            lock_time: absolute::LockTime::ZERO,
+            input: vec![bitcoin::TxIn::default()],
+            output: vec![output.clone()],
+        })
+        .unwrap();
+        psbt.inputs[0].witness_utxo = Some(output);
+        psbt.inputs[0]
+            .bip32_derivation
+            .insert(key, (fingerprint, "m/84'/0'/0'/0/0".parse().unwrap()));
+        psbt.outputs[0]
+            .bip32_derivation
+            .insert(key, (fingerprint, "m/84'/0'/1'/1/3".parse().unwrap()));
+        (psbt, fingerprint, key)
+    }
+
+    #[test]
+    fn psbt_lowering_uses_firmware_aware_cross_account_outputs() {
+        let (psbt, fingerprint, key) = psbt_fixture();
+        let output_keypath = Keypath::try_from("m/84'/0'/1'/1/3").unwrap();
+        for minor in [21, 22] {
+            let version = semver::Version::new(9, minor, 0);
+            let ordinary = Transaction::from_psbt(&version, &fingerprint[..], &psbt, None).unwrap();
+            let resolved = Transaction::from_psbt_with_keys(
+                &version,
+                &psbt,
+                None,
+                vec![OurKey::Segwit(key, Keypath::try_from("m/84'/0'/0'/0/0").unwrap())],
+                vec![Some(OurKey::Segwit(key, output_keypath.clone()))],
+            )
+            .unwrap();
+            assert_eq!(ordinary.transaction, resolved.transaction);
+            assert_eq!(ordinary.output_script_configs, resolved.output_script_configs);
+            assert_eq!(ordinary.output_script_config_indices, resolved.output_script_config_indices);
+            assert_eq!(resolved.transaction.script_configs.len(), 1);
+            if minor == 21 {
+                assert_eq!(resolved.output_script_config_indices, [None]);
+                assert!(resolved.output_script_configs.is_empty());
+                assert_eq!(
+                    resolved.transaction.outputs[0],
+                    TxOutput::External(TxExternalOutput::try_from(&psbt.unsigned_tx.output[0]).unwrap()),
+                );
+            } else {
+                assert_eq!(resolved.output_script_config_indices, [Some(0)]);
+                assert_eq!(resolved.output_script_configs.len(), 1);
+                assert_eq!(
+                    resolved.output_script_configs[0].keypath,
+                    Keypath::try_from("m/84'/0'/1'").unwrap().as_slice(),
+                );
+                assert_eq!(
+                    resolved.transaction.outputs[0],
+                    TxOutput::Internal(TxInternalOutput {
+                        keypath: output_keypath.clone(),
+                        value: 1000,
+                        script_config_index: 0,
+                    }),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn psbt_lowering_checks_psbt_and_key_cardinalities() {
+        let (mut psbt, fingerprint, key) = psbt_fixture();
+        let version = semver::Version::new(9, 24, 0);
+        let input_keys = || vec![OurKey::Segwit(key, Keypath::try_from("m/84'/0'/0'/0/0").unwrap())];
+        let input_error = "input signing keys must match PSBT inputs";
+        let output_error = "output signing keys must match PSBT outputs";
+        let expect_error = |result, expected: &str| {
+            assert!(matches!(result, Err(Error::BtcSign(message)) if message == expected));
+        };
+        expect_error(
+            Transaction::from_psbt_with_keys(&version, &psbt, None, vec![], vec![None]),
+            input_error,
+        );
+        expect_error(
+            Transaction::from_psbt_with_keys(&version, &psbt, None, input_keys(), vec![]),
+            output_error,
+        );
+        // Even if key and metadata counts agree, the unsigned transaction must agree as well.
+        psbt.unsigned_tx.input.push(bitcoin::TxIn::default());
+        expect_error(
+            Transaction::from_psbt_with_keys(&version, &psbt, None, input_keys(), vec![None]),
+            input_error,
+        );
+        expect_error(Transaction::from_psbt(&version, &fingerprint[..], &psbt, None), input_error);
+        psbt.unsigned_tx.input.pop();
+        psbt.unsigned_tx.output.clear();
+        expect_error(
+            Transaction::from_psbt_with_keys(&version, &psbt, None, input_keys(), vec![None]),
+            output_error,
+        );
+        expect_error(Transaction::from_psbt(&version, &fingerprint[..], &psbt, None), output_error);
+    }
+
+    #[test]
+    fn psbt_lowering_requires_explicit_config_for_p2wsh() {
+        use bitcoin::bip32::Xpriv;
+        use bitcoin::hashes::Hash;
+        use bitcoin::secp256k1::Secp256k1;
+
+        let (mut psbt, fingerprint, _) = psbt_fixture();
+        let version = semver::Version::new(9, 22, 0);
+        let script = bitcoin::ScriptBuf::new_p2wsh(&bitcoin::WScriptHash::from_byte_array([5; 32]));
+        psbt.inputs[0].witness_utxo.as_mut().unwrap().script_pubkey = script.clone();
+        psbt.unsigned_tx.output[0].script_pubkey = script;
+        assert!(matches!(
+            Transaction::from_psbt(&version, &fingerprint[..], &psbt, None),
+            Err(Error::Psbt(PsbtError::UnknownOutputType))
+        ));
+        let xpriv = Xpriv::new_master(bitcoin::Network::Bitcoin, &[7; 32]).unwrap();
+        let forced = pb::BtcScriptConfigWithKeypath {
+            script_config: Some(make_script_config_policy(
+                "wsh(pk(@0/**))",
+                &[KeyOriginInfo {
+                    root_fingerprint: Some(fingerprint),
+                    keypath: None,
+                    xpub: Xpub::from_priv(&Secp256k1::new(), &xpriv),
+                }],
+            )),
+            keypath: vec![],
+        };
+        let lowered = Transaction::from_psbt(&version, &fingerprint[..], &psbt, Some(forced.clone()))
+            .unwrap();
+        assert_eq!(lowered.transaction.script_configs, [forced]);
+        assert_eq!(lowered.transaction.inputs[0].script_config_index, 0);
+        assert!(matches!(
+            lowered.transaction.outputs[0],
+            TxOutput::Internal(TxInternalOutput { script_config_index: 0, .. })
+        ));
+        assert!(lowered.output_script_configs.is_empty());
+        assert_eq!(lowered.output_script_config_indices, [None]);
     }
 
     #[test]
