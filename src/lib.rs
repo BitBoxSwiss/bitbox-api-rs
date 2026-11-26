@@ -2,6 +2,7 @@
 
 //! Rust BitBox hardware wallet client library.
 
+pub mod api;
 pub mod btc;
 #[cfg(feature = "client")]
 pub mod cardano;
@@ -41,8 +42,6 @@ use runtime::Runtime;
 
 #[cfg(feature = "client")]
 use noise_protocol::DH;
-#[cfg(feature = "client")]
-use prost::Message;
 
 #[cfg(feature = "client")]
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard as ApiMutexGuard};
@@ -348,10 +347,7 @@ impl<R: Runtime> PairedBitBox<R> {
         let mut encrypted = vec![OP_NOISE_MSG];
         encrypted.extend_from_slice({
             let mut send = self.noise_send.lock().unwrap();
-            let proto_msg = pb::Request {
-                request: Some(request),
-            };
-            &send.encrypt_vec(&proto_msg.encode_to_vec())
+            &send.encrypt_vec(&api::encode_request(request))
         });
 
         let response = self.communication.query(&encrypted).await?;
@@ -362,25 +358,10 @@ impl<R: Runtime> PairedBitBox<R> {
             let mut recv = self.noise_recv.lock().unwrap();
             recv.decrypt_vec(&response[1..]).or(Err(Error::Noise))?
         };
-        match pb::Response::decode(&decrypted[..]) {
-            Ok(pb::Response {
-                response: Some(Response::Error(pb::Error { code, .. })),
-            }) => match code {
-                101 => Err(BitBoxError::InvalidInput.into()),
-                102 => Err(BitBoxError::Memory.into()),
-                103 => Err(BitBoxError::Generic.into()),
-                104 => Err(BitBoxError::UserAbort.into()),
-                105 => Err(BitBoxError::InvalidState.into()),
-                106 => Err(BitBoxError::Disabled.into()),
-                107 => Err(BitBoxError::Duplicate.into()),
-                108 => Err(BitBoxError::NoiseEncrypt.into()),
-                109 => Err(BitBoxError::NoiseDecrypt.into()),
-                _ => Err(BitBoxError::Unknown.into()),
-            },
-            Ok(pb::Response {
-                response: Some(response),
-            }) => Ok(response),
-            _ => Err(Error::ProtobufDecode),
+        let response = api::decode_response(&decrypted).map_err(|_| Error::ProtobufDecode)?;
+        match api::response_body(response)? {
+            Response::Error(pb::Error { code, .. }) => Err(BitBoxError::from_code(code).into()),
+            response => Ok(response),
         }
     }
 
