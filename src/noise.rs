@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(any(feature = "client", feature = "persistence"))]
 use crate::util::Threading;
-#[cfg(unix)]
+#[cfg(all(feature = "persistence", unix))]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+#[cfg(any(feature = "client", feature = "persistence"))]
 use thiserror::Error;
 
+#[cfg(any(feature = "client", feature = "persistence"))]
 #[derive(Error, Debug)]
 #[error("{0}")]
 pub struct ConfigError(pub String);
 
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug)]
+#[cfg_attr(feature = "persistence", derive(serde::Serialize, serde::Deserialize))]
 pub struct NoiseConfigData {
     pub app_static_privkey: Option<[u8; 32]>,
     pub device_static_pubkeys: Vec<Vec<u8>>,
 }
 
+#[cfg(feature = "client")]
 impl NoiseConfigData {
     pub(crate) fn contains_device_static_pubkey(&self, pubkey: &[u8]) -> bool {
         self.device_static_pubkeys
@@ -44,6 +49,7 @@ impl NoiseConfigData {
     }
 }
 
+#[cfg(any(feature = "client", feature = "persistence"))]
 pub trait NoiseConfig: Threading {
     fn read_config(&self) -> Result<NoiseConfigData, ConfigError> {
         Ok(NoiseConfigData::default())
@@ -53,11 +59,14 @@ pub trait NoiseConfig: Threading {
     }
 }
 
+#[cfg(any(feature = "client", feature = "persistence"))]
 pub struct NoiseConfigNoCache;
+#[cfg(any(feature = "client", feature = "persistence"))]
 impl NoiseConfig for NoiseConfigNoCache {}
+#[cfg(any(feature = "client", feature = "persistence"))]
 impl Threading for NoiseConfigNoCache {}
 
-#[cfg(unix)]
+#[cfg(all(feature = "persistence", unix))]
 fn ensure_private_file_permissions(path: &std::path::Path) -> Result<(), ConfigError> {
     let metadata = std::fs::symlink_metadata(path).map_err(|e| ConfigError(e.to_string()))?;
 
@@ -70,12 +79,15 @@ fn ensure_private_file_permissions(path: &std::path::Path) -> Result<(), ConfigE
         .map_err(|e| ConfigError(e.to_string()))
 }
 
+#[cfg(feature = "persistence")]
 pub struct PersistedNoiseConfig {
     config_dir: String,
 }
 
+#[cfg(feature = "persistence")]
 impl Threading for PersistedNoiseConfig {}
 
+#[cfg(feature = "persistence")]
 impl PersistedNoiseConfig {
     /// Creates a new persisting noise config, which stores the pairing information in "bitbox.json"
     /// in the provided directory. The directory must already exist and should be created with
@@ -87,6 +99,7 @@ impl PersistedNoiseConfig {
     }
 }
 
+#[cfg(feature = "persistence")]
 impl NoiseConfig for PersistedNoiseConfig {
     fn read_config(&self) -> Result<NoiseConfigData, ConfigError> {
         use std::io::Read;
@@ -135,7 +148,7 @@ impl NoiseConfig for PersistedNoiseConfig {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(all(test, feature = "persistence", unix))]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;

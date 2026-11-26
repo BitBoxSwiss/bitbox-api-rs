@@ -3,10 +3,13 @@
 //! Rust BitBox hardware wallet client library.
 
 pub mod btc;
+#[cfg(feature = "client")]
 pub mod cardano;
 pub mod error;
+#[cfg(feature = "client")]
 pub mod eth;
 mod noise;
+#[cfg(feature = "runtime")]
 pub mod runtime;
 #[cfg(feature = "simulator")]
 pub mod simulator;
@@ -26,51 +29,78 @@ pub mod pb {
     include!("./shiftcrypto.bitbox02.rs");
 }
 
+#[cfg(feature = "client")]
 use crate::error::{BitBoxError, Error};
 
+#[cfg(feature = "client")]
 use pb::request::Request;
+#[cfg(feature = "client")]
 use pb::response::Response;
+#[cfg(feature = "client")]
 use runtime::Runtime;
 
+#[cfg(feature = "client")]
 use noise_protocol::DH;
+#[cfg(feature = "client")]
 use prost::Message;
 
+#[cfg(feature = "client")]
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard as ApiMutexGuard};
+#[cfg(feature = "client")]
 use std::sync::Mutex;
 
 pub use keypath::Keypath;
+#[cfg(feature = "persistence")]
 pub use noise::PersistedNoiseConfig;
-pub use noise::{ConfigError, NoiseConfig, NoiseConfigData, NoiseConfigNoCache};
+#[cfg(any(feature = "client", feature = "persistence"))]
+pub use noise::{ConfigError, NoiseConfig, NoiseConfigNoCache};
+pub use noise::NoiseConfigData;
 pub use util::Threading;
 
+#[cfg(feature = "client")]
 use communication::HwwCommunication;
 
 pub use communication::Product;
-pub use communication::{Error as CommunicationError, ReadWrite};
+pub use communication::Error as CommunicationError;
+#[cfg(feature = "read-write")]
+pub use communication::ReadWrite;
 
+#[cfg(feature = "client")]
 const OP_I_CAN_HAS_HANDSHAEK: u8 = b'h';
+#[cfg(feature = "client")]
 const OP_HER_COMEZ_TEH_HANDSHAEK: u8 = b'H';
+#[cfg(feature = "client")]
 const OP_I_CAN_HAS_PAIRIN_VERIFICASHUN: u8 = b'v';
+#[cfg(feature = "client")]
 const OP_NOISE_MSG: u8 = b'n';
+#[cfg(feature = "client")]
 const _OP_ATTESTATION: u8 = b'a';
+#[cfg(feature = "client")]
 const OP_UNLOCK: u8 = b'u';
 
+#[cfg(feature = "client")]
 const RESPONSE_SUCCESS: u8 = 0x00;
 
+#[cfg(feature = "client")]
 type Cipher = noise_rust_crypto::ChaCha20Poly1305;
+#[cfg(feature = "client")]
 type HandshakeState =
     noise_protocol::HandshakeState<noise_rust_crypto::X25519, Cipher, noise_rust_crypto::Sha256>;
 
+#[cfg(feature = "client")]
 type CipherState = noise_protocol::CipherState<Cipher>;
 
+#[cfg(feature = "client")]
 /// BitBox client. See `from_hid_device()`.
 pub struct BitBox<R: Runtime> {
     communication: communication::HwwCommunication<R>,
     noise_config: Box<dyn NoiseConfig>,
 }
 
+#[cfg(feature = "client")]
 pub type PairingCode = String;
 
+#[cfg(feature = "client")]
 impl<R: Runtime> BitBox<R> {
     /// Creates a new BitBox instance from a custom transport.
     ///
@@ -214,6 +244,7 @@ impl<R: Runtime> BitBox<R> {
     }
 }
 
+#[cfg(feature = "client")]
 /// BitBox in the pairing state. Use `get_pairing_code()` to display the pairing code to the user
 /// and `wait_confirm()` to proceed to the paired state.
 pub struct PairingBitBox<R: Runtime> {
@@ -223,6 +254,7 @@ pub struct PairingBitBox<R: Runtime> {
     pairing_code: Option<String>,
 }
 
+#[cfg(feature = "client")]
 impl<R: Runtime> PairingBitBox<R> {
     fn from(
         communication: communication::HwwCommunication<R>,
@@ -269,6 +301,7 @@ impl<R: Runtime> PairingBitBox<R> {
     }
 }
 
+#[cfg(feature = "client")]
 /// Paired BitBox. This is where you can invoke most API functions like getting xpubs, displaying
 /// receive addresses, etc.
 pub struct PairedBitBox<R: Runtime> {
@@ -278,6 +311,7 @@ pub struct PairedBitBox<R: Runtime> {
     noise_recv: Mutex<CipherState>,
 }
 
+#[cfg(feature = "client")]
 impl<R: Runtime> PairedBitBox<R> {
     fn from(communication: communication::HwwCommunication<R>, host: HandshakeState) -> Self {
         let (send, recv) = host.get_ciphers();
@@ -406,6 +440,7 @@ impl<R: Runtime> PairedBitBox<R> {
         }
     }
 
+    #[cfg(feature = "clock")]
     /// Restore from recovery words on the Bitbox.
     pub async fn restore_from_mnemonic(&self) -> Result<(), Error> {
         let _api_call = self.begin_api_call().await;
@@ -458,7 +493,7 @@ impl<R: Runtime> PairedBitBox<R> {
     }
 }
 
-#[cfg(all(test, not(feature = "multithreaded")))]
+#[cfg(all(test, feature = "client", not(feature = "multithreaded")))]
 mod tests {
     use super::*;
     use crate::communication::{Error as CommunicationError, ReadWrite};

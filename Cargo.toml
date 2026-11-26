@@ -12,28 +12,28 @@ keywords = ["bitbox", "api", "bitcoin"]
 categories = ["api-bindings", "cryptography"]
 
 [dependencies]
-async-trait = "0.1.68"
+async-trait = { version = "0.1.68", optional = true }
 base32 = "0.5"
 bitcoin = "0.32"
 byteorder = "1.3.2"
-getrandom = { version = "0.2" }
-futures-util = { version = "0.3", default-features = false, features = ["std"] }
+getrandom = { version = "0.2", optional = true }
+futures-util = { version = "0.3", default-features = false, features = ["std"], optional = true }
 hex = { version = "0.4" }
 noise-protocol = "0.2"
-noise-rust-crypto = "0.6"
-num-bigint = "0.4"
+noise-rust-crypto = { version = "0.6", optional = true }
+num-bigint = { version = "0.4", optional = true }
 # If you change this, also change the version of prost-build in scripts/build-protos.rs
 # and run `make build-protos`.
 prost = "0.14"
 semver = "1.0.17"
-serde_json = { version = "1.0" }
+serde_json = { version = "1.0", optional = true }
 thiserror = "2.0"
 zeroize = "1"
 
-chrono = { version = "0.4.38", default-features = false, features = ["clock"] }
+chrono = { version = "0.4.38", default-features = false, features = ["clock"], optional = true }
 hidapi = { version = "2.3", optional = true }
 rlp = { version = "0.6", optional = true }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
 tokio = { version = "1", optional = true, features = ["time"] }
 
 [dev-dependencies]
@@ -45,6 +45,8 @@ reqwest = "0.12"
 url = "2.5"
 tiny-keccak = { version = "2.0", features = ["keccak"] }
 rlp = "0.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 # Enable this to be able to get coverage using `cargo tarpaulin --features=simulator,tokio --out=Html` without compilation error.
 # See https://github.com/rust-bitcoin/rust-bitcoinconsensus/pull/94
 # bitcoinconsensus = { git = "https://github.com/rust-bitcoin/rust-bitcoinconsensus.git", rev = "788ce4d210f7fe6fae4414f5be80968216ba0fd8", default-features = false }
@@ -81,7 +83,7 @@ required-features = ["usb", "tokio/rt", "tokio/macros"]
 
 [[example]]
 name = "eth"
-required-features = ["usb", "tokio/rt", "tokio/macros", "rlp"]
+required-features = ["usb", "tokio/rt", "tokio/macros", "rlp", "persistence"]
 
 [[example]]
 name = "cardano"
@@ -92,8 +94,15 @@ name = "simulator"
 required-features = ["simulator", "tokio/rt", "tokio/macros", "tokio/rt-multi-thread", "multithreaded"]
 
 [features]
+default = ["client", "persistence", "clock"]
+runtime = ["dep:async-trait"]
+read-write = ["dep:async-trait"]
+client = ["runtime", "read-write", "dep:futures-util", "dep:getrandom", "dep:noise-rust-crypto", "dep:num-bigint"]
+persistence = ["dep:serde", "dep:serde_json"]
+clock = ["client", "dep:chrono"]
+usb = ["client", "dep:hidapi"]
+simulator = ["client"]
+tokio = ["runtime", "dep:tokio"]
 # Implement Sync+Send for PairedBitBox and PairingBitBox.
 # This may or may not cause trouble on macOS, see: https://github.com/libusb/hidapi/issues/503
 multithreaded = []
-usb = ["dep:hidapi"]
-simulator = []

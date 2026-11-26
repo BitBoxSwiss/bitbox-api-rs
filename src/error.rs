@@ -44,8 +44,10 @@ pub enum Error {
     Communication(communication::Error),
     #[error("noise channel error")]
     Noise,
+    #[cfg(any(feature = "client", feature = "persistence"))]
     #[error("noise config error: {0}")]
     NoiseConfig(#[from] crate::noise::ConfigError),
+    #[cfg(feature = "client")]
     #[error("pairing code rejected by user")]
     NoisePairingRejected,
     #[error("BitBox returned an unexpected response")]
@@ -62,6 +64,7 @@ pub enum Error {
     InvalidSignature,
     #[error("Antiklepto verification failed: {0}")]
     AntiKlepto(#[from] crate::antiklepto::Error),
+    #[cfg(all(feature = "client", feature = "persistence"))]
     #[error("EIP-712 typed message processing error: {0}")]
     EthTypedMessage(String),
     #[error("Bitcoin transaction signing error: {0}")]

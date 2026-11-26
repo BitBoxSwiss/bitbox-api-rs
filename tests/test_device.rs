@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![cfg(feature = "simulator")]
+#![cfg(all(feature = "simulator", feature = "tokio"))]
 // Simulators only run on linux/amd64.
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
 
-#[cfg(not(feature = "tokio"))]
-compile_error!("Enable the tokio feature to run simulator tests");
-
 mod util;
 
-use util::{test_initialized_simulators, test_simulators_after_pairing};
+#[cfg(feature = "clock")]
+use util::test_initialized_simulators;
+use util::test_simulators_after_pairing;
 
+#[cfg(feature = "clock")]
 #[tokio::test]
 async fn test_reconnect() {
     use bitbox_api::{btc, pb, runtime::TokioRuntime, BitBox, NoiseConfigNoCache, PairedBitBox};
@@ -148,6 +148,7 @@ async fn test_device_info() {
     .await
 }
 
+#[cfg(feature = "clock")]
 #[tokio::test]
 async fn test_root_fingerprint() {
     test_initialized_simulators(async |paired_bitbox| {
@@ -159,6 +160,7 @@ async fn test_root_fingerprint() {
     .await
 }
 
+#[cfg(feature = "clock")]
 #[tokio::test]
 async fn test_change_password() {
     test_initialized_simulators(async |bitbox| {

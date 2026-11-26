@@ -2,11 +2,15 @@
 
 //! Functions and methods related to Bitcoin.
 
+#[cfg(feature = "client")]
 use crate::runtime::Runtime;
 
 use crate::error::Error;
-use crate::pb::{self, request::Request, response::Response};
+use crate::pb;
+#[cfg(feature = "client")]
+use crate::pb::{request::Request, response::Response};
 use crate::Keypath;
+#[cfg(feature = "client")]
 use crate::PairedBitBox;
 
 pub use bitcoin::{
@@ -678,6 +682,7 @@ fn find_or_add_script_config(
     }
 }
 
+#[cfg(feature = "client")]
 impl<R: Runtime> PairedBitBox<R> {
     /// Retrieves an xpub. For non-standard keypaths, a warning is displayed on the BitBox even if
     /// `display` is false.

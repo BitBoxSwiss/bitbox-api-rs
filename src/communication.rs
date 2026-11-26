@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(feature = "client")]
 use super::u2fframing;
+#[cfg(feature = "client")]
 use crate::runtime::Runtime;
+#[cfg(feature = "read-write")]
 use crate::util::Threading;
+#[cfg(feature = "read-write")]
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -24,6 +28,7 @@ pub enum Error {
     Version(&'static str),
 }
 
+#[cfg(feature = "read-write")]
 #[cfg_attr(feature = "multithreaded", async_trait)]
 #[cfg_attr(not(feature="multithreaded"), async_trait(?Send))]
 pub trait ReadWrite: Threading {
@@ -36,13 +41,16 @@ pub trait ReadWrite: Threading {
     }
 }
 
+#[cfg(feature = "client")]
 pub struct U2fHidCommunication {
     read_write: Box<dyn ReadWrite>,
     u2fhid: u2fframing::U2fHid,
 }
 
+#[cfg(feature = "client")]
 impl crate::util::Threading for U2fHidCommunication {}
 
+#[cfg(feature = "client")]
 impl U2fHidCommunication {
     pub fn from(read_write: Box<dyn ReadWrite>, cmd: u8) -> Self {
         U2fHidCommunication {
@@ -52,6 +60,7 @@ impl U2fHidCommunication {
     }
 }
 
+#[cfg(feature = "client")]
 #[cfg_attr(feature = "multithreaded", async_trait)]
 #[cfg_attr(not(feature="multithreaded"),async_trait(?Send))]
 impl ReadWrite for U2fHidCommunication {
@@ -125,12 +134,14 @@ pub struct Info {
     pub initialized: Option<bool>,
 }
 
+#[cfg(feature = "client")]
 pub struct HwwCommunication<R: Runtime> {
     communication: Box<dyn ReadWrite>,
     pub info: Info,
     marker: std::marker::PhantomData<R>,
 }
 
+#[cfg(feature = "client")]
 async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
     let response = communication.query(&[HWW_INFO]).await?;
     let (version_str_len, response) = (
@@ -178,6 +189,7 @@ async fn get_info(communication: &dyn ReadWrite) -> Result<Info, Error> {
     })
 }
 
+#[cfg(feature = "client")]
 async fn reset_session<R: Runtime>(
     communication: &dyn ReadWrite,
     version: &semver::Version,
@@ -195,6 +207,7 @@ async fn reset_session<R: Runtime>(
     }
 }
 
+#[cfg(feature = "client")]
 impl<R: Runtime> HwwCommunication<R> {
     pub async fn from(communication: Box<dyn ReadWrite>) -> Result<Self, Error> {
         let info = get_info(communication.as_ref()).await?;

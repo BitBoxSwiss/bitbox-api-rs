@@ -10,6 +10,7 @@ use std::io::Write;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[cfg(feature = "client")]
     #[error("Failed generating antiklepto host nonce")]
     GenNonce,
     #[error("{0}")]
@@ -35,6 +36,7 @@ fn tagged_sha256(tag: &[u8], msg: &[u8]) -> [u8; 32] {
     sha256::Hash::from_engine(engine).to_byte_array()
 }
 
+#[cfg(feature = "client")]
 pub fn gen_host_nonce() -> Result<[u8; 32], Error> {
     let mut result = [0u8; 32];
     getrandom::getrandom(&mut result).map_err(|_| Error::GenNonce)?;

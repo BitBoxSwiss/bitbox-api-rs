@@ -565,6 +565,7 @@ pub async fn test_simulators(run: impl AsyncFn(&SimulatorStdout)) {
 }
 
 /// Tests on an initialized device, which is not yet seeded.
+#[cfg(feature = "tokio")]
 pub async fn test_simulators_after_pairing_with_stdout(
     run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>, &SimulatorStdout),
 ) {
@@ -584,6 +585,7 @@ pub async fn test_simulators_after_pairing_with_stdout(
 }
 
 /// Tests on an initialized device, which is not yet seeded.
+#[cfg(feature = "tokio")]
 pub async fn test_simulators_after_pairing(
     run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>),
 ) {
@@ -596,6 +598,7 @@ pub async fn test_simulators_after_pairing(
 /// Tests on an initialized/seeded device.
 /// The simulator is initialized with the following mnemonic:
 /// boring mistake dish oyster truth pigeon viable emerge sort crash wire portion cannon couple enact box walk height pull today solid off enable tide
+#[cfg(all(feature = "clock", feature = "tokio"))]
 pub async fn test_initialized_simulators_with_stdout(
     run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>, &SimulatorStdout),
 ) {
@@ -607,6 +610,7 @@ pub async fn test_initialized_simulators_with_stdout(
 }
 
 /// Tests on an initialized/seeded device.
+#[cfg(all(feature = "clock", feature = "tokio"))]
 pub async fn test_initialized_simulators(
     run: impl AsyncFn(&bitbox_api::PairedBitBox<bitbox_api::runtime::TokioRuntime>),
 ) {
