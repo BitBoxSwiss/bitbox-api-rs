@@ -37,7 +37,7 @@ fn tagged_sha256(tag: &[u8], msg: &[u8]) -> [u8; 32] {
 }
 
 #[cfg(feature = "client")]
-pub fn gen_host_nonce() -> Result<[u8; 32], Error> {
+pub(crate) fn gen_host_nonce() -> Result<[u8; 32], Error> {
     let mut result = [0u8; 32];
     getrandom::getrandom(&mut result).map_err(|_| Error::GenNonce)?;
     Ok(result)

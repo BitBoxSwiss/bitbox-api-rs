@@ -11,7 +11,7 @@ pub struct ValidationError(&'static str);
 /// Validates a 64-byte compact ECDSA signature encoded as `r || s`.
 ///
 /// Both scalars must be nonzero and in range, and `s` must use its low-S encoding.
-pub(crate) fn validate_signature_compact(signature: &[u8]) -> Result<(), ValidationError> {
+pub fn validate_signature_compact(signature: &[u8]) -> Result<(), ValidationError> {
     if signature.len() != 64 {
         return Err(ValidationError("Signature must be 64 bytes"));
     }
@@ -34,7 +34,7 @@ pub(crate) fn validate_signature_compact(signature: &[u8]) -> Result<(), Validat
 /// Validates a 65-byte recoverable ECDSA signature encoded as `r || s || recovery_id`.
 ///
 /// The compact signature must be valid and the recovery ID must be in the range 0..=3.
-pub(crate) fn validate_signature_recoverable(signature: &[u8]) -> Result<(), ValidationError> {
+pub fn validate_signature_recoverable(signature: &[u8]) -> Result<(), ValidationError> {
     if signature.len() != 65 {
         return Err(ValidationError("Signature must be 65 bytes"));
     }

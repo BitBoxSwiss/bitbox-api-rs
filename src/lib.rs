@@ -16,10 +16,10 @@ pub mod simulator;
 #[cfg(feature = "usb")]
 pub mod usb;
 
-mod antiklepto;
+pub mod antiklepto;
 mod communication;
 mod keypath;
-mod secp256k1;
+pub mod secp256k1;
 mod u2fframing;
 mod util;
 
@@ -50,18 +50,18 @@ use futures_util::lock::{Mutex as AsyncMutex, MutexGuard as ApiMutexGuard};
 use std::sync::Mutex;
 
 pub use keypath::Keypath;
+pub use noise::NoiseConfigData;
 #[cfg(feature = "persistence")]
 pub use noise::PersistedNoiseConfig;
 #[cfg(any(feature = "client", feature = "persistence"))]
 pub use noise::{ConfigError, NoiseConfig, NoiseConfigNoCache};
-pub use noise::NoiseConfigData;
 pub use util::Threading;
 
 #[cfg(feature = "client")]
 use communication::HwwCommunication;
 
-pub use communication::Product;
 pub use communication::Error as CommunicationError;
+pub use communication::Product;
 #[cfg(feature = "read-write")]
 pub use communication::ReadWrite;
 
