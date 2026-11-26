@@ -13,6 +13,19 @@ To run the example:
 
 See [Cargo.toml](Cargo.toml) for further examples.
 
+## Protocol-only use
+
+Set `default-features = false` on `bitbox-api` to use the protobuf, Bitcoin, Noise,
+signature validation, and framing primitives without the async client or its I/O
+dependencies. The protocol-only library also builds for `wasm32-unknown-unknown`.
+When initiating Noise yourself, supply a new cryptographically random ephemeral
+key for each handshake. The caller owns pairing confirmation and transport.
+
+The default features are `client`, `persistence`, and `clock`. With defaults
+disabled, enable `client` for the async API, `persistence` for JSON Noise config
+and typed Ethereum message signing, and `clock` for system-time mnemonic restore.
+`runtime` and `read-write` can be enabled separately for custom implementations.
+
 ## Simulator tests
 
 The integration tests in [tests/](tests/) run against BitBox02 simulators. The simulators are
