@@ -3,12 +3,12 @@
 use crate::runtime::Runtime;
 
 use crate::error::Error;
+use crate::pb::{self, request::Request, response::Response};
 #[cfg(feature = "persistence")]
 use crate::pb::{
     eth_sign_typed_message_request::{DataType, Member, MemberType, StructType},
     eth_typed_message_value_response::RootObject,
 };
-use crate::pb::{self, request::Request, response::Response};
 use crate::Keypath;
 use crate::PairedBitBox;
 

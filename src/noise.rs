@@ -42,7 +42,8 @@ pub fn handshake_read_write<D: DH, C: Cipher, H: Hash>(
     if host.completed() || !host.is_write_turn() {
         return Err(ProtocolError::Noise);
     }
-    host.write_message_vec(b"").map_err(|_| ProtocolError::Noise)
+    host.write_message_vec(b"")
+        .map_err(|_| ProtocolError::Noise)
 }
 
 pub fn handshake_finalize<D: DH, C: Cipher, H: Hash>(
@@ -378,11 +379,14 @@ mod handshake_tests {
         let (mut send, mut recv) = host.get_ciphers();
         let (mut device_recv, mut device_send) = device.get_ciphers();
         assert_eq!(
-            device_recv.decrypt_vec(&send.encrypt_vec(b"request")).unwrap(),
+            device_recv
+                .decrypt_vec(&send.encrypt_vec(b"request"))
+                .unwrap(),
             b"request"
         );
         assert_eq!(
-            recv.decrypt_vec(&device_send.encrypt_vec(b"reply")).unwrap(),
+            recv.decrypt_vec(&device_send.encrypt_vec(b"reply"))
+                .unwrap(),
             b"reply"
         );
     }
