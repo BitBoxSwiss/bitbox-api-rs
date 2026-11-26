@@ -19,6 +19,7 @@ pub use bitcoin::{
 };
 
 use bitcoin::blockdata::{opcodes, script::Instruction};
+use bitcoin::psbt::SignError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrevTxInput {
@@ -474,15 +475,25 @@ impl Transaction {
         let mut output_script_configs = Vec::new();
         let mut inputs = Vec::with_capacity(input_keys.len());
 
-        for (input_index, ((tx_input, psbt_input), our_key)) in psbt
+        for ((tx_input, psbt_input), our_key) in psbt
             .unsigned_tx
             .input
             .iter()
             .zip(&psbt.inputs)
             .zip(&input_keys)
-            .enumerate()
         {
-            let utxo = psbt.spend_utxo(input_index).map_err(PsbtError::from)?;
+            // Unlike Psbt::spend_utxo, check that the non-witness output exists.
+            let utxo = psbt_input
+                .witness_utxo
+                .as_ref()
+                .or_else(|| {
+                    psbt_input
+                        .non_witness_utxo
+                        .as_ref()?
+                        .output
+                        .get(tx_input.previous_output.vout as usize)
+                })
+                .ok_or(PsbtError::SignError(SignError::MissingSpendUtxo))?;
             let script_config_index = if is_script_config_forced {
                 0
             } else {
@@ -2030,6 +2041,46 @@ mod tests {
             Transaction::from_psbt(&version, &fingerprint[..], &psbt, None),
             output_error,
         );
+    }
+
+    #[test]
+    fn psbt_lowering_checks_previous_output_index_without_a_witness_utxo() {
+        let (mut psbt, fingerprint, key) = psbt_fixture();
+        let version = semver::Version::new(9, 24, 0);
+        let prev_tx = psbt.unsigned_tx.clone();
+        psbt.unsigned_tx.input[0].previous_output =
+            bitcoin::OutPoint::new(prev_tx.compute_txid(), 1);
+        psbt.inputs[0].non_witness_utxo = Some(prev_tx);
+
+        let lower = |psbt: &bitcoin::psbt::Psbt| {
+            [
+                Transaction::from_psbt(&version, &fingerprint[..], psbt, None),
+                Transaction::from_psbt_with_keys(
+                    &version,
+                    psbt,
+                    None,
+                    vec![OurKey::Segwit(
+                        key,
+                        Keypath::try_from("m/84'/0'/0'/0/0").unwrap(),
+                    )],
+                    vec![None],
+                ),
+            ]
+        };
+
+        for result in lower(&psbt) {
+            assert_eq!(result.unwrap().transaction.inputs[0].prev_out_value, 1000);
+        }
+
+        psbt.inputs[0].witness_utxo = None;
+        for result in lower(&psbt) {
+            assert!(matches!(
+                result,
+                Err(Error::Psbt(PsbtError::SignError(
+                    SignError::MissingSpendUtxo
+                )))
+            ));
+        }
     }
 
     #[test]
